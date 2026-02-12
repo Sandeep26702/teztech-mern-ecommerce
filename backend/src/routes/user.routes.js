@@ -11,19 +11,7 @@ import upload from '../utils/upload.js';
 
 const router = express.Router();
 
-//11/02/26 - Admin routes
-/* ================= USER PROFILE ================= */
 
-// 👤 Logged-in User
-router.get("/profile", protect, getProfile);
-router.put("/profile", protect, updateProfile);
-
-/* ================= ADMIN ROUTES ================= */
-
-// 🛠 Admin only
-router.get("/admin/users", protect, adminOnly, getAllUsers);
-router.delete("/admin/user/:id", protect, adminOnly, deleteUser);
-//11/02/26 - Admin routes end
 
 
 // ✅ PUBLIC TEST ROUTE (no auth)

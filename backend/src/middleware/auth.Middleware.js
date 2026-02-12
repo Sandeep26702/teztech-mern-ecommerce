@@ -10,7 +10,7 @@ export const protect = async (req, res, next) => {
     // 1️⃣ Extract token
     if (
       req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer")
+      req.headers.authorization.startsWith("Bearer ")
     ) {
       token = req.headers.authorization.split(" ")[1];
     }
@@ -44,7 +44,7 @@ export const protect = async (req, res, next) => {
       });
     }
 
-    req.user = user; // 👈 IMPORTANT
+    req.user = user; // ✅ FULL USER ATTACHED
 
     next();
   } catch (error) {
