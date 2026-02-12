@@ -1,0 +1,155 @@
+.search-container {
+  margin-bottom: 40px;
+  text-align: center;
+}
+
+.search-input {
+  width: 100%;
+  max-width: 400px;
+  padding: 15px 20px;
+  border: 2px solid #e9ecef;
+  border-radius: 25px;
+  font-size: 16px;
+  outline: none;
+  transition: border-color 0.3s;
+}
+
+.search-input:focus {
+  border-color: #667eea;
+}
+
+.product-card-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.products-container {
+  padding: 60px 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.products-title {
+  text-align: center;
+  margin-bottom: 20px;
+  font-size: 42px;
+  color: #333;
+}
+
+.products-subtitle {
+  text-align: center;
+  margin-bottom: 50px;
+  font-size: 18px;
+  color: #666;
+}
+
+.products-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 30px;
+}
+
+@media (max-width: 1200px) {
+  .products-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+}
+
+@media (max-width: 600px) {
+  .products-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .products-container {
+    padding: 40px 15px;
+  }
+  
+  .products-title {
+    font-size: 32px;
+  }
+}
+
+.product-card {
+  background-color: white;
+  border-radius: 15px;
+  padding: 25px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+  text-align: center;
+  transition: transform 0.3s ease;
+  border: 1px solid #f0f0f0;
+}
+
+.product-card:hover {
+  transform: translateY(-5px);
+}
+
+.product-icon {
+  font-size: 48px;
+  margin-bottom: 15px;
+}
+
+.product-name {
+  color: #333;
+  margin-bottom: 10px;
+  font-size: 20px;
+}
+
+.product-category {
+  color: #667eea;
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.product-price {
+  font-size: 24px;
+  color: #28a745;
+  font-weight: bold;
+  margin-bottom: 20px;
+}
+
+.product-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 12px 25px;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 16px;
+  width: 100%;
+}
+
+.products-cta {
+  text-align: center;
+  margin-top: 60px;
+  padding: 40px;
+  background-color: #f8f9fa;
+  border-radius: 15px;
+}
+
+.products-cta h2 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.products-cta p {
+  margin-bottom: 25px;
+  color: #666;
+  font-size: 16px;
+}
+
+.products-cta-button {
+  background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+  color: white;
+  border: none;
+  padding: 15px 30px;
+  border-radius: 25px;
+  cursor: pointer;
+  font-size: 16px;
+}
