@@ -6,7 +6,7 @@ import crypto from "crypto";
 import sendEmail from "../utils/sendEmail.js";
 
 /* ===============================
-   Generate JWT Token
+   GENERATE JWT TOKEN
 ================================ */
 const generateToken = (userId) => {
   return jwt.sign(
@@ -26,7 +26,7 @@ export const register = async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Please provide name, email and password",
+        message: "Name, email and password are required",
       });
     }
 
@@ -37,7 +37,7 @@ export const register = async (req, res) => {
     if (existingUser) {
       return res.status(400).json({
         success: false,
-        message: "User already exists with this email",
+        message: "User already exists",
       });
     }
 
@@ -67,6 +67,7 @@ export const register = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -84,7 +85,7 @@ export const login = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         success: false,
-        message: "Please provide email and password",
+        message: "Email and password are required",
       });
     }
 
@@ -123,6 +124,7 @@ export const login = async (req, res) => {
       },
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -132,7 +134,6 @@ export const login = async (req, res) => {
 
 /* ===============================
    GET LOGGED IN USER
-   (Protected Route)
 ================================ */
 export const getMe = async (req, res) => {
   try {
@@ -150,6 +151,7 @@ export const getMe = async (req, res) => {
       user,
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
       message: "Server error",
@@ -159,7 +161,6 @@ export const getMe = async (req, res) => {
 
 /* ===============================
    LOGOUT USER (JWT BLACKLIST)
-   OPTIONAL
 ================================ */
 export const logout = async (req, res) => {
   try {
@@ -185,6 +186,7 @@ export const logout = async (req, res) => {
       message: "Logged out successfully",
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
       message: "Logout failed",
@@ -210,30 +212,35 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
+    // Generate raw reset token
     const resetToken = crypto.randomBytes(20).toString("hex");
 
+    // Hash token before saving in DB
     user.resetPasswordToken = crypto
       .createHash("sha256")
       .update(resetToken)
       .digest("hex");
 
+    // Token valid for 15 minutes
     user.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
 
     await user.save();
 
+    // ✅ CLEAN FRONTEND RESET LINK
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
     await sendEmail({
       email: user.email,
       subject: "Password Reset",
-      message: `Reset your password:\n\n${resetUrl}`,
+      message: `You requested a password reset.\n\nClick the link below:\n${resetUrl}\n\nIf you did not request this, please ignore.`,
     });
 
     res.status(200).json({
       success: true,
-      message: "Reset link sent to email",
+      message: "Password reset link sent to email",
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
       message: "Email could not be sent",
@@ -246,7 +253,9 @@ export const forgotPassword = async (req, res) => {
 ================================ */
 export const resetPassword = async (req, res) => {
   try {
-    if (!req.body.password || req.body.password.length < 6) {
+    const { password } = req.body;
+
+    if (!password || password.length < 6) {
       return res.status(400).json({
         success: false,
         message: "Password must be at least 6 characters",
@@ -271,7 +280,7 @@ export const resetPassword = async (req, res) => {
     }
 
     const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(req.body.password, salt);
+    user.password = await bcrypt.hash(password, salt);
 
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
@@ -283,6 +292,7 @@ export const resetPassword = async (req, res) => {
       message: "Password reset successful",
     });
   } catch (error) {
+    console.error(error);
     res.status(500).json({
       success: false,
       message: "Password reset failed",
