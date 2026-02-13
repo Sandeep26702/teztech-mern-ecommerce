@@ -24,6 +24,8 @@ import ProductItems from "./pages/ProductItems";
 import Cart from "./pages/Cart";
 import Quotation from "./pages/Quotation";
 import JobApply from "./pages/JobApply";
+import ProductDetail from "./pages/ProductDetail";
+import MyOrders from "./pages/MyOrders";
 
 /* ADMIN PAGES */
 import AdminDashboard from "./admin/pages/AdminDashboard";
@@ -52,77 +54,30 @@ function App() {
           <Route path="/quotation" element={<Quotation />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
+           <Route path="/products/:id" element={<ProductDetail />} />
+           <Route path="/my-orders" element={<MyOrders />} />
+
 
 
           {/* ================= GUEST ONLY ================= */}
-          <Route
-            path="/login"
-            element={
-              <GuestRoute>
-                <Login />
-              </GuestRoute>
-            }
-          />
-
-          <Route
-            path="/register"
-            element={
-              <GuestRoute>
-                <Register />
-              </GuestRoute>
-            }
-          />
+          <Route path="/login"element={<GuestRoute>  <Login /> </GuestRoute>}/>
+          <Route path="/register"element={<GuestRoute>  <Register /></GuestRoute>} />
 
           
 
           {/* ================= PROTECTED ================= */}
-          <Route
-            path="/cart"
-            element={
-              <ProtectedRoute>
-                <Cart />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <Profile />
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/cart" element={ <ProtectedRoute> <Cart /> </ProtectedRoute> }/>
+          <Route path="/dashboard" element={ <ProtectedRoute> <Dashboard /> </ProtectedRoute> }/>
+          <Route path="/profile" element={ <ProtectedRoute> <Profile /> </ProtectedRoute>} />
 
 
 
-          {/* 🔐 ADMIN */}
-          <Route
-            path="/admin/dashboard"
-            element={
-             <AdminRoute>
-             <AdminDashboard />
-               </AdminRoute>
-             }
-            />
+          {/*======================== 🔐 ADMIN  ========================= */}
+          <Route path="/admin/dashboard" element={<AdminRoute> <AdminDashboard />  </AdminRoute>} />
+          <Route path="/admin/users" element={ <AdminRoute> <AdminUsers /> </AdminRoute> } />
 
-          <Route
-          path="/admin/users"
-          element={
-          <AdminRoute>
-          <AdminUsers />
-             </AdminRoute>
-          }
-         />
+
+
 
           {/* ================= ADMIN (later add AdminRoute) ================= */}
           <Route path="/admin" element={<AdminDashboard />} />

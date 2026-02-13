@@ -1,3 +1,15 @@
-import api from "./api";
+import axios from "axios";
 
-export const getProducts = () => api.get("/products");
+const API = axios.create({
+  baseURL: "http://localhost:5000/api",
+});
+
+// 🔍 Search + Pagination
+export const getProducts = (params) => {
+  return API.get("/products", { params });
+};
+
+//prodect details
+export const getProductById = (id) => {
+  return API.get(`/products/${id}`);
+};

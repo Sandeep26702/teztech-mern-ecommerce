@@ -1,128 +1,57 @@
-import { Link } from "react-router-dom";
 import { useCart } from "../context/CartContext";
-import "../styles/components/Cart.css";
+import { useNavigate } from "react-router-dom";
 
 const Cart = () => {
   const {
     cartItems,
-    updateQuantity,
     removeFromCart,
+    updateQuantity,
     getCartTotal,
-    getCartItemsCount
   } = useCart();
 
-  // 🔗 SHARE CART FUNCTION (FINAL)
-  const shareCart = () => {
-    if (cartItems.length === 0) {
-      alert("Cart is empty, nothing to share!");
-      return;
-    }
+  const navigate = useNavigate();
 
-    const cartId = Date.now().toString(); // unique id
-
-    // ✅ SAVE PROPER STRUCTURE
-    localStorage.setItem(
-      `shared-cart-${cartId}`,
-      JSON.stringify({
-        items: cartItems,        // array
-        total: getCartTotal()    // total price
-      })
-    );
-
-    const shareLink = `${window.location.origin}/cart/shared/${cartId}`;
-    navigator.clipboard.writeText(shareLink);
-
-    alert("✅ Cart link copied! Share it with anyone.");
-  };
+  if (cartItems.length === 0)
+    return <h4 className="text-center mt-4">Cart is empty</h4>;
 
   return (
-    <div className="cart-container">
-      <h1 className="cart-title">
-        Shopping Cart ({getCartItemsCount()} items)
-      </h1>
+    <div className="container mt-4">
+      <h3>My Cart</h3>
 
-      {cartItems.length > 0 ? (
-        <>
-          <div className="cart-items">
-            {cartItems.map(item => (
-              <div key={item.id} className="cart-item">
-                <div className="item-info">
-                  <span className="item-icon">{item.image}</span>
-                  <div className="item-details">
-                    <h3>{item.name}</h3>
-                    <p>₹{item.price}</p>
-                  </div>
-                </div>
+      {cartItems.map((item) => (
+        <div key={item._id} className="border p-3 mb-3">
+          <h5>{item.name}</h5>
+          <p>₹ {item.price}</p>
 
-                <div className="quantity-controls">
-                  <button
-                    className="qty-btn"
-                    onClick={() =>
-                      updateQuantity(item.id, item.quantity - 1)
-                    }
-                  >
-                    -
-                  </button>
+          <input
+            type="number"
+            min="1"
+            value={item.quantity}
+            onChange={(e) =>
+              updateQuantity(item._id, Number(e.target.value))
+            }
+          />
 
-                  <span className="quantity">{item.quantity}</span>
-
-                  <button
-                    className="qty-btn"
-                    onClick={() =>
-                      updateQuantity(item.id, item.quantity + 1)
-                    }
-                  >
-                    +
-                  </button>
-                </div>
-
-                <div className="item-total">
-                  ₹{item.price * item.quantity}
-                </div>
-
-                <button
-                  className="remove-btn"
-                  onClick={() => removeFromCart(item.id)}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
-
-          <div className="cart-summary">
-            <div className="total-section">
-              <h2>Total: ₹{getCartTotal()}</h2>
-
-              <div className="cart-actions">
-                <Link to="/quotation" className="checkout-btn">
-                  Proceed to Checkout
-                </Link>
-
-                <Link to="/products" className="continue-btn">
-                  Continue Shopping
-                </Link>
-
-                {/* 🔗 SHARE CART BUTTON */}
-                <button
-                  onClick={shareCart}
-                  className="share-cart-btn"
-                >
-                  🔗 Share Cart
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      ) : (
-        <div className="empty-cart">
-          <h2>Your cart is empty</h2>
-          <p>Add some products to get started!</p>
-          <Link to="/products" className="shop-btn">
-            Start Shopping
-          </Link>
+          <button
+            className="btn btn-danger btn-sm ms-3"
+            onClick={() => removeFromCart(item._id)}
+          >
+            Remove
+          </button>
         </div>
-      )}
+      ))}
+
+      {/* 🔥 CART SUMMARY */}
+      <div className="border-top pt-3 mt-4">
+        <h4>Total: ₹ {getCartTotal()}</h4>
+
+        <button
+          className="btn btn-success w-100 mt-3"
+          onClick={() => navigate("/checkout")}
+        >
+          Proceed to Checkout
+        </button>
+      </div>
     </div>
   );
 };
