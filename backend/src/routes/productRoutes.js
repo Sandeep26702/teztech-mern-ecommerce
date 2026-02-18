@@ -1,39 +1,26 @@
 import express from "express";
-const router = express.Router();
-
 import {
-  createProduct,
-  getAllProducts,
+  getProducts,
   getProductById,
+  createProduct,
   updateProduct,
   deleteProduct,
 } from "../controllers/productController.js";
+import { protect, authorize } from "../middleware/auth.Middleware.js"; // ✅ FIX: 'authorize' import kiya
 
-// ✅ NAMED EXPORT → NAMED IMPORT (MATCHING)
-import { protect } from "../middleware/auth.Middleware.js";
+const router = express.Router();
 
-import upload from "../utils/upload.js";
+// 1. GET ALL & CREATE
+router
+  .route("/")
+  .get(getProducts) // Public: Koi bhi product dekh sakta hai
+  .post(protect, authorize("admin"), createProduct); // ✅ FIX: Sirf Admin product bana sakta hai
 
-/* ================= ROUTES ================= */
-
-// CREATE PRODUCT (Admin / Auth Required)
-router.post(
-  "/",
-  protect,
-  upload.array("images", 5),
-  createProduct
-);
-
-// GET ALL PRODUCTS (Public, Search + Pagination)
-router.get("/", getAllProducts);
-
-// GET SINGLE PRODUCT
-router.get("/:id", getProductById);
-
-// UPDATE PRODUCT (Admin / Auth Required)
-router.put("/:id", protect, updateProduct);
-
-// DELETE PRODUCT (Admin / Auth Required)
-router.delete("/:id", protect, deleteProduct);
+// 2. GET SINGLE, UPDATE & DELETE
+router
+  .route("/:id")
+  .get(getProductById) // Public
+  .put(protect, authorize("admin"), updateProduct) // ✅ FIX: Sirf Admin update kar sakta hai
+  .delete(protect, authorize("admin"), deleteProduct); // ✅ FIX: Sirf Admin delete kar sakta hai
 
 export default router;

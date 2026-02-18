@@ -2,42 +2,49 @@ import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
   {
+    // User jisne product banaya (Admin)
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      ref: "User",
+    },
     name: {
       type: String,
       required: true,
-      index: true,
     },
-    description: {
+    image: {
       type: String,
-      index: true,
+      required: true,
     },
-    price: {
-      type: Number,
+    brand: {
+      type: String,
       required: true,
     },
     category: {
       type: String,
-      index: true,
+      required: true,
     },
-    stock: {
+    description: {
+      type: String,
+      required: true,
+    },
+    price: {
       type: Number,
+      required: true,
       default: 0,
     },
-    images: [
-      {
-        public_id: String,
-        url: String,
-      },
-    ],
-    isActive: {
-      type: Boolean,
-      default: true,
+    countInStock: {
+      type: Number,
+      required: true,
+      default: 0,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-// 🔥 FAST SEARCH (MongoDB text index)
-productSchema.index({ name: "text", description: "text" });
+const Product = mongoose.model("Product", productSchema);
 
-export const Product = mongoose.model("Product", productSchema);
+// ✅ IMPORTANT: Default Export for ES6
+export default Product;

@@ -1,33 +1,29 @@
 import { Routes, Route } from "react-router-dom";
 
-/* ROUTE GUARDS */
-import ProtectedRoute from "./components/ProtectedRoute";
-import GuestRoute from "./components/GuestRoute";
-import AdminRoute from "./components/AdminRoute";
+// ✅ Import custom Route Guard
+import PrivateRoute from "./routes/PrivateRoute"; 
 
-/* LAYOUT */
+// Layouts
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 
-/* USER PAGES */
+// Pages - Public
 import Home from "./pages/Home";
 import About from "./pages/About";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
-import ResetPassword from "./pages/ResetPassword";
-import Career from "./pages/Career";
+import ResetPassword from "./pages/ResetPassword"; // ✅ New Import
+import Products from "./pages/Products";
+import Quotation from "./pages/Quotation";
+import Cart from "./pages/Cart";
+
+// Pages - User
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
-import Products from "./pages/Products";
-import ProductItems from "./pages/ProductItems";
-import Cart from "./pages/Cart";
-import Quotation from "./pages/Quotation";
-import JobApply from "./pages/JobApply";
-import ProductDetail from "./pages/ProductDetail";
-import MyOrders from "./pages/MyOrders";
+import OrderDetail from "./pages/OrderDetail";
 
-/* ADMIN PAGES */
+// Pages - Admin
 import AdminDashboard from "./admin/pages/AdminDashboard";
 import AdminProducts from "./admin/pages/AdminProducts";
 import AdminOrders from "./admin/pages/AdminOrders";
@@ -38,55 +34,44 @@ import AdminSettings from "./admin/pages/AdminSettings";
 function App() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-      
       <Header />
 
       <main style={{ flex: 1 }}>
         <Routes>
-
-          {/* ================= PUBLIC ================= */}
+          {/* ================= PUBLIC ROUTES ================= */}
           <Route path="/" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/products" element={<Products />} />
-          <Route path="/products/:categoryId" element={<ProductItems />} />
-          <Route path="/career" element={<Career />} />
-          <Route path="/apply-job" element={<JobApply />} />
           <Route path="/quotation" element={<Quotation />} />
+          <Route path="/cart" element={<Cart />} />
+
+          {/* Login/Register ke liye 'GuestRoute' ki zarurat nahi hai 
+             kyunki 'Login.jsx' ke andar humne useEffect lagaya hai 
+             jo logged-in user ko dashboard bhej deta hai.
+          */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
-           <Route path="/products/:id" element={<ProductDetail />} />
-           <Route path="/my-orders" element={<MyOrders />} />
 
+          {/* ================= LOGGED IN USER ROUTES ================= */}
+          {/* Allowed: User, Admin, Subadmin */}
+          <Route element={<PrivateRoute allowedRoles={['user', 'admin', 'subadmin']} />}>
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/profile" element={<Profile />} />
+            <Route path="/orders/:id" element={<OrderDetail />} />
+          </Route>
 
-
-          {/* ================= GUEST ONLY ================= */}
-          <Route path="/login"element={<GuestRoute>  <Login /> </GuestRoute>}/>
-          <Route path="/register"element={<GuestRoute>  <Register /></GuestRoute>} />
-
-          
-
-          {/* ================= PROTECTED ================= */}
-          <Route path="/cart" element={ <ProtectedRoute> <Cart /> </ProtectedRoute> }/>
-          <Route path="/dashboard" element={ <ProtectedRoute> <Dashboard /> </ProtectedRoute> }/>
-          <Route path="/profile" element={ <ProtectedRoute> <Profile /> </ProtectedRoute>} />
-
-
-
-          {/*======================== 🔐 ADMIN  ========================= */}
-          <Route path="/admin/dashboard" element={<AdminRoute> <AdminDashboard />  </AdminRoute>} />
-          <Route path="/admin/users" element={ <AdminRoute> <AdminUsers /> </AdminRoute> } />
-
-
-
-
-          {/* ================= ADMIN (later add AdminRoute) ================= */}
-          <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/admin/products" element={<AdminProducts />} />
-          <Route path="/admin/orders" element={<AdminOrders />} />
-          <Route path="/admin/users" element={<AdminUsers />} />
-          <Route path="/admin/analytics" element={<AdminAnalytics />} />
-          <Route path="/admin/settings" element={<AdminSettings />} />
-          
+          {/* ================= ADMIN ONLY ROUTES ================= */}
+          {/* Allowed: Admin, Subadmin */}
+          <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin']} />}>
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/products" element={<AdminProducts />} />
+            <Route path="/admin/orders" element={<AdminOrders />} />
+            <Route path="/admin/users" element={<AdminUsers />} />
+            <Route path="/admin/analytics" element={<AdminAnalytics />} />
+            <Route path="/admin/settings" element={<AdminSettings />} />
+          </Route>
 
         </Routes>
       </main>
