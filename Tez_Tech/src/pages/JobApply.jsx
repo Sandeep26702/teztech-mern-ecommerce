@@ -1,5 +1,5 @@
 import { useState } from "react";
-import "../styles/components/JobApply.css";
+
 
 const JobApply = () => {
   const [formData, setFormData] = useState({

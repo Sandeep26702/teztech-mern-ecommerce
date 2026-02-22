@@ -1,91 +1,63 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 
-// 1️⃣ Context
 const CartContext = createContext();
 
-// 2️⃣ Custom hook
-export const useCart = () => {
-  const context = useContext(CartContext);
-  if (!context) {
-    throw new Error("useCart must be used inside CartProvider");
-  }
-  return context;
-};
-
 export const CartProvider = ({ children }) => {
-  const [cartItems, setCartItems] = useState([]);
-  const [isSideCartOpen, setIsSideCartOpen] = useState(false);
+  // LocalStorage se purana cart data nikalne ka logic
+  const [cartItems, setCartItems] = useState(() => {
+    const savedCart = localStorage.getItem("cartItems");
+    return savedCart ? JSON.parse(savedCart) : [];
+  });
 
-  // 3️⃣ ➕ ADD TO CART
+  // Jab bhi cart update ho, use LocalStorage mein save kar do
+  useEffect(() => {
+    localStorage.setItem("cartItems", JSON.stringify(cartItems));
+  }, [cartItems]);
+
+  // 🛒 Add to Cart Logic
   const addToCart = (product) => {
-    setIsSideCartOpen(true);
-
-    setCartItems((prev) => {
-      const found = prev.find((i) => i._id === product._id);
-
-      if (found) {
-        return prev.map((i) =>
-          i._id === product._id
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
+    setCartItems((prevItems) => {
+      const itemExists = prevItems.find((item) => item._id === product._id);
+      if (itemExists) {
+        // Agar pehle se hai, toh quantity +1 kar do
+        alert(`✅ ${product.name} Successfully Addin Cart!`);
+        return prevItems.map((item) =>
+          item._id === product._id ? { ...item, quantity: item.quantity + 1 } : item
         );
+      } else {
+        // Naya item hai toh array mein add kar do
+        alert(`🛒 ${product.name} Successfully added to cart!`);
+        return [...prevItems, { ...product, quantity: 1 }];
       }
-
-      return [...prev, { ...product, quantity: 1 }];
     });
   };
 
-  // 4️⃣ ➖ REMOVE FROM CART
-  const removeFromCart = (_id) => {
-    setCartItems((prev) => prev.filter((i) => i._id !== _id));
+  // ❌ Remove from Cart
+  const removeFromCart = (id) => {
+    setCartItems((prevItems) => prevItems.filter((item) => item._id !== id));
   };
 
-  // 5️⃣ 🔢 UPDATE QUANTITY
-  const updateQuantity = (_id, qty) => {
-    if (qty <= 0) {
-      removeFromCart(_id);
-      return;
-    }
-
-    setCartItems((prev) =>
-      prev.map((i) =>
-        i._id === _id ? { ...i, quantity: qty } : i
-      )
+  // 🔢 Update Quantity
+  const updateQuantity = (id, quantity) => {
+    setCartItems((prevItems) =>
+      prevItems.map((item) => (item._id === id ? { ...item, quantity } : item))
     );
   };
 
-  // 6️⃣ 💰 TOTAL PRICE
-  const getCartTotal = () =>
-    cartItems.reduce(
-      (total, item) => total + item.price * item.quantity,
-      0
-    );
-
-  // 7️⃣ 🧮 TOTAL ITEMS COUNT
-  const getCartItemsCount = () =>
-    cartItems.reduce((t, i) => t + i.quantity, 0);
-
-  // 8️⃣ 🧹 CLEAR CART (🔥 NEW)
-  const clearCart = () => {
-    setCartItems([]);
-    setIsSideCartOpen(false);
+  // 💰 Get Total Price
+  const getCartTotal = () => {
+    return cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
   };
+
+  // 🧹 Clear Cart (Checkout ke baad)
+  const clearCart = () => setCartItems([]);
 
   return (
-    <CartContext.Provider
-      value={{
-        cartItems,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        getCartTotal,
-        getCartItemsCount,
-        clearCart,          // ✅ IMPORTANT
-        isSideCartOpen,
-        setIsSideCartOpen,
-      }}
-    >
+    <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, updateQuantity, getCartTotal, clearCart }}>
       {children}
     </CartContext.Provider>
   );
 };
+
+// Custom Hook taaki har jagah easily use kar sakein
+export const useCart = () => useContext(CartContext);

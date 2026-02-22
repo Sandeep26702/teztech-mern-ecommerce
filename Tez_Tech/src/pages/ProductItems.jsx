@@ -6,7 +6,7 @@ import { useParams, Link } from "react-router-dom";
 
 import { useCart } from "../context/CartContext";
 import { CATEGORY_ITEMS } from "../utils/constants";
-import "../styles/components/ProductItems.css";
+
 
 
 

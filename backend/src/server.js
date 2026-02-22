@@ -1,7 +1,6 @@
+import 'dotenv/config'; 
 import express from "express";
-import dotenv from "dotenv";
 import cors from "cors";
-
 import connectDB from "./config/db.js";
 import seedAdmin from "./utils/seedAdmin.js";
 
@@ -11,24 +10,21 @@ import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 
-dotenv.config();
+// 👇 1. Naya Quote Route Import Kiya
+import quoteRoutes from "./routes/quoteRoutes.js"; 
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 /* ================= MIDDLEWARE ================= */
 
-// CORS
 app.use(
-
-  
   cors({
     origin: ["http://localhost:5173"],
     credentials: true,
   })
 );
 
-// Body Parser
 app.use(express.json());
 
 /* ================= ROUTES ================= */
@@ -43,16 +39,20 @@ app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 
+// 👇 2. Naya Quote Route Main Gate Par Mount (Jod) Diya
+app.use("/api/quotes", quoteRoutes);
+
 /* ================= START SERVER ================= */
 
 const startServer = async () => {
   try {
-    // Connect DB first
+    // 1. Connect DB
     await connectDB();
 
-    // Seed Admin after DB connected
+    // 2. Seed Admin
     await seedAdmin();
 
+    // 3. Start Listen
     app.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
     });

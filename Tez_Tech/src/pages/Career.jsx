@@ -1,4 +1,4 @@
-import "../styles/components/Career.css";
+
 import { Link } from "react-router-dom";
 
 
@@ -17,6 +17,7 @@ const Career = () => {
 
       <div className="career-content">
         <div className="career-info">
+          
           <h2>Why Work With Us?</h2>
           <div className="benefits-grid">
             <div className="benefit-card">
