@@ -1,13 +1,34 @@
 import Product from "../models/Product.js";
 
-// @desc    Fetch all products from DB
+// @desc    Fetch all products from DB (With Search & Pagination)
 export const getProducts = async (req, res) => {
   try {
-    const products = await Product.find({}).sort({ createdAt: -1 });
+    const keyword = req.query.keyword
+      ? {
+          name: {
+            $regex: req.query.keyword,
+            $options: "i", // Case-insensitive search
+          },
+        }
+      : {};
+
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 8;
+    const skip = (page - 1) * limit;
+
+    const count = await Product.countDocuments({ ...keyword });
+    const products = await Product.find({ ...keyword })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // Frontend yahi format expect kar raha hai
     res.status(200).json({ 
       success: true, 
       products,
-      totalProducts: products.length 
+      page,
+      totalPages: Math.ceil(count / limit) || 1, 
+      totalProducts: count 
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -45,7 +66,7 @@ export const createProduct = async (req, res) => {
       description,
       price: Number(price),
       category,
-      stock: Number(stock) || 0, // ✅ Model ke 'stock' field se match
+      stock: Number(stock) || 0, 
       brand,
       image,
       user: req.user._id,
@@ -73,21 +94,20 @@ export const updateProduct = async (req, res) => {
     const image = req.file ? req.file.path : product.image;
 
     // 3. Prepare Update Object with strict Number conversion
-    // Humne model mein countInStock ko hata kar 'stock' kar diya hai
     const updatedData = {
       name: name || product.name,
       description: description || product.description,
       price: price ? Number(price) : product.price,
       category: category || product.category,
       brand: brand || product.brand,
-      stock: stock !== undefined ? Math.max(0, Number(stock)) : product.stock, // ✅ Fixed
+      stock: stock !== undefined ? Math.max(0, Number(stock)) : product.stock, 
       image: image
     };
 
     // 4. Update in Database
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
-      { $set: updatedData }, // ✅ $set ensures values are updated properly
+      { $set: updatedData }, 
       { new: true, runValidators: true }
     );
 

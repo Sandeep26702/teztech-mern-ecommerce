@@ -4,7 +4,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 /* ================= CONTEXT CREATION ================= */
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 // Custom Hook to use Auth Context
 export const useAuth = () => {

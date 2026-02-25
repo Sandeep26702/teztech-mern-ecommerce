@@ -5,15 +5,30 @@ import ProductCard from "../components/common/ProductCard";
 const Products = () => {
   const [products, setProducts] = useState([]);
   const [keyword, setKeyword] = useState("");
+  const [appliedKeyword, setAppliedKeyword] = useState(""); 
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+
+  // 🌟 NAYA: Debounce Effect (Auto-Search Magic)
+  // Ye har keystroke ko track karega aur typing rukne ke 500ms baad search apply karega
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (appliedKeyword !== keyword) {
+        setAppliedKeyword(keyword);
+        setPage(1); // Naya search hone par page 1 par le jao
+      }
+    }, 500); // 500ms ka delay (Aap isko kam ya zyada kar sakte hain)
+
+    // Cleanup function: Agar 500ms ke andar user ne agla letter daba diya, toh purana timer cancel kar do
+    return () => clearTimeout(timer);
+  }, [keyword, appliedKeyword]);
 
   const loadProducts = async () => {
     setLoading(true);
     try {
       const { data } = await getProducts({
-        keyword,
+        keyword: appliedKeyword, 
         page,
         limit: 8,
       });
@@ -26,15 +41,20 @@ const Products = () => {
     }
   };
 
+  // Products fetch karne ka effect
   useEffect(() => {
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]); // Re-run when page changes
+  }, [page, appliedKeyword]); 
 
+  // Enter dabane par form reload na ho
   const handleSearch = (e) => {
-    e.preventDefault(); // Prevent page reload if wrapped in form
-    setPage(1);
-    loadProducts();
+    e.preventDefault(); 
+  };
+
+  const handleClearSearch = () => {
+    setKeyword("");
+    // appliedKeyword automatic update ho jayega debounce effect ki wajah se
   };
 
   return (
@@ -65,30 +85,34 @@ const Products = () => {
             </div>
             <input
               type="text"
-              className="block w-full pl-11 pr-24 py-3.5 border border-gray-200 rounded-full leading-5 bg-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all shadow-sm"
+              className="block w-full py-3.5 pl-11 pr-24 transition-all bg-white border border-gray-200 rounded-full shadow-sm leading-5 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               placeholder="Search components..."
               value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              onChange={(e) => setKeyword(e.target.value)} // Auto search yahan se trigger hoga
             />
-            <button
-              type="submit"
-              className="absolute inset-y-1.5 right-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-full hover:bg-blue-700 hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              Search
-            </button>
+            {/* Clear Button (Agar kuch type kiya hai toh x ka nishan aayega) */}
+            {keyword && (
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="absolute inset-y-1.5 right-1.5 px-3 py-2 text-gray-500 hover:text-red-500 focus:outline-none"
+                title="Clear Search"
+              >
+                ✖
+              </button>
+            )}
           </form>
 
         </div>
 
         {/* 📦 Loading & Product Grid */}
         {loading ? (
-          // Skeleton/Loader while fetching
           <div className="flex flex-col items-center justify-center py-20">
             <svg className="w-10 h-10 mb-4 text-blue-600 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <p className="font-medium text-gray-500">Loading products...</p>
+            <p className="font-medium text-gray-500">Searching products...</p>
           </div>
         ) : products.length > 0 ? (
           <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
@@ -108,7 +132,7 @@ const Products = () => {
             <h3 className="text-lg font-bold text-gray-900">No products found</h3>
             <p className="mt-2 text-gray-500">We couldn't find anything matching "{keyword}". Try another search.</p>
             <button 
-              onClick={() => { setKeyword(""); setPage(1); loadProducts(); }}
+              onClick={handleClearSearch} 
               className="mt-6 font-medium text-blue-600 hover:underline"
             >
               Clear Search

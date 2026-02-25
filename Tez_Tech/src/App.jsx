@@ -3,10 +3,12 @@ import { Routes, Route } from "react-router-dom";
 // ✅ Custom Route Guard
 import PrivateRoute from "./routes/PrivateRoute"; 
 
-// 🛠️ YEH RAHI MISSING IMPORTS (Header, Footer, aur AdminLayout)
+// 🛠️ Components Imports
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 import AdminLayout from "./admin/components/AdminLayout"; 
+import CategoryPage from "./pages/CategoriesPage"; // User ki purani file
+import CategoriesPage from "./pages/CategoriesPage"; 
 
 // Pages - Public
 import Home from "./pages/Home";
@@ -16,14 +18,21 @@ import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword"; 
 import Products from "./pages/Products";
-import ProductDetail from "./pages/ProductDetail"; // 🚀 Naya Product Detail Page
+import ProductDetail from "./pages/ProductDetail"; 
 import Quotation from "./pages/Quotation";
 import Cart from "./pages/Cart";
+import AddressesPage from './pages/AddressesPage'; 
+import QuoteViewer from "./pages/QuoteViewer"; 
+
+// 👇 YAHAN ADD KIYA HAI: Naye Pages ke Imports
+import CheckoutPage from "./pages/CheckoutPage";
+import Orders from "./pages/MyOrders";
+import OrderDetail from './pages/OrderDetail';
 
 // Pages - User
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
-import OrderDetail from "./pages/OrderDetail";
+
 
 // Pages - Admin
 import AdminDashboard from "./admin/pages/AdminDashboard";
@@ -32,6 +41,8 @@ import AdminOrders from "./admin/pages/AdminOrders";
 import AdminUsers from "./admin/pages/AdminUsers";
 import AdminAnalytics from "./admin/pages/AdminAnalytics";
 import AdminSettings from "./admin/pages/AdminSettings";
+import QuotesTable from "./admin/pages/QuotesTable";
+import QuoteEditor from "./admin/pages/QuoteEditor";
 
 function App() {
   return (
@@ -48,38 +59,52 @@ function App() {
             <Route path="users" element={<AdminUsers />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="settings" element={<AdminSettings />} />
+            
+            <Route path="quotes" element={<QuotesTable />} />
+            <Route path="quotes/:id" element={<QuoteEditor />} />
           </Route>
         </Route>
 
         {/* ================= PUBLIC & USER ROUTES (With Header/Footer) ================= */}
         <Route path="*" element={
           <>
-            <Header /> {/* 👈 Ab error nahi aayega, upar import ho gaya hai */}
+            <Header /> 
             <main style={{ flex: 1 }}>
               <Routes>
                 <Route path="/" element={<Home />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/products" element={<Products />} />
-                
-                {/* 🚀 Yahan id se product details page khulega */}
                 <Route path="/products/:id" element={<ProductDetail />} />
-                
                 <Route path="/quotation" element={<Quotation />} />
+                
+                <Route path="/categories" element={<CategoriesPage />} />
+                <Route path="/category/:slug" element={<CategoryPage />} />
+                <Route path="/quote/:token" element={<QuoteViewer />} />
+
                 <Route path="/cart" element={<Cart />} />
+                
+                {/* 👇 YAHAN ADD KIYA HAI: Checkout Page ka Route */}
+                <Route path="/checkout" element={<CheckoutPage />} />
+
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-                {/* Logged In User Routes */}
+                {/* Logged In User Routes (Protect kiye gaye hain) */}
                 <Route element={<PrivateRoute allowedRoles={['user', 'admin', 'subadmin']} />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/profile" element={<Profile />} />
+                  
+                  {/* 👇 YAHAN ADD KIYA HAI: Orders aur Address ke Routes */}
+                  <Route path="/orders" element={<Orders />} />
                   <Route path="/orders/:id" element={<OrderDetail />} />
+                  <Route path="/addresses" element={<AddressesPage />} />
+                  <Route path="/order/:id" element={<OrderDetail />} />
                 </Route>
               </Routes>
             </main>
-            <Footer /> {/* 👈 Footer bhi upar import ho gaya hai */}
+            <Footer /> 
           </>
         } />
 

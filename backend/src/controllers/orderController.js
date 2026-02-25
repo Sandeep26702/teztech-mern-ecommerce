@@ -1,128 +1,111 @@
-import Order from "../models/Order.js";
+import Order from '../models/Order.js';
 
-/* ================= CREATE ORDER ================= */
+/**
+ * @description 1. User: Naya Order Create Karein
+ */
 export const createOrder = async (req, res) => {
   try {
-    const { items, shippingAddress, totalAmount } = req.body;
-
-    if (!items || items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No order items",
-      });
+    const { items, shippingInfo, paymentMethod, totalAmount } = req.body;
+    
+    // Security check
+    if (!items || items.length === 0 || !shippingInfo) {
+      return res.status(400).json({ success: false, message: "Invalid order data: Cart empty or address missing" });
     }
 
-    const order = await Order.create({
-      user: req.user._id,
+    const order = new Order({
+      user: req.user._id, 
       items,
-      shippingAddress,
+      shippingInfo,
+      paymentMethod,
       totalAmount,
-      status: "Pending",
+      paymentStatus: paymentMethod === 'COD' ? 'Pending' : 'Paid' 
     });
 
-    res.status(201).json({
-      success: true,
-      message: "Order placed successfully",
-      order,
+    const savedOrder = await order.save();
+    res.status(201).json({ 
+      success: true, 
+      message: "Order placed successfully!", 
+      order: savedOrder 
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    console.error("Order Creation Error:", error);
+    res.status(500).json({ success: false, message: "Server error while placing order" });
   }
 };
 
-/* ================= MY ORDERS ================= */
+/**
+ * @description 2. User: Apne saare orders dekhne ke liye (My Orders Page)
+ */
 export const getMyOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user._id }).sort({
-      createdAt: -1,
-    });
-
-    res.json({
-      success: true,
-      orders,
-    });
+    const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
+    res.status(200).json({ success: true, orders });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    console.error("Get My Orders Error:", error);
+    res.status(500).json({ success: false, message: "Orders fetch karne mein dikkat aayi" });
   }
 };
 
-/* ================= CANCEL ORDER ================= */
-export const cancelOrder = async (req, res) => {
+/**
+ * @description 3. Admin: Saare Users ke Orders Fetch Karein
+ */
+export const getAllOrdersForAdmin = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const orders = await Order.find()
+      .populate('user', 'name email')
+      .sort({ createdAt: -1 });
 
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    // 🔐 Only order owner can cancel
-    if (order.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized",
-      });
-    }
-
-    // 🚫 Only pending orders allowed
-    if (order.status !== "Pending") {
-      return res.status(400).json({
-        success: false,
-        message: "Order cannot be cancelled",
-      });
-    }
-
-    order.status = "Cancelled";
-    await order.save();
-
-    res.json({
-      success: true,
-      message: "Order cancelled successfully",
-    });
+    res.status(200).json({ success: true, orders });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    console.error("Fetch Admin Orders Error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch orders" });
   }
 };
 
-/* ================= ORDER DETAILS ================= */
-export const getOrderById = async (req, res) => {
+/**
+ * @description 4. Universal: Single Order details (Detail page ke liye)
+ */
+export const getOrderDetail = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const { id } = req.params;
+    const order = await Order.findById(id).populate('user', 'name email');
 
     if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
+      return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    // 🔒 Only owner can view
-    if (order.user.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized",
-      });
+    res.status(200).json({ success: true, order });
+  } catch (error) {
+    console.error("Order Detail Error:", error);
+    res.status(500).json({ success: false, message: "Error fetching order details" });
+  }
+};
+
+/**
+ * @description 5. Admin: Order Status Update Karein
+ */
+export const updateOrderStatus = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { orderStatus, paymentStatus } = req.body;
+
+    const order = await Order.findByIdAndUpdate(
+      orderId, 
+      { orderStatus, paymentStatus }, 
+      { new: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
     }
 
-    res.json({
-      success: true,
-      order,
+    res.status(200).json({ 
+      success: true, 
+      message: `Order status updated to ${orderStatus}`, 
+      order 
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    console.error("Update Order Error:", error);
+    res.status(500).json({ success: false, message: "Failed to update order status" });
   }
 };

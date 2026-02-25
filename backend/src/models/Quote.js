@@ -1,25 +1,45 @@
-const mongoose = require('mongoose');
+import mongoose from "mongoose";
 
-const quoteSchema = new mongoose.Schema({
-  userDetails: {
-    name: { type: String, required: true },
-    email: { type: String, required: true },
-    company: { type: String },
-    phone: { type: String },
-    message: { type: String }
+const quoteSchema = new mongoose.Schema(
+  {
+    userDetails: {
+      name: String,
+      email: String,
+      phone: String,
+      company: String,
+      message: String,
+    },
+    requestedItems: [
+      {
+        productId: { 
+          type: mongoose.Schema.Types.ObjectId, 
+          ref: "Product" 
+        },
+        name: { type: String, required: true },
+        quantity: { type: Number, required: true },
+        // 👇 NAYA FIELD JO ADD KARNA HAI 👇
+        originalPrice: { 
+          type: Number, 
+          default: 0 
+        },
+        offeredPrice: { 
+          type: Number, 
+          default: 0 
+        }
+      }
+    ],
+    adminNotes: String,
+    totalDiscount: { type: Number, default: 0 },
+    finalTotal: { type: Number, default: 0 },
+    quoteToken: String,
+    status: {
+      type: String,
+      enum: ["Pending", "Responded", "Accepted", "Rejected"],
+      default: "Pending",
+    },
+    validUntil: Date,
   },
-  requestedItems: [
-    {
-      productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
-      name: { type: String, required: true },
-      quantity: { type: Number, required: true, min: 1 }
-    }
-  ],
-  status: { 
-    type: String, 
-    default: 'Pending',
-    enum: ['Pending', 'Reviewed', 'Completed'] 
-  }
-}, { timestamps: true });
+  { timestamps: true }
+);
 
-module.exports = mongoose.model('Quote', quoteSchema);
+export default mongoose.model("Quote", quoteSchema);
