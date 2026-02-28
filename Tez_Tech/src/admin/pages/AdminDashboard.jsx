@@ -22,7 +22,7 @@ const AdminDashboard = () => {
         // 🚀 Dono APIs ek sath call kar rahe hain (Dashboard + Quotes)
         const [dashRes, quoteRes] = await Promise.all([
           axios.get("http://localhost:5000/api/admin/dashboard", config),
-          axios.get("http://localhost:5000/api/quotes", config).catch(() => ({ data: { quotes: [] } })) // Error aane par empty array le lega
+          axios.get("http://localhost:5000/api/quote/all", config).catch(() => ({ data: { quotes: [] } })) // Error aane par empty array le lega
         ]);
         
         // 1. Store Stats Set Karna

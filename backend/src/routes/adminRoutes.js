@@ -1,5 +1,6 @@
 import express from "express";
 import { protect, authorize } from "../middleware/auth.Middleware.js"; 
+import { adminOnly } from "../middleware/roleMiddleware.js";
 import { 
   getDashboardStats, 
   getAllUsers, 
@@ -29,7 +30,7 @@ router.get("/orders", getDashboardStats);
 router.get("/users", getAllUsers);
 
 router.route("/users/:id")
-  .delete(deleteUser)
-  .put(updateUserRole);
+  .delete(adminOnly, deleteUser)
+  .put(adminOnly, updateUserRole);
 
 export default router;

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../api/api";
+import api from "../utils/api"; // Axios instance with interceptors
 import { FaEnvelope } from "react-icons/fa"; // Ek icon add kiya hai premium look ke liye
 
 const ForgotPassword = () => {

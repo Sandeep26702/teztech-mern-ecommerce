@@ -15,15 +15,15 @@ const router = express.Router();
 router
   .route("/")
   .get(getProducts) // Public: Sab dekh sakte hain
-  .post(protect, authorize("admin"), upload.single("image"), createProduct); 
+  .post(protect, authorize("admin", "subadmin"), upload.single("image"), createProduct); 
   // ^ ✅ upload.single("image") zaroori hai image file handle karne ke liye
 
 // 2. GET SINGLE, UPDATE & DELETE
 router
   .route("/:id")
   .get(getProductById) // Public
-  .put(protect, authorize("admin"), upload.single("image"), updateProduct) 
+  .put(protect, authorize("admin", "subadmin"), upload.single("image"), updateProduct) 
   // ^ ✅ Update karte waqt bhi nayi image upload karne ki facility di hai
-  .delete(protect, authorize("admin"), deleteProduct);
+  .delete(protect, authorize("admin", "subadmin"), deleteProduct);
 
 export default router;

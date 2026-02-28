@@ -9,9 +9,12 @@ import userRoutes from "./routes/user.routes.js";
 import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import cartRoutes from "./routes/cartRoutes.js";
 
 // 👇 1. Naya Quote Route Import Kiya
 import quoteRoutes from "./routes/quoteRoutes.js"; 
+
+// ❌ Framer motion yahan se hata diya gaya hai kyunki wo backend me nahi chalta
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -39,8 +42,9 @@ app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 
-// 👇 2. Naya Quote Route Main Gate Par Mount (Jod) Diya
-app.use("/api/quotes", quoteRoutes);
+// 👇 2. Naya Quote Route Main Gate Par Mount Diya (S hata diya taaki frontend se match kare)
+app.use("/api/quote", quoteRoutes); 
+app.use("/api/cart", cartRoutes);
 
 /* ================= START SERVER ================= */
 

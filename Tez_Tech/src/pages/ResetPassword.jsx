@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import api from "../api/api";
+import api from "../utils/api"; // Axios instance with interceptors for seamless API calls and error handling
 import { FaKey } from "react-icons/fa"; // 🔑 Ek badhiya icon add kiya hai
 
 const ResetPassword = () => {

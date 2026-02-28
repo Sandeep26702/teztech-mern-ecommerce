@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { FaEye, FaEdit, FaFileInvoiceDollar } from "react-icons/fa";
-import api from "../../api/api"; // Aapka axios instance
+import api from "../../utils/api"; // Axios instance with interceptors for seamless API calls and error handling
 
 const QuotesTable = () => {
   const [quotes, setQuotes] = useState([]);
@@ -14,7 +14,7 @@ const QuotesTable = () => {
   const fetchQuotes = async () => {
     try {
       // ⚠️ Note: Hume backend mein GET /api/quotes route banana padega iske liye
-      const response = await api.get("/quotes");
+      const response = await api.get("/quote/all");
       setQuotes(response.data.quotes || []);
     } catch (error) {
       console.error("Error fetching quotes:", error);
@@ -34,20 +34,20 @@ const QuotesTable = () => {
   };
 
   return (
-    <div className="p-6 bg-white rounded-2xl shadow-sm border border-gray-100">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+    <div className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
           <FaFileInvoiceDollar className="text-blue-600" /> Quotation Requests
         </h2>
       </div>
 
       {loading ? (
-        <p className="text-gray-500 text-center py-10">Loading quotes...</p>
+        <p className="py-10 text-center text-gray-500">Loading quotes...</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-gray-50 text-gray-600 text-sm uppercase tracking-wider border-b border-gray-200">
+              <tr className="text-sm tracking-wider text-gray-600 uppercase border-b border-gray-200 bg-gray-50">
                 <th className="p-4 font-semibold">Date</th>
                 <th className="p-4 font-semibold">Client Name</th>
                 <th className="p-4 font-semibold">Company</th>
@@ -56,14 +56,14 @@ const QuotesTable = () => {
                 <th className="p-4 font-semibold text-center">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100 text-gray-700">
+            <tbody className="text-gray-700 divide-y divide-gray-100">
               {quotes.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="p-8 text-center text-gray-500">No quotes found.</td>
                 </tr>
               ) : (
                 quotes.map((quote) => (
-                  <tr key={quote._id} className="hover:bg-gray-50 transition-colors">
+                  <tr key={quote._id} className="transition-colors hover:bg-gray-50">
                     <td className="p-4">{new Date(quote.createdAt).toLocaleDateString()}</td>
                     <td className="p-4 font-medium text-gray-900">{quote.userDetails.name}</td>
                     <td className="p-4">{quote.userDetails.company || "-"}</td>
@@ -77,7 +77,7 @@ const QuotesTable = () => {
                       {/* 👇 Edit page par bhejne ka link */}
                       <Link 
                         to={`/admin/quotes/${quote._id}`}
-                        className="inline-flex items-center justify-center p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-colors"
+                        className="inline-flex items-center justify-center p-2 text-blue-600 transition-colors rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white"
                         title="View & Respond"
                       >
                         {quote.status === "Pending" ? <FaEdit /> : <FaEye />}

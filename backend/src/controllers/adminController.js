@@ -51,6 +51,10 @@ export const getAllUsers = async (req, res) => {
 /* ================= DELETE USER ================= */
 export const deleteUser = async (req, res) => {
   try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Only admin can delete users" });
+    }
+
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -71,13 +75,28 @@ export const deleteUser = async (req, res) => {
 /* ================= UPDATE USER ROLE ================= */
 export const updateUserRole = async (req, res) => {
   try {
+    if (!req.user || req.user.role !== "admin") {
+      return res.status(403).json({ success: false, message: "Only admin can change user roles" });
+    }
+
+    const allowedRoles = ["user", "subadmin", "admin"];
+    const newRole = req.body?.role;
+    if (!newRole || !allowedRoles.includes(newRole)) {
+      return res.status(400).json({ success: false, message: "Invalid role provided" });
+    }
+
     const user = await User.findById(req.params.id);
 
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    user.role = req.body.role || user.role;
+    // Prevent accidental admin lockout by self-demotion.
+    if (String(user._id) === String(req.user._id) && newRole !== "admin") {
+      return res.status(400).json({ success: false, message: "You cannot remove your own admin role" });
+    }
+
+    user.role = newRole;
     await user.save();
 
     res.status(200).json({ success: true, message: "User updated successfully" });

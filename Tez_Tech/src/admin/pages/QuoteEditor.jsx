@@ -4,7 +4,7 @@ import {
   FaArrowLeft, FaPaperPlane, FaCopy, FaCheck, 
   FaLink, FaClipboardList, FaWhatsapp, FaEnvelope, FaTrash, FaPlus 
 } from "react-icons/fa";
-import api from "../../api/api";
+import api from "../../utils/api"; // Axios instance with interceptors for seamless API calls and error handling
 
 const QuoteEditor = () => {
   const { id } = useParams(); 
@@ -25,7 +25,7 @@ const QuoteEditor = () => {
 
   const fetchQuoteDetails = async () => {
     try {
-      const response = await api.get(`/quotes/${id}`);
+      const response = await api.get(`/quote/admin/${id}`);
       setQuote(response.data.quote);
       setAdminNotes(response.data.quote.adminNotes || "");
       setTotalDiscount(response.data.quote.totalDiscount || "");
@@ -114,7 +114,7 @@ const QuoteEditor = () => {
     };
 
     try {
-      const response = await api.put(`/quotes/${id}/respond`, updateData);
+      const response = await api.put(`/quote/respond/${id}`, updateData);
       alert("✅ Quote updated and link generated successfully!");
       
       setQuote(response.data.quote); 

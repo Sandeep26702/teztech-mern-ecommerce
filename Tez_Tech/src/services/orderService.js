@@ -1,38 +1,86 @@
 import axios from 'axios';
 
-const API_URL = 'http://localhost:5000/api/orders';
+// Ek professional central API instance banate hain
+const API = axios.create({
+  baseURL: 'http://localhost:5000/api/orders',
+});
 
-// Helper to get headers
-const getAuthHeaders = () => {
+// Request Interceptor: Har request se pehle token check karega aur lagayega
+API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
-  return {
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`
-    }
-  };
-};
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
 
-// 1. User: Place Order
+/**
+ * @description 1. User: Naya Order Place Karne ke liye
+ */
 export const placeNewOrder = async (orderData) => {
-  const response = await axios.post(`${API_URL}/create`, orderData, getAuthHeaders());
-  return response.data;
+  try {
+    const { data } = await API.post('/create', orderData);
+    return data;
+  } catch (error) {
+    // Preserve full axios error so caller can read status + response payload
+    throw error;
+  }
 };
 
-// 2. Admin: Get All Orders
+/**
+ * @description 2. User: Sirf apne orders dekhne ke liye (My Orders Page)
+ */
+export const getMyOrders = async () => {
+  try {
+    const { data } = await API.get('/my-orders');
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || "Failed to fetch your orders";
+  }
+};
+
+/**
+ * @description 3. Admin: Saare users ke orders dekhne ke liye
+ */
 export const fetchAdminOrders = async () => {
-  const response = await axios.get(`${API_URL}/admin/all`, getAuthHeaders());
-  return response.data;
+  try {
+    const { data } = await API.get('/admin/all');
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || "Failed to fetch all orders";
+  }
 };
 
-// 3. Admin/User: Get Single Order Detail (Yeh missing tha)
+/**
+ * @description 4. Admin/User: Kisi ek order ki detail nikalne ke liye
+ */
 export const getOrderById = async (orderId) => {
-  const response = await axios.get(`${API_URL}/detail/${orderId}`, getAuthHeaders());
-  return response.data;
+  try {
+    const { data } = await API.get(`/detail/${orderId}`);
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || "Order details not found";
+  }
 };
 
-// 4. Admin: Update Order Status
+/**
+ * @description 5. Admin: Order ka status update karne ke liye (Shipped, Delivered etc.)
+ */
 export const updateAdminOrderStatus = async (orderId, statusData) => {
-  const response = await axios.put(`${API_URL}/admin/update/${orderId}`, statusData, getAuthHeaders());
-  return response.data;
+  try {
+    const { data } = await API.put(`/admin/update/${orderId}`, statusData);
+    return data;
+  } catch (error) {
+    throw error.response?.data?.message || "Failed to update order status";
+  }
+};
+
+export default {
+  placeNewOrder,
+  getMyOrders,
+  fetchAdminOrders,
+  getOrderById,
+  updateAdminOrderStatus
 };

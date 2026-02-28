@@ -6,7 +6,6 @@ import { useNavigate } from "react-router-dom";
 /* ================= CONTEXT CREATION ================= */
 export const AuthContext = createContext();
 
-// Custom Hook to use Auth Context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -16,7 +15,6 @@ export const useAuth = () => {
 };
 
 /* ================= AXIOS SETUP ================= */
-// Backend URL (Make sure this matches your server port)
 const API_URL = "http://localhost:5000/api";
 
 const api = axios.create({
@@ -24,7 +22,6 @@ const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
-// Request Interceptor: Attach Token automatically
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
@@ -36,61 +33,88 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      console.warn("Token expired or invalid. Logging out globally...");
+      localStorage.removeItem("token");
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login"; 
+      }
+    }
+    return Promise.reject(error);
+  }
+);
+
 /* ================= PROVIDER COMPONENT ================= */
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
-
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  /* ================= 1. VERIFY TOKEN ON RELOAD ================= */
   useEffect(() => {
     const verifyUser = async () => {
       const token = localStorage.getItem("token");
-
       if (!token) {
         setLoading(false);
         return;
       }
-
       try {
-        // Backend route must be: router.get("/me", verifyToken, getMe)
         const res = await api.get("/auth/me");
-
         if (res.data.success) {
           setUser(res.data.user);
         } else {
-          logout(); // Invalid token
+          logout(); 
         }
       } catch (err) {
         console.error("Token verification failed:", err.message);
-        logout();
       } finally {
         setLoading(false);
       }
     };
 
     verifyUser();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 🚀 Helper Function: Merge Local Cart to DB
+  const handleCartMerge = async (token) => {
+    try {
+      const storedCart = localStorage.getItem("guestCart");
+      const localItems = storedCart ? JSON.parse(storedCart) : [];
+
+      if (localItems.length > 0) {
+        // Send local items to merge API
+        await axios.post(
+          `${API_URL}/cart/merge`,
+          { localItems },
+          { headers: { Authorization: `Bearer ${token}` } } // Pass token manually since interceptor might not catch up instantly
+        );
+        // Clear local storage after successful merge
+        localStorage.removeItem("guestCart");
+        console.log("Cart merged successfully on Auth!");
+      }
+    } catch (err) {
+      console.error("Failed to merge cart during auth:", err);
+    }
+  };
 
   /* ================= 2. REGISTER ================= */
   const register = async (userData) => {
     try {
-      // Debug log
-      console.log("Sending Register Data:", userData);
-
       const res = await api.post("/auth/register", userData);
 
       if (res.data.success) {
         localStorage.setItem("token", res.data.token);
         setUser(res.data.user);
-        // Navigate user to dashboard or home after register
-        navigate("/"); 
+        
+        // Merge Cart BEFORE redirecting
+        await handleCartMerge(res.data.token);
+        
+        window.location.href = "/"; 
         return { success: true };
       }
     } catch (err) {
-      console.error("Register Error:", err.response?.data || err.message);
       return {
         success: false,
         message: err.response?.data?.message || "Registration failed",
@@ -106,11 +130,14 @@ export const AuthProvider = ({ children }) => {
       if (res.data.success) {
         localStorage.setItem("token", res.data.token);
         setUser(res.data.user);
-        navigate("/"); // Redirect to home
+        
+        // Merge Cart BEFORE redirecting
+        await handleCartMerge(res.data.token);
+        
+        window.location.href = "/"; 
         return { success: true };
       }
     } catch (err) {
-      console.error("Login Error:", err.response?.data || err.message);
       return {
         success: false,
         message: err.response?.data?.message || "Login failed",
@@ -121,11 +148,14 @@ export const AuthProvider = ({ children }) => {
   /* ================= 4. LOGOUT ================= */
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("cartItems"); 
+    localStorage.removeItem("quoteItems");
+    localStorage.removeItem("guestCart"); // Clear guest cart too just in case
+
     setUser(null);
-    navigate("/login");
+    window.location.href = "/login";
   };
 
-  /* ================= 5. CREATE SUBADMIN (Admin Only) ================= */
   const createSubAdmin = async (formData) => {
     try {
       const res = await api.post("/auth/create-subadmin", formData);
@@ -148,7 +178,7 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         createSubAdmin,
-        api, // Exporting api instance for use in other components
+        api, 
       }}
     >
       {!loading && children}

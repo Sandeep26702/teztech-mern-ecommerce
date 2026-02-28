@@ -4,7 +4,7 @@ import {
   FaFileInvoice, FaCheckCircle, FaPrint, 
   FaRegCalendarAlt, FaTimesCircle, FaBuilding, FaPhoneAlt, FaEnvelope 
 } from "react-icons/fa";
-import api from "../api/api"; // Path check kar lena
+import api from "../utils/api"; // Axios instance with interceptors for seamless API calls and error handling
 
 const QuoteViewer = () => {
   const { token } = useParams(); 
@@ -20,11 +20,11 @@ const QuoteViewer = () => {
 
   const fetchQuoteByToken = async () => {
     try {
-      const response = await api.get(`/quotes/view/${token}`);
+      const response = await api.get(`/quote/view/${token}`);
       setQuote(response.data.quote);
     } catch (err) {
       console.error("Error fetching quote:", err);
-      setError("❌ Invalid or expired quotation link.");
+      setError(err.response?.data?.message || "Invalid or expired quotation link.");
     } finally {
       setLoading(false);
     }
@@ -36,7 +36,7 @@ const QuoteViewer = () => {
     
     setIsUpdating(true);
     try {
-      await api.put(`/quotes/${quote._id}/status`, { status: newStatus });
+      await api.patch(`/quote/status/${quote._id}`, { status: newStatus });
       setQuote({ ...quote, status: newStatus });
       
       if (newStatus === "Accepted") {

@@ -8,8 +8,7 @@ import {
     getMyOrders 
 } from '../controllers/orderController.js';
 
-import { protect } from '../middleware/auth.Middleware.js'; 
-import { adminOnly } from '../middleware/roleMiddleware.js'; 
+import { protect, authorize } from '../middleware/auth.Middleware.js'; 
 
 const router = express.Router();
 
@@ -19,7 +18,7 @@ router.get('/my-orders', protect, getMyOrders); // Ab ye error nahi dega
 router.get('/detail/:id', protect, getOrderDetail);
 
 // --- ADMIN ROUTES ---
-router.get('/admin/all', protect, adminOnly, getAllOrdersForAdmin);
-router.put('/admin/update/:orderId', protect, adminOnly, updateOrderStatus);
+router.get('/admin/all', protect, authorize("admin", "subadmin"), getAllOrdersForAdmin);
+router.put('/admin/update/:orderId', protect, authorize("admin", "subadmin"), updateOrderStatus);
 
 export default router;
