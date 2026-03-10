@@ -7,7 +7,6 @@ import PrivateRoute from "./routes/PrivateRoute";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
 import AdminLayout from "./admin/components/AdminLayout"; 
-import CategoryPage from "./pages/CategoriesPage"; // User ki purani file
 import CategoriesPage from "./pages/CategoriesPage"; 
 
 // Pages - Public
@@ -37,6 +36,8 @@ import Profile from "./pages/Profile";
 // Pages - Admin
 import AdminDashboard from "./admin/pages/AdminDashboard";
 import AdminProducts from "./admin/pages/AdminProducts";
+import AdminProductCsvManagement from "./admin/pages/AdminProductCsvManagement";
+import AdminCategoryManagement from "./admin/pages/AdminCategoryManagement";
 import AdminOrders from "./admin/pages/AdminOrders";
 import AdminUsers from "./admin/pages/AdminUsers";
 import AdminAnalytics from "./admin/pages/AdminAnalytics";
@@ -55,8 +56,12 @@ function App() {
             <Route index element={<AdminDashboard />} /> 
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="products" element={<AdminProducts />} />
+            <Route path="products/csv-management" element={<AdminProductCsvManagement />} />
+            <Route path="categories" element={<AdminCategoryManagement />} />
             <Route path="orders" element={<AdminOrders />} />
+            <Route path="orders/:id" element={<OrderDetail />} />
             <Route path="users" element={<AdminUsers />} />
+            <Route path="subadmins" element={<AdminUsers />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="settings" element={<AdminSettings />} />
             
@@ -78,7 +83,7 @@ function App() {
                 <Route path="/quotation" element={<Quotation />} />
                 
                 <Route path="/categories" element={<CategoriesPage />} />
-                <Route path="/category/:slug" element={<CategoryPage />} />
+                <Route path="/category/:slug" element={<Products />} />
                 <Route path="/quote/:token" element={<QuoteViewer />} />
 
                 <Route path="/cart" element={<Cart />} />

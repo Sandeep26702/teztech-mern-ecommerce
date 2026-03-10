@@ -1,26 +1,74 @@
 import Cart from "../models/Cart.js";
 
-// ==========================================
-// 1. GET CART: Fetch only the logged-in user's cart
-// ==========================================
+const toSafeNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const normalizeSelectionValue = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((v) => String(v).trim())
+      .filter(Boolean)
+      .sort();
+  }
+  if (value === undefined || value === null) return "";
+  return String(value).trim();
+};
+
+const normalizeSelectedCustomFields = (input) => {
+  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
+  const normalized = {};
+  Object.keys(input)
+    .sort()
+    .forEach((key) => {
+      const safeKey = String(key).trim();
+      if (!safeKey) return;
+      normalized[safeKey] = normalizeSelectionValue(input[key]);
+    });
+  return normalized;
+};
+
+const getSelectionSignature = (input) => JSON.stringify(normalizeSelectedCustomFields(input));
+
+const sanitizePricing = (pricing) => {
+  if (!pricing || typeof pricing !== "object") {
+    return {
+      basePrice: 0,
+      optionAdjustment: 0,
+      gstRate: 0,
+      gstAmount: 0,
+      unitPrice: 0,
+    };
+  }
+
+  return {
+    basePrice: toSafeNumber(pricing.basePrice, 0),
+    optionAdjustment: toSafeNumber(pricing.optionAdjustment, 0),
+    gstRate: toSafeNumber(pricing.gstRate, 0),
+    gstAmount: toSafeNumber(pricing.gstAmount, 0),
+    unitPrice: toSafeNumber(pricing.unitPrice, 0),
+  };
+};
+
 export const getMyCart = async (req, res) => {
   try {
     const cart = await Cart.findOne({ user: req.user._id }).populate(
       "items.productId",
-      "name price images stock" 
+      "name price gstRate customFields image stock category"
     );
-    
+
     if (!cart) {
       return res.status(200).json({ success: true, cart: { items: [] } });
     }
 
     const originalLength = cart.items.length;
     cart.items = cart.items.filter((item) => item.productId !== null);
-    
+
     if (cart.items.length !== originalLength) {
       await cart.save();
     }
-    
+
     res.status(200).json({ success: true, cart });
   } catch (error) {
     console.error("Get Cart Error:", error);
@@ -28,133 +76,140 @@ export const getMyCart = async (req, res) => {
   }
 };
 
-// ==========================================
-// 2. ADD TO CART: Add new item or increase quantity
-// ==========================================
 export const addToCart = async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
+    const { productId, quantity, selectedCustomFields, pricingSnapshot } = req.body;
     const userId = req.user._id;
 
-    if (!productId) return res.status(400).json({ success: false, message: "Product ID is required" });
+    if (!productId) {
+      return res.status(400).json({ success: false, message: "Product ID is required" });
+    }
+
+    const safeQuantity = Math.max(1, Math.floor(toSafeNumber(quantity, 1)));
+    const normalizedSelections = normalizeSelectedCustomFields(selectedCustomFields);
+    const selectionSignature = getSelectionSignature(normalizedSelections);
+    const safePricing = sanitizePricing(pricingSnapshot);
 
     let cart = await Cart.findOne({ user: userId });
-
     if (!cart) {
-      cart = new Cart({
-        user: userId,
-        items: [{ productId, quantity: quantity || 1 }]
-      });
-    } else {
-      const itemIndex = cart.items.findIndex(
-        (item) => item.productId.toString() === productId
-      );
+      cart = new Cart({ user: userId, items: [] });
+    }
 
-      if (itemIndex > -1) {
-        cart.items[itemIndex].quantity += (quantity || 1);
-      } else {
-        cart.items.push({ productId, quantity: quantity || 1 });
-      }
+    const itemIndex = cart.items.findIndex((item) => {
+      const sameProduct = item.productId.toString() === String(productId);
+      if (!sameProduct) return false;
+      return getSelectionSignature(item.selectedCustomFields) === selectionSignature;
+    });
+
+    if (itemIndex > -1) {
+      cart.items[itemIndex].quantity += safeQuantity;
+      cart.items[itemIndex].selectedCustomFields = normalizedSelections;
+      cart.items[itemIndex].pricing = safePricing;
+    } else {
+      cart.items.push({
+        productId,
+        quantity: safeQuantity,
+        selectedCustomFields: normalizedSelections,
+        pricing: safePricing,
+      });
     }
 
     await cart.save();
-    
+
     const updatedCart = await Cart.findById(cart._id).populate(
       "items.productId",
-      "name price images stock"
+      "name price gstRate customFields image stock category"
     );
-    
-    res.status(200).json({ success: true, message: "Item added to cart", cart: updatedCart });
 
+    res.status(200).json({ success: true, message: "Item added to cart", cart: updatedCart });
   } catch (error) {
     console.error("Add to Cart Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
 
-// ==========================================
-// 3. REMOVE FROM CART: Delete a specific item
-// ==========================================
 export const removeFromCart = async (req, res) => {
   try {
-    const { productId } = req.params;
+    const { itemId } = req.params;
     const userId = req.user._id;
 
     const cart = await Cart.findOne({ user: userId });
-    
     if (!cart) {
       return res.status(404).json({ success: false, message: "Cart not found" });
     }
 
-    cart.items = cart.items.filter((item) => item.productId.toString() !== productId);
+    cart.items = cart.items.filter((item) => {
+      const byItemId = item._id ? item._id.toString() === String(itemId) : false;
+      const byProductId = item.productId ? item.productId.toString() === String(itemId) : false;
+      return !(byItemId || byProductId);
+    });
     await cart.save();
 
     const updatedCart = await Cart.findById(cart._id).populate(
       "items.productId",
-      "name price images stock"
+      "name price gstRate customFields image stock category"
     );
-    
-    res.status(200).json({ success: true, message: "Item removed", cart: updatedCart });
 
+    res.status(200).json({ success: true, message: "Item removed", cart: updatedCart });
   } catch (error) {
     console.error("Remove from Cart Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
 
-// ==========================================
-// 4. UPDATE QUANTITY: For Plus/Minus buttons
-// ==========================================
 export const updateCartItem = async (req, res) => {
   try {
-    const { productId, quantity } = req.body;
+    const { itemId, quantity } = req.body;
     const userId = req.user._id;
 
-    if (quantity <= 0) {
-      const cartToUpdate = await Cart.findOne({ user: userId });
-      if(cartToUpdate) {
-         cartToUpdate.items = cartToUpdate.items.filter(item => item.productId.toString() !== productId);
-         await cartToUpdate.save();
-         const updatedCart = await Cart.findById(cartToUpdate._id).populate("items.productId", "name price images stock");
-         return res.status(200).json({ success: true, message: "Item removed due to 0 quantity", cart: updatedCart });
-      }
+    if (!itemId) {
+      return res.status(400).json({ success: false, message: "Cart item id is required" });
     }
 
+    const safeQuantity = Math.floor(toSafeNumber(quantity, 1));
     const cart = await Cart.findOne({ user: userId });
-
     if (!cart) {
       return res.status(404).json({ success: false, message: "Cart not found" });
     }
 
-    const itemIndex = cart.items.findIndex(
-      (item) => item.productId.toString() === productId
-    );
+    const getMatch = (item) => {
+      const byItemId = item._id ? item._id.toString() === String(itemId) : false;
+      const byProductId = item.productId ? item.productId.toString() === String(itemId) : false;
+      return byItemId || byProductId;
+    };
 
-    if (itemIndex > -1) {
-      cart.items[itemIndex].quantity = quantity; 
+    if (safeQuantity <= 0) {
+      cart.items = cart.items.filter((item) => !getMatch(item));
       await cart.save();
-
       const updatedCart = await Cart.findById(cart._id).populate(
         "items.productId",
-        "name price images stock"
+        "name price gstRate customFields image stock category"
       );
-      res.status(200).json({ success: true, message: "Quantity updated", cart: updatedCart });
-    } else {
-      res.status(404).json({ success: false, message: "Item not found in cart" });
+      return res.status(200).json({ success: true, message: "Item removed", cart: updatedCart });
     }
+
+    const itemIndex = cart.items.findIndex((item) => getMatch(item));
+    if (itemIndex === -1) {
+      return res.status(404).json({ success: false, message: "Item not found in cart" });
+    }
+
+    cart.items[itemIndex].quantity = safeQuantity;
+    await cart.save();
+
+    const updatedCart = await Cart.findById(cart._id).populate(
+      "items.productId",
+      "name price gstRate customFields image stock category"
+    );
+    res.status(200).json({ success: true, message: "Quantity updated", cart: updatedCart });
   } catch (error) {
     console.error("Update Cart Item Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
 
-// ==========================================
-// 5. CLEAR CART: Used after successful checkout
-// ==========================================
 export const clearCart = async (req, res) => {
   try {
     const userId = req.user._id;
-    
     const cart = await Cart.findOne({ user: userId });
     if (cart) {
       cart.items = [];
@@ -168,56 +223,55 @@ export const clearCart = async (req, res) => {
   }
 };
 
-// ==========================================
-// 6. 🚀 NEW: MERGE CART (Option B Logic)
-// Combines guest local storage cart with DB cart on login
-// ==========================================
 export const mergeCart = async (req, res) => {
   try {
-    const { localItems } = req.body; // Array coming from frontend localStorage
+    const { localItems } = req.body;
     const userId = req.user._id;
 
-    // 1. Agar localStorage khali tha, toh bas user ka DB cart wapas bhej do
-    if (!localItems || localItems.length === 0) {
-      const cart = await Cart.findOne({ user: userId }).populate("items.productId", "name price images stock");
+    if (!Array.isArray(localItems) || localItems.length === 0) {
+      const cart = await Cart.findOne({ user: userId }).populate(
+        "items.productId",
+        "name price gstRate customFields image stock category"
+      );
       return res.status(200).json({ success: true, message: "No items to merge", cart: cart || { items: [] } });
     }
 
     let cart = await Cart.findOne({ user: userId });
-
     if (!cart) {
-      // 2. Agar user naya hai aur pehle se koi DB cart nahi hai, seedha local wala save kar do
-      cart = new Cart({
-        user: userId,
-        items: localItems.map(item => ({
-          productId: item._id || item.productId, // Handle both structures
-          quantity: item.quantity || 1
-        }))
+      cart = new Cart({ user: userId, items: [] });
+    }
+
+    for (const localItem of localItems) {
+      const productId = localItem?.productId?._id || localItem?.productId || localItem?._id;
+      if (!productId) continue;
+
+      const quantity = Math.max(1, Math.floor(toSafeNumber(localItem.quantity, 1)));
+      const normalizedSelections = normalizeSelectedCustomFields(localItem.selectedCustomFields);
+      const selectionSignature = getSelectionSignature(normalizedSelections);
+
+      const itemIndex = cart.items.findIndex((dbItem) => {
+        const sameProduct = dbItem.productId.toString() === String(productId);
+        if (!sameProduct) return false;
+        return getSelectionSignature(dbItem.selectedCustomFields) === selectionSignature;
       });
-    } else {
-      // 3. Agar DB mein bhi item hai aur Local mein bhi, toh MERGE karo
-      for (let localItem of localItems) {
-        const prodId = localItem._id || localItem.productId;
-        const qty = localItem.quantity || 1;
 
-        const itemIndex = cart.items.findIndex((dbItem) => dbItem.productId.toString() === prodId.toString());
-
-        if (itemIndex > -1) {
-          // Item DB me hai -> quantity badha do
-          cart.items[itemIndex].quantity += qty;
-        } else {
-          // Naya item hai -> array me push kar do
-          cart.items.push({ productId: prodId, quantity: qty });
-        }
+      if (itemIndex > -1) {
+        cart.items[itemIndex].quantity += quantity;
+      } else {
+        cart.items.push({
+          productId,
+          quantity,
+          selectedCustomFields: normalizedSelections,
+          pricing: sanitizePricing(localItem.pricingSnapshot || localItem.pricing),
+        });
       }
     }
 
     await cart.save();
 
-    // Frontend pe dikhane ke liye populate karke bhejo
     const updatedCart = await Cart.findById(cart._id).populate(
       "items.productId",
-      "name price images stock"
+      "name price gstRate customFields image stock category"
     );
 
     res.status(200).json({ success: true, message: "Cart merged successfully", cart: updatedCart });

@@ -9,6 +9,7 @@ const Register = () => {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    phone: "",
     email: "",
     password: "",
     confirmPassword: ""
@@ -25,15 +26,32 @@ const Register = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    const fullName = `${formData.firstName} ${formData.lastName}`.trim();
+    if (!/^[a-zA-Z][a-zA-Z\s.'-]{2,}$/.test(fullName)) {
+      setError("Please enter a valid full name");
+      return;
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(formData.email)) {
+      setError("Please enter a valid email");
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
+      return;
+    }
+
+    if (!/^\d{10}$/.test(formData.phone)) {
+      setError("Please enter valid 10-digit mobile number");
       return;
     }
 
     setLoading(true);
 
     const payload = {
-      name: `${formData.firstName} ${formData.lastName}`,
+      name: fullName,
+      phone: formData.phone,
       email: formData.email,
       password: formData.password
     };
@@ -96,6 +114,20 @@ const Register = () => {
                   className="block w-full px-3 py-2 placeholder-gray-400 transition-colors border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block mb-1 text-sm font-medium text-gray-700">Mobile Number</label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+                pattern="[0-9]{10}"
+                title="Enter 10 digit mobile number"
+                className="block w-full px-3 py-2 placeholder-gray-400 transition-colors border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+              />
             </div>
 
             <div>

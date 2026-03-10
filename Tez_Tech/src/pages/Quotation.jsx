@@ -117,7 +117,12 @@ const Quotation = () => {
                 {quoteItems.map((item) => {
                   // Unique ID calculation for keys
                   const itemId = item.productId?._id || item._id || item.id;
-                  const imageUrl = item.productId?.images?.[0]?.url || item.productId?.images?.[0] || item.image || "https://placehold.co/100";
+                  const imageUrl =
+                    item.productId?.image ||
+                    item.productId?.images?.[0]?.url ||
+                    item.productId?.images?.[0] ||
+                    item.image ||
+                    "https://placehold.co/100x100/f3f4f6/a1a1aa?text=No+Image";
                   const productName = item.productId?.name || item.name;
 
                   return (

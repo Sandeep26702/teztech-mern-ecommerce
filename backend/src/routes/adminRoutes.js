@@ -5,7 +5,10 @@ import {
   getDashboardStats, 
   getAllUsers, 
   deleteUser, 
-  updateUserRole 
+  updateUserRole,
+  getUserById,
+  updateUserProfileByAdmin,
+  toggleUserBlockStatus,
 } from "../controllers/adminController.js"; 
 
 const router = express.Router();
@@ -28,6 +31,9 @@ router.get("/orders", getDashboardStats);
 
 // Users management routes
 router.get("/users", getAllUsers);
+router.get("/users/:id", getUserById);
+router.put("/users/:id/profile", updateUserProfileByAdmin);
+router.patch("/users/:id/block", adminOnly, toggleUserBlockStatus);
 
 router.route("/users/:id")
   .delete(adminOnly, deleteUser)

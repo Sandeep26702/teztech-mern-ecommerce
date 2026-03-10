@@ -1,6 +1,24 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs";
 
+const savedAddressSchema = new mongoose.Schema(
+  {
+    fullName: { type: String, required: true, trim: true },
+    phone: { type: String, required: true, trim: true },
+    pincode: { type: String, required: true, trim: true },
+    locality: { type: String, default: "", trim: true },
+    address: { type: String, required: true, trim: true },
+    city: { type: String, required: true, trim: true },
+    state: { type: String, default: "", trim: true },
+    landmark: { type: String, default: "", trim: true },
+    altPhone: { type: String, default: "", trim: true },
+    type: { type: String, enum: ["HOME", "WORK", "OTHER"], default: "HOME" },
+    label: { type: String, default: "", trim: true },
+    isDefault: { type: Boolean, default: false },
+  },
+  { timestamps: true }
+);
+
 const userSchema = new mongoose.Schema(
   {
     name: { type: String, required: [true, "Please enter your name"], trim: true },
@@ -14,7 +32,8 @@ const userSchema = new mongoose.Schema(
     },
     password: { type: String, required: [true, "Please enter your password"], minlength: 6, select: false },
     role: { type: String, enum: ["user", "admin", "subadmin"], default: "user" },
-    phone: { type: String, default: "" },
+    userId: { type: String, unique: true, sparse: true, index: true, trim: true },
+    phone: { type: String, unique: true, sparse: true, trim: true },
     address: {
       street: { type: String, default: "" },
       city: { type: String, default: "" },
@@ -22,9 +41,14 @@ const userSchema = new mongoose.Schema(
       zipCode: { type: String, default: "" },
       country: { type: String, default: "India" },
     },
+    addresses: {
+      type: [savedAddressSchema],
+      default: [],
+    },
     profileImage: { type: String, default: "" },
     isEmailVerified: { type: Boolean, default: false },
     isActive: { type: Boolean, default: true },
+    blockedReason: { type: String, default: "" },
     resetPasswordToken: String,
     resetPasswordExpire: Date,
   },

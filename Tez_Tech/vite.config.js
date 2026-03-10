@@ -19,6 +19,7 @@ export default defineConfig({
   },
   // ✅ client-side routing fallback
   resolve: {
+    dedupe: ["react", "react-dom"],
     alias: {
       '@': '/src',
     },

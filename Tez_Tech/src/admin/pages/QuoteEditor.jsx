@@ -18,6 +18,7 @@ const QuoteEditor = () => {
 
   const [adminNotes, setAdminNotes] = useState("");
   const [totalDiscount, setTotalDiscount] = useState(""); 
+  const [shippingCharge, setShippingCharge] = useState("");
 
   useEffect(() => {
     fetchQuoteDetails();
@@ -29,6 +30,7 @@ const QuoteEditor = () => {
       setQuote(response.data.quote);
       setAdminNotes(response.data.quote.adminNotes || "");
       setTotalDiscount(response.data.quote.totalDiscount || "");
+      setShippingCharge(response.data.quote.shippingCharge || "");
       
       if (response.data.quote.quoteToken && response.data.quote.status !== "Pending") {
          const generatedLink = `${window.location.origin}/quote/${response.data.quote.quoteToken}`;
@@ -95,7 +97,7 @@ const QuoteEditor = () => {
     setSubmitting(true);
 
     const subTotal = calculateSubTotal();
-    const finalTotal = subTotal - Number(totalDiscount || 0);
+    const finalTotal = subTotal - Number(totalDiscount || 0) + Number(shippingCharge || 0);
 
     const itemsToSubmit = quote.requestedItems.map(item => {
       if (item._id.startsWith("custom-")) {
@@ -109,6 +111,7 @@ const QuoteEditor = () => {
       requestedItems: itemsToSubmit, 
       adminNotes,
       totalDiscount: Number(totalDiscount || 0),
+      shippingCharge: Number(shippingCharge || 0),
       finalTotal,
       validUntil: new Date(new Date().setDate(new Date().getDate() + 7)) 
     };
@@ -134,7 +137,7 @@ const QuoteEditor = () => {
   if (!quote) return <div className="p-10 font-medium text-center text-red-500">Quote not found!</div>;
 
   const subTotal = calculateSubTotal();
-  const finalTotal = subTotal - Number(totalDiscount || 0);
+  const finalTotal = subTotal - Number(totalDiscount || 0) + Number(shippingCharge || 0);
 
   return (
     <div className="p-4 mx-auto font-sans max-w-7xl sm:p-6">
@@ -379,6 +382,20 @@ const QuoteEditor = () => {
                     value={totalDiscount === 0 ? "" : totalDiscount}
                     onChange={(e) => setTotalDiscount(e.target.value === "" ? "" : Number(e.target.value))}
                     className="w-full py-1.5 pl-7 pr-3 text-sm font-bold text-right text-slate-800 transition-all bg-slate-50 border border-slate-200 rounded outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white focus:border-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm border-slate-200">
+                <span className="text-sm font-medium text-slate-600">Shipping Charge (Rs):</span>
+                <div className="relative flex items-center w-36">
+                  <span className="absolute text-sm font-medium left-3 text-slate-400">Rs</span>
+                  <input
+                    type="number"
+                    min="0"
+                    value={shippingCharge === 0 ? "" : shippingCharge}
+                    onChange={(e) => setShippingCharge(e.target.value === "" ? "" : Number(e.target.value))}
+                    className="w-full py-1.5 pl-8 pr-3 text-sm font-bold text-right text-slate-800 transition-all bg-slate-50 border border-slate-200 rounded outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white focus:border-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                 </div>
               </div>

@@ -62,6 +62,7 @@ const QuoteViewer = () => {
   
   const itemLevelSavings = originalSubTotal - offeredSubTotal;
   const extraDiscount = quote.totalDiscount || 0;
+  const shippingCharge = quote.shippingCharge || 0;
   const totalSavings = itemLevelSavings + extraDiscount;
   
   // Total Percentage Calculator
@@ -218,6 +219,13 @@ const QuoteViewer = () => {
                 )}
 
                 {/* 👇 YAHAN PE CHANGE HUA HAI 👇 */}
+                {shippingCharge > 0 && (
+                  <div className="flex justify-between mb-2 font-bold text-gray-700">
+                    <span>Shipping Charge:</span>
+                    <span>+ Rs {shippingCharge.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+
                 {totalSavings > 0 && (
                   <div className="flex justify-between p-2 mb-2 font-bold text-green-700 border border-green-200 rounded bg-green-50 print:border-gray-400 print:bg-white print:text-gray-900">
                     <span>You Saved:</span>

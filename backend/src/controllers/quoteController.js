@@ -11,7 +11,7 @@ import mongoose from 'mongoose';
 
 export const getQuoteDraft = async (req, res) => {
   try {
-    const draft = await QuoteDraft.findOne({ user: req.user._id }).populate("items.productId", "name price images stock");
+    const draft = await QuoteDraft.findOne({ user: req.user._id }).populate("items.productId", "name price image stock");
     if (!draft) return res.status(200).json({ success: true, quote: { items: [] } });
     
     // Clean up orphaned items (If a product was deleted by admin)
@@ -49,7 +49,7 @@ export const addToQuoteDraft = async (req, res) => {
     }
 
     await draft.save();
-    const updatedDraft = await QuoteDraft.findById(draft._id).populate("items.productId", "name price images stock");
+    const updatedDraft = await QuoteDraft.findById(draft._id).populate("items.productId", "name price image stock");
     res.status(200).json({ success: true, message: "Added to quote draft", quote: updatedDraft });
   } catch (error) {
     console.error("Add Quote Draft Error:", error);
@@ -67,7 +67,7 @@ export const updateQuoteDraft = async (req, res) => {
       if (draftToUpdate) {
         draftToUpdate.items = draftToUpdate.items.filter(item => item.productId.toString() !== productId);
         await draftToUpdate.save();
-        const updatedDraft = await QuoteDraft.findById(draftToUpdate._id).populate("items.productId", "name price images stock");
+        const updatedDraft = await QuoteDraft.findById(draftToUpdate._id).populate("items.productId", "name price image stock");
         return res.status(200).json({ success: true, message: "Item removed", quote: updatedDraft });
       }
     }
@@ -79,7 +79,7 @@ export const updateQuoteDraft = async (req, res) => {
     if (itemIndex > -1) {
       draft.items[itemIndex].quantity = quantity;
       await draft.save();
-      const updatedDraft = await QuoteDraft.findById(draft._id).populate("items.productId", "name price images stock");
+      const updatedDraft = await QuoteDraft.findById(draft._id).populate("items.productId", "name price image stock");
       res.status(200).json({ success: true, message: "Quantity updated", quote: updatedDraft });
     } else {
       res.status(404).json({ success: false, message: "Item not found in draft" });
@@ -98,7 +98,7 @@ export const removeFromQuoteDraft = async (req, res) => {
     draft.items = draft.items.filter(item => item.productId.toString() !== req.params.productId);
     await draft.save();
     
-    const updatedDraft = await QuoteDraft.findById(draft._id).populate("items.productId", "name price images stock");
+    const updatedDraft = await QuoteDraft.findById(draft._id).populate("items.productId", "name price image stock");
     res.status(200).json({ success: true, message: "Item removed", quote: updatedDraft });
   } catch (error) {
     console.error("Remove Quote Draft Error:", error);
@@ -113,7 +113,7 @@ export const mergeQuoteDraft = async (req, res) => {
     const userId = req.user._id;
 
     if (!localItems || localItems.length === 0) {
-      const draft = await QuoteDraft.findOne({ user: userId }).populate("items.productId", "name price images stock");
+      const draft = await QuoteDraft.findOne({ user: userId }).populate("items.productId", "name price image stock");
       return res.status(200).json({ success: true, message: "No items to merge", quote: draft || { items: [] } });
     }
 
@@ -143,7 +143,7 @@ export const mergeQuoteDraft = async (req, res) => {
     }
 
     await draft.save();
-    const updatedDraft = await QuoteDraft.findById(draft._id).populate("items.productId", "name price images stock");
+    const updatedDraft = await QuoteDraft.findById(draft._id).populate("items.productId", "name price image stock");
     
     res.status(200).json({ success: true, message: "Quote draft merged successfully", quote: updatedDraft });
   } catch (error) {
@@ -272,11 +272,11 @@ export const getAllQuotes = async (req, res) => {
 export const respondToQuote = async (req, res) => {
   try {
     const { id } = req.params; 
-    const { requestedItems, adminNotes, totalDiscount, finalTotal, validUntil } = req.body;
+    const { requestedItems, adminNotes, totalDiscount, shippingCharge, finalTotal, validUntil } = req.body;
 
     const updatedQuote = await Quote.findByIdAndUpdate(
       id,
-      { requestedItems, adminNotes, totalDiscount, finalTotal, validUntil, status: "Responded" },
+      { requestedItems, adminNotes, totalDiscount, shippingCharge: Number(shippingCharge || 0), finalTotal, validUntil, status: "Responded" },
       { new: true }
     );
 

@@ -4,6 +4,25 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import sendEmail from "../utils/sendEmail.js";
 
+const disposableEmailDomains = new Set([
+  "mailinator.com",
+  "guerrillamail.com",
+  "10minutemail.com",
+  "tempmail.com",
+  "yopmail.com",
+  "trashmail.com",
+  "fakeinbox.com",
+  "sharklasers.com",
+]);
+
+const isValidName = (name) => /^[a-zA-Z][a-zA-Z\s.'-]{1,}$/.test(String(name || "").trim());
+const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email || "").trim());
+const isValidPhone = (phone) => /^\d{10}$/.test(String(phone || "").trim());
+const isDisposableEmail = (email) => {
+  const domain = String(email || "").split("@")[1]?.toLowerCase();
+  return domain ? disposableEmailDomains.has(domain) : false;
+};
+
 /* ================= HELPER: Generate Token ================= */
 const sendTokenResponse = (user, statusCode, res) => {
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
@@ -18,6 +37,10 @@ const sendTokenResponse = (user, statusCode, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
+      userId: user.userId,
+      phone: user.phone,
+      isActive: user.isActive,
+      profileImage: user.profileImage,
     },
   });
 };
@@ -25,16 +48,43 @@ const sendTokenResponse = (user, statusCode, res) => {
 /* ================= 1. REGISTER USER ================= */
 export const register = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, phone } = req.body;
+    const normalizedName = String(name || "").trim();
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const normalizedPhone = String(phone || "").trim();
 
-    // Email check
-    const userExists = await User.findOne({ email });
+    if (!isValidName(normalizedName) || normalizedName.length < 3) {
+      return res.status(400).json({ success: false, message: "Please enter a valid full name" });
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      return res.status(400).json({ success: false, message: "Please enter a valid email address" });
+    }
+
+    if (isDisposableEmail(normalizedEmail)) {
+      return res.status(400).json({ success: false, message: "Temporary/disposable emails are not allowed" });
+    }
+
+    if (!isValidPhone(normalizedPhone)) {
+      return res.status(400).json({ success: false, message: "Please enter valid 10-digit mobile number" });
+    }
+
+    // Unique check
+    const userExists = await User.findOne({
+      $or: [{ email: normalizedEmail }, { phone: normalizedPhone }, { userId: normalizedPhone }],
+    });
     if (userExists) {
-      return res.status(400).json({ success: false, message: "Email already exists" });
+      return res.status(400).json({ success: false, message: "Email or mobile already exists" });
     }
 
     // User Create (Model middleware ab password hash kar dega safely)
-    const user = await User.create({ name, email, password });
+    const user = await User.create({
+      name: normalizedName,
+      email: normalizedEmail,
+      password,
+      phone: normalizedPhone,
+      userId: normalizedPhone,
+    });
 
     sendTokenResponse(user, 201, res);
   } catch (error) {
@@ -47,16 +97,24 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return res.status(400).json({ success: false, message: "Please provide email and password" });
     }
 
     // Password explicitly select karna padta hai kyunki model me select: false hai
-    const user = await User.findOne({ email }).select("+password");
+    const user = await User.findOne({ email: normalizedEmail }).select("+password");
 
     if (!user) {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
+
+    if (!user.isActive) {
+      return res.status(403).json({
+        success: false,
+        message: user.blockedReason || "Your account has been blocked by admin",
+      });
     }
 
     // Password Match check
@@ -166,7 +224,10 @@ export const resetPassword = async (req, res) => {
 export const createSubAdmin = async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
-    const userExists = await User.findOne({ email });
+    const normalizedPhone = String(phone || "").trim();
+    const userExists = await User.findOne({
+      $or: [{ email }, ...(normalizedPhone ? [{ phone: normalizedPhone }, { userId: normalizedPhone }] : [])],
+    });
     if (userExists) {
       return res.status(400).json({ success: false, message: "User already exists" });
     }
@@ -174,7 +235,8 @@ export const createSubAdmin = async (req, res) => {
       name,
       email,
       password,
-      phone,
+      phone: normalizedPhone || undefined,
+      userId: normalizedPhone || undefined,
       role: "subadmin",
       isEmailVerified: true,
     });

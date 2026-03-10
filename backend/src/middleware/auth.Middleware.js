@@ -30,6 +30,13 @@ export const protect = async (req, res, next) => {
         return res.status(401).json({ success: false, message: "User no longer exists" });
       }
 
+      if (!req.user.isActive) {
+        return res.status(403).json({
+          success: false,
+          message: req.user.blockedReason || "Your account has been blocked by admin",
+        });
+      }
+
       next(); // Move to the next middleware or controller
     } catch (error) {
       console.error("Token verification failed:", error.message);

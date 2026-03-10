@@ -1,7 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useState, useEffect, useContext } from "react";
+import React, { createContext, useState, useEffect, useContext, useRef } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
 
 /* ================= CONTEXT CREATION ================= */
 export const AuthContext = createContext();
@@ -49,11 +48,14 @@ api.interceptors.response.use(
 
 /* ================= PROVIDER COMPONENT ================= */
 export const AuthProvider = ({ children }) => {
-  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const hasVerifiedRef = useRef(false);
 
   useEffect(() => {
+    if (hasVerifiedRef.current) return;
+    hasVerifiedRef.current = true;
+
     const verifyUser = async () => {
       const token = localStorage.getItem("token");
       if (!token) {
@@ -68,7 +70,11 @@ export const AuthProvider = ({ children }) => {
           logout(); 
         }
       } catch (err) {
-        console.error("Token verification failed:", err.message);
+        if (err.code === "ERR_NETWORK") {
+          console.warn(`Token verification skipped: auth server is unreachable at ${API_URL}`);
+        } else {
+          console.error("Token verification failed:", err.message);
+        }
       } finally {
         setLoading(false);
       }
@@ -76,6 +82,19 @@ export const AuthProvider = ({ children }) => {
 
     verifyUser();
   }, []);
+
+  const refreshUser = async () => {
+    try {
+      const res = await api.get("/auth/me");
+      if (res.data.success) {
+        setUser(res.data.user);
+        return res.data.user;
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  };
 
   // 🚀 Helper Function: Merge Local Cart to DB
   const handleCartMerge = async (token) => {
@@ -178,7 +197,9 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         createSubAdmin,
-        api, 
+        api,
+        refreshUser,
+        updateCurrentUser: setUser,
       }}
     >
       {!loading && children}

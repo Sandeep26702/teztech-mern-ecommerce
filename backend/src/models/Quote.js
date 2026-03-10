@@ -58,6 +58,7 @@ const quoteSchema = new mongoose.Schema(
     // 4. ADMIN MANAGEMENT FIELDS
     adminNotes: { type: String, default: "" }, 
     totalDiscount: { type: Number, default: 0 },
+    shippingCharge: { type: Number, default: 0, min: 0 },
     finalTotal: { type: Number, default: 0 }, 
     
     // 5. STATUS AND VALIDITY

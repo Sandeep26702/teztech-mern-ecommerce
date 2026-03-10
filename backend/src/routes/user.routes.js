@@ -2,7 +2,12 @@ import express from "express";
 import {
   getProfile,
   updateProfile,
-  changePassword
+  changePassword,
+  getUserAddresses,
+  addUserAddress,
+  updateUserAddress,
+  deleteUserAddress,
+  setDefaultAddress,
 } from "../controllers/user.controller.js";
 import { protect } from "../middleware/auth.Middleware.js";
 import upload from "../utils/upload.js";
@@ -26,5 +31,12 @@ router.put(
 
 // 🔐 Change password
 router.put("/change-password", protect, changePassword);
+
+// Saved addresses
+router.get("/addresses", protect, getUserAddresses);
+router.post("/addresses", protect, addUserAddress);
+router.put("/addresses/:addressId", protect, updateUserAddress);
+router.delete("/addresses/:addressId", protect, deleteUserAddress);
+router.put("/addresses/:addressId/default", protect, setDefaultAddress);
 
 export default router;

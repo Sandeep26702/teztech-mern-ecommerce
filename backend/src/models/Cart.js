@@ -1,36 +1,44 @@
 import mongoose from "mongoose";
 
-// 1. Sub-schema for cart items
 const cartItemSchema = new mongoose.Schema(
   {
     productId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Product", // Connects to your Product collection
+      ref: "Product",
       required: true,
     },
     quantity: {
       type: Number,
       required: true,
       default: 1,
-      min: [1, "Quantity cannot be less than 1"], // Added custom error message
+      min: [1, "Quantity cannot be less than 1"],
+    },
+    selectedCustomFields: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    pricing: {
+      basePrice: { type: Number, default: 0 },
+      optionAdjustment: { type: Number, default: 0 },
+      gstRate: { type: Number, default: 0 },
+      gstAmount: { type: Number, default: 0 },
+      unitPrice: { type: Number, default: 0 },
     },
   },
-  { _id: false } // 🔥 REAL-WORLD OPTIMIZATION: Prevents Mongoose from creating a useless _id for every single item in the array
+  { _id: true }
 );
 
-// 2. Main Cart Schema
 const cartSchema = new mongoose.Schema(
   {
-    // 🛡️ DATA ISOLATION: Links the cart strictly to the logged-in user
     user: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User", // Connects to your User collection
+      ref: "User",
       required: true,
-      unique: true, // Ensures 1 User = exactly 1 Cart
+      unique: true,
     },
-    items: [cartItemSchema], // Array of the sub-schema defined above
+    items: [cartItemSchema],
   },
-  { timestamps: true } // Automatically adds createdAt and updatedAt dates
+  { timestamps: true }
 );
 
 export default mongoose.model("Cart", cartSchema);

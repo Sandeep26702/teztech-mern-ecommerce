@@ -1,29 +1,49 @@
 import express from "express";
+import multer from "multer";
 import {
   getProducts,
+  getProductCategories,
   getProductById,
   createProduct,
   updateProduct,
   deleteProduct,
+  importProductsCsv,
+  exportProductsCsv,
+  getProductImportHistory,
+  getProductImportOverview,
+  rollbackProductImport,
+  deleteProductImportRecord,
 } from "../controllers/productController.js";
 import { protect, authorize } from "../middleware/auth.Middleware.js";
-import { upload } from "../config/cloudinary.js"; // ✅ Image upload middleware import kiya
+import { upload } from "../config/cloudinary.js";
 
 const router = express.Router();
+const csvUpload = multer({ storage: multer.memoryStorage() });
 
-// 1. GET ALL & CREATE
+router.get("/export/csv", protect, authorize("admin", "subadmin"), exportProductsCsv);
+router.post(
+  "/import/csv",
+  protect,
+  authorize("admin", "subadmin"),
+  csvUpload.single("file"),
+  importProductsCsv
+);
+router.get("/import/csv/history", protect, authorize("admin", "subadmin"), getProductImportHistory);
+router.get("/import/csv/overview", protect, authorize("admin", "subadmin"), getProductImportOverview);
+router.delete("/import/csv/history/:jobId", protect, authorize("admin", "subadmin"), rollbackProductImport);
+router.delete("/import/csv/history/:jobId/record", protect, authorize("admin", "subadmin"), deleteProductImportRecord);
+
 router
   .route("/")
-  .get(getProducts) // Public: Sab dekh sakte hain
-  .post(protect, authorize("admin", "subadmin"), upload.single("image"), createProduct); 
-  // ^ ✅ upload.single("image") zaroori hai image file handle karne ke liye
+  .get(getProducts)
+  .post(protect, authorize("admin", "subadmin"), upload.single("image"), createProduct);
 
-// 2. GET SINGLE, UPDATE & DELETE
+router.get("/meta/categories", getProductCategories);
+
 router
   .route("/:id")
-  .get(getProductById) // Public
-  .put(protect, authorize("admin", "subadmin"), upload.single("image"), updateProduct) 
-  // ^ ✅ Update karte waqt bhi nayi image upload karne ki facility di hai
+  .get(getProductById)
+  .put(protect, authorize("admin", "subadmin"), upload.single("image"), updateProduct)
   .delete(protect, authorize("admin", "subadmin"), deleteProduct);
 
 export default router;
