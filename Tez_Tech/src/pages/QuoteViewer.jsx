@@ -56,6 +56,101 @@ const QuoteViewer = () => {
   if (error) return <div className="flex items-center justify-center min-h-screen text-xl font-bold text-red-500 print:hidden">{error}</div>;
   if (!quote) return null;
 
+  const renderSelectedOptions = (item) => {
+    const options = Array.isArray(item?.selectedOptions) ? item.selectedOptions : [];
+    if (options.length > 0) {
+      return (
+        <div className="mt-1 space-y-1">
+          {options.map((option, idx) => {
+            const label = String(option.fieldLabel || "Option").trim();
+            const value = String(option.value || "").trim();
+            const adj = Number(option.priceAdjustment || 0);
+            const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}Rs ${Math.abs(adj)})` : "";
+            return (
+              <p key={`${item._id || "item"}-${label}-${value}-${idx}`} className="text-[11px] text-gray-500">
+                {label}: {value}{adjText}
+              </p>
+            );
+          })}
+        </div>
+      );
+    }
+
+    const selected = item?.selectedCustomFields;
+    if (!selected || typeof selected !== "object") return null;
+    const product = item.productId && typeof item.productId === "object" ? item.productId : null;
+    if (product && Array.isArray(product.customFields)) {
+      const resolvedOptions = [];
+      let optionAdjustment = 0;
+      product.customFields.forEach((field) => {
+        const fieldKey = String(field._id || field.label || "");
+        const selectedValue = selected[fieldKey] ?? selected[field.label];
+        if (!selectedValue || (Array.isArray(selectedValue) && !selectedValue.length)) return;
+        const optionsList = Array.isArray(field.options) ? field.options : [];
+        const selectedValues = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
+        selectedValues.forEach((value) => {
+          const safeValue = String(value || "").trim();
+          if (!safeValue) return;
+          const matched = optionsList.find((opt) => String(opt.label || "").trim() === safeValue);
+          const adj = Number(matched?.priceAdjustment || 0);
+          optionAdjustment += Number.isFinite(adj) ? adj : 0;
+          resolvedOptions.push({
+            fieldLabel: String(field.label || fieldKey || "Option").trim(),
+            value: safeValue,
+            priceAdjustment: Number.isFinite(adj) ? adj : 0,
+          });
+        });
+      });
+      if (resolvedOptions.length > 0) {
+        return (
+          <div className="mt-1 space-y-1">
+            {resolvedOptions.map((option, idx) => {
+              const label = String(option.fieldLabel || "Option").trim();
+              const value = String(option.value || "").trim();
+              const adj = Number(option.priceAdjustment || 0);
+              const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}Rs ${Math.abs(adj)})` : "";
+              return (
+                <p key={`${item._id || "item"}-resolved-${label}-${value}-${idx}`} className="text-[11px] text-gray-500">
+                  {label}: {value}{adjText}
+                </p>
+              );
+            })}
+          </div>
+        );
+      }
+    }
+    const fields = Array.isArray(item?.productId?.customFields) ? item.productId.customFields : [];
+    const getLabel = (key) => {
+      const match = fields.find(
+        (field) =>
+          String(field?._id || "") === String(key) ||
+          String(field?.label || "").toLowerCase() === String(key || "").toLowerCase()
+      );
+      return String(match?.label || key || "").trim();
+    };
+    const lines = Object.entries(selected)
+      .map(([key, value]) => {
+        if (Array.isArray(value)) {
+          if (!value.length) return null;
+          return `${getLabel(key)}: ${value.join(", ")}`;
+        }
+        if (!String(value || "").trim()) return null;
+        return `${getLabel(key)}: ${value}`;
+      })
+      .filter(Boolean);
+    if (lines.length === 0) return null;
+
+    return (
+      <div className="mt-1 space-y-1">
+        {lines.map((line, idx) => (
+          <p key={`${item._id || "item"}-cf-${idx}`} className="text-[11px] text-gray-500">
+            {line}
+          </p>
+        ))}
+      </div>
+    );
+  };
+
   // 🧮 Calculations with Percentages
   const originalSubTotal = quote.requestedItems.reduce((acc, item) => acc + (item.quantity * (item.originalPrice || item.offeredPrice || 0)), 0);
   const offeredSubTotal = quote.requestedItems.reduce((acc, item) => acc + (item.quantity * (item.offeredPrice || 0)), 0);
@@ -64,6 +159,11 @@ const QuoteViewer = () => {
   const extraDiscount = quote.totalDiscount || 0;
   const shippingCharge = quote.shippingCharge || 0;
   const totalSavings = itemLevelSavings + extraDiscount;
+  const computedFinalTotal = Math.max(0, offeredSubTotal - extraDiscount + shippingCharge);
+  const displayFinalTotal =
+    Number.isFinite(Number(quote.finalTotal)) && Number(quote.finalTotal) > 0
+      ? Number(quote.finalTotal)
+      : computedFinalTotal;
   
   // Total Percentage Calculator
   const calculatePercentage = (discount, total) => {
@@ -169,6 +269,7 @@ const QuoteViewer = () => {
                       <tr key={item._id} className={`print:break-inside-avoid ${index % 2 === 0 ? "bg-white" : "bg-gray-50/50"}`}>
                         <td className="p-3 font-medium border-b border-gray-200">
                           {item.name}
+                          {renderSelectedOptions(item)}
                         </td>
                         <td className="p-3 font-bold text-center border-b border-gray-200">
                           {item.quantity}
@@ -236,7 +337,7 @@ const QuoteViewer = () => {
                 <div className="flex items-end justify-between pt-2 mt-2 border-t-2 border-gray-800">
                   <span className="text-lg font-bold text-gray-900 uppercase">Final Total:</span>
                   <span className="text-2xl font-black leading-none text-gray-900">
-                    ₹ {quote.finalTotal?.toLocaleString('en-IN') || "0"}
+                    ₹ {displayFinalTotal.toLocaleString('en-IN') || "0"}
                   </span>
                 </div>
               </div>

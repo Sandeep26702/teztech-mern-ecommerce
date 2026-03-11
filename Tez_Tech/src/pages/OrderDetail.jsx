@@ -10,6 +10,49 @@ const formatCurrency = (amount) =>
     maximumFractionDigits: 2,
   }).format(Number(amount || 0));
 
+const toSafeNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const getOrderShippingTotal = (order) => {
+  const orderShipping = toSafeNumber(order?.shippingAmount, NaN);
+  if (Number.isFinite(orderShipping)) return orderShipping;
+  return (order?.items || []).reduce((sum, item) => {
+    const perUnit = toSafeNumber(item?.shippingCharge, 0);
+    const line = toSafeNumber(item?.lineShippingTotal, perUnit * toSafeNumber(item?.quantity, 1));
+    return sum + line;
+  }, 0);
+};
+
+const renderSelectedOptions = (item) => {
+  if (Array.isArray(item?.selectedOptions) && item.selectedOptions.length > 0) {
+    return item.selectedOptions.map((option) => {
+      const fieldLabel = String(option.fieldLabel || "Option").trim();
+      const value = String(option.value || "").trim();
+      const priceAdjustment = toSafeNumber(option.priceAdjustment, 0);
+      const priceText = priceAdjustment
+        ? ` (${priceAdjustment >= 0 ? "+" : "-"}Rs ${Math.abs(priceAdjustment)})`
+        : "";
+      return `${fieldLabel}: ${value}${priceText}`;
+    });
+  }
+
+  const selected = item?.selectedCustomFields;
+  if (!selected || typeof selected !== "object") return [];
+
+  return Object.entries(selected)
+    .map(([key, value]) => {
+      if (Array.isArray(value)) {
+        if (!value.length) return null;
+        return `${key}: ${value.join(", ")}`;
+      }
+      if (!String(value || "").trim()) return null;
+      return `${key}: ${value}`;
+    })
+    .filter(Boolean);
+};
+
 const OrderDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -58,6 +101,17 @@ const OrderDetail = () => {
       </div>
     );
   }
+
+  const shippingAmount = getOrderShippingTotal(order);
+  const computedTotal = toSafeNumber(order.totalAmount, NaN);
+  const baseTotal = toSafeNumber(order.subtotalAmount, 0) + toSafeNumber(order.gstAmount, 0);
+  const computedLooksLegacy =
+    Number.isFinite(computedTotal) && Math.abs(computedTotal - baseTotal) < 0.01 && shippingAmount > 0;
+  const displayTotal = computedLooksLegacy
+    ? baseTotal + shippingAmount
+    : Number.isFinite(computedTotal)
+      ? computedTotal
+      : baseTotal + shippingAmount;
 
   return (
     <div className="min-h-screen px-4 pb-12 bg-gray-50 pt-24">
@@ -117,25 +171,37 @@ const OrderDetail = () => {
             </div>
 
             <div className="p-4 space-y-3">
-              {(order.items || []).map((item, index) => (
-                <div key={`${order._id}-${index}`} className="flex gap-3 p-3 border rounded-xl">
-                  <img src={item.image} alt={item.name} className="object-contain w-20 h-20 border rounded-lg bg-white" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-gray-900">{item.name}</p>
-                    <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
-                    <p className="text-xs text-gray-500">Unit: {formatCurrency(item.unitPrice || item.price)}</p>
-                    <div className="mt-2">
-                      <Link
-                        to={`/products/${item.productId?._id || item.productId}`}
-                        className="text-xs font-semibold text-blue-600 hover:underline no-print"
-                      >
-                        View Product Details
-                      </Link>
+              {(order.items || []).map((item, index) => {
+                const selectedLines = renderSelectedOptions(item);
+                return (
+                  <div key={`${order._id}-${index}`} className="flex gap-3 p-3 border rounded-xl">
+                    <img src={item.image} alt={item.name} className="object-contain w-20 h-20 border rounded-lg bg-white" />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-gray-900">{item.name}</p>
+                      <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                      <p className="text-xs text-gray-500">Unit: {formatCurrency(item.unitPrice || item.price)}</p>
+                      {selectedLines.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {selectedLines.map((line) => (
+                            <p key={`${order._id}-${index}-${line}`} className="text-[11px] text-gray-600">
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-2">
+                        <Link
+                          to={`/products/${item.productId?._id || item.productId}`}
+                          className="text-xs font-semibold text-blue-600 hover:underline no-print"
+                        >
+                          View Product Details
+                        </Link>
+                      </div>
                     </div>
+                    <p className="text-sm font-bold text-gray-900">{formatCurrency(item.lineTotal || item.price * item.quantity)}</p>
                   </div>
-                  <p className="text-sm font-bold text-gray-900">{formatCurrency(item.lineTotal || item.price * item.quantity)}</p>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="grid grid-cols-1 gap-3 p-4 border-t md:grid-cols-2">
@@ -152,7 +218,15 @@ const OrderDetail = () => {
                 <h3 className="mb-2 text-xs font-bold tracking-wide text-gray-500 uppercase">Order Summary</h3>
                 <p className="text-sm text-gray-700">Subtotal: {formatCurrency(order.subtotalAmount)}</p>
                 <p className="text-sm text-gray-700">GST: {formatCurrency(order.gstAmount)}</p>
-                <p className="mt-2 text-xl font-black text-orange-600">{formatCurrency(order.totalAmount)}</p>
+                <p className="text-sm text-gray-700">
+                  Shipping:{" "}
+                  {shippingAmount > 0 ? (
+                    formatCurrency(shippingAmount)
+                  ) : (
+                    <span className="font-semibold text-green-600">FREE</span>
+                  )}
+                </p>
+                <p className="mt-2 text-xl font-black text-orange-600">{formatCurrency(displayTotal)}</p>
                 <div className="flex flex-wrap gap-2 mt-2 md:justify-end">
                   <span className={`px-2 py-1 text-xs font-bold rounded ${order.paymentMethod === "ONLINE" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-800"}`}>
                     {order.paymentMethod === "ONLINE" ? "ONLINE PAYMENT" : "CASH ON DELIVERY"}

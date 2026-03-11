@@ -55,7 +55,7 @@ export const getMyCart = async (req, res) => {
   try {
     const cart = await Cart.findOne({ user: req.user._id }).populate(
       "items.productId",
-      "name price gstRate customFields image stock category"
+      "name price gstRate customFields image stock category shippingCharge"
     );
 
     if (!cart) {
@@ -118,7 +118,7 @@ export const addToCart = async (req, res) => {
 
     const updatedCart = await Cart.findById(cart._id).populate(
       "items.productId",
-      "name price gstRate customFields image stock category"
+      "name price gstRate customFields image stock category shippingCharge"
     );
 
     res.status(200).json({ success: true, message: "Item added to cart", cart: updatedCart });
@@ -147,7 +147,7 @@ export const removeFromCart = async (req, res) => {
 
     const updatedCart = await Cart.findById(cart._id).populate(
       "items.productId",
-      "name price gstRate customFields image stock category"
+      "name price gstRate customFields image stock category shippingCharge"
     );
 
     res.status(200).json({ success: true, message: "Item removed", cart: updatedCart });
@@ -183,7 +183,7 @@ export const updateCartItem = async (req, res) => {
       await cart.save();
       const updatedCart = await Cart.findById(cart._id).populate(
         "items.productId",
-        "name price gstRate customFields image stock category"
+        "name price gstRate customFields image stock category shippingCharge"
       );
       return res.status(200).json({ success: true, message: "Item removed", cart: updatedCart });
     }
@@ -198,7 +198,7 @@ export const updateCartItem = async (req, res) => {
 
     const updatedCart = await Cart.findById(cart._id).populate(
       "items.productId",
-      "name price gstRate customFields image stock category"
+      "name price gstRate customFields image stock category shippingCharge"
     );
     res.status(200).json({ success: true, message: "Quantity updated", cart: updatedCart });
   } catch (error) {
@@ -231,7 +231,7 @@ export const mergeCart = async (req, res) => {
     if (!Array.isArray(localItems) || localItems.length === 0) {
       const cart = await Cart.findOne({ user: userId }).populate(
         "items.productId",
-        "name price gstRate customFields image stock category"
+        "name price gstRate customFields image stock category shippingCharge"
       );
       return res.status(200).json({ success: true, message: "No items to merge", cart: cart || { items: [] } });
     }
@@ -271,7 +271,7 @@ export const mergeCart = async (req, res) => {
 
     const updatedCart = await Cart.findById(cart._id).populate(
       "items.productId",
-      "name price gstRate customFields image stock category"
+      "name price gstRate customFields image stock category shippingCharge"
     );
 
     res.status(200).json({ success: true, message: "Cart merged successfully", cart: updatedCart });

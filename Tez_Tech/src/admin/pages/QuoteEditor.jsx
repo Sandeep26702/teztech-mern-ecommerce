@@ -19,6 +19,310 @@ const QuoteEditor = () => {
   const [adminNotes, setAdminNotes] = useState("");
   const [totalDiscount, setTotalDiscount] = useState(""); 
   const [shippingCharge, setShippingCharge] = useState("");
+  const [showProductPicker, setShowProductPicker] = useState(false);
+  const [productSearch, setProductSearch] = useState("");
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [productSelections, setProductSelections] = useState({});
+
+  const renderSelectedOptions = (item) => {
+    const options = Array.isArray(item?.selectedOptions) ? item.selectedOptions : [];
+    if (options.length > 0) {
+      return (
+        <div className="mt-1 space-y-1">
+          {options.map((option, idx) => {
+            const label = String(option.fieldLabel || "Option").trim();
+            const value = String(option.value || "").trim();
+            const adj = Number(option.priceAdjustment || 0);
+            const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}Rs ${Math.abs(adj)})` : "";
+            return (
+              <p key={`${item._id || "item"}-${label}-${value}-${idx}`} className="text-[11px] text-gray-500">
+                {label}: {value}{adjText}
+              </p>
+            );
+          })}
+        </div>
+      );
+    }
+
+    const selected = item?.selectedCustomFields;
+    if (!selected || typeof selected !== "object") return null;
+    const product = item.productId && typeof item.productId === "object" ? item.productId : null;
+    if (product) {
+      const resolved = resolveSelections(product, selected);
+      if (resolved.selectedOptions.length > 0) {
+        return (
+          <div className="mt-1 space-y-1">
+            {resolved.selectedOptions.map((option, idx) => {
+              const label = String(option.fieldLabel || "Option").trim();
+              const value = String(option.value || "").trim();
+              const adj = Number(option.priceAdjustment || 0);
+              const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}Rs ${Math.abs(adj)})` : "";
+              return (
+                <p key={`${item._id || "item"}-resolved-${label}-${value}-${idx}`} className="text-[11px] text-gray-500">
+                  {label}: {value}{adjText}
+                </p>
+              );
+            })}
+          </div>
+        );
+      }
+    }
+    const fields = Array.isArray(item?.productId?.customFields) ? item.productId.customFields : [];
+    const getLabel = (key) => {
+      const match = fields.find(
+        (field) =>
+          String(field?._id || "") === String(key) ||
+          String(field?.label || "").toLowerCase() === String(key || "").toLowerCase()
+      );
+      return String(match?.label || key || "").trim();
+    };
+    const lines = Object.entries(selected)
+      .map(([key, value]) => {
+        if (Array.isArray(value)) {
+          if (!value.length) return null;
+          return `${getLabel(key)}: ${value.join(", ")}`;
+        }
+        if (!String(value || "").trim()) return null;
+        return `${getLabel(key)}: ${value}`;
+      })
+      .filter(Boolean);
+    if (lines.length === 0) return null;
+
+    return (
+      <div className="mt-1 space-y-1">
+        {lines.map((line, idx) => (
+          <p key={`${item._id || "item"}-cf-${idx}`} className="text-[11px] text-gray-500">
+            {line}
+          </p>
+        ))}
+      </div>
+    );
+  };
+
+  const getSelectionValue = (item, field) => {
+    const key = String(field?._id || field?.label || "");
+    if (!key) return field?.type === "checkbox" ? [] : "";
+    const selected = item?.selectedCustomFields || {};
+    return selected[key] ?? selected[field?.label] ?? (field?.type === "checkbox" ? [] : "");
+  };
+
+  const updateItemSelection = (itemId, field, value, checked) => {
+    const key = String(field?._id || field?.label || "");
+    if (!key) return;
+    setQuote((prev) => {
+      if (!prev?.requestedItems) return prev;
+      const updatedItems = prev.requestedItems.map((item) => {
+        if (item._id !== itemId) return item;
+        const current = item.selectedCustomFields || {};
+        let nextValue = value;
+        if (field.type === "checkbox") {
+          const currentArr = Array.isArray(current[key]) ? current[key] : [];
+          nextValue = checked
+            ? [...currentArr, value]
+            : currentArr.filter((entry) => String(entry) !== String(value));
+        }
+        const nextSelections = {
+          ...current,
+          [key]: nextValue,
+        };
+        const product = item.productId && typeof item.productId === "object" ? item.productId : null;
+        const { selectedOptions, optionAdjustment } = resolveSelections(product, nextSelections);
+        const basePrice = Number(product?.price || item.basePrice || 0);
+        const rawOriginal = item.originalPrice;
+        const originalPrice =
+          rawOriginal === "" || rawOriginal === null || rawOriginal === undefined
+            ? basePrice + optionAdjustment
+            : Number(rawOriginal);
+        const rawOffered = item.offeredPrice;
+        const offeredPrice =
+          rawOffered === "" || rawOffered === null || rawOffered === undefined
+            ? originalPrice
+            : Number(rawOffered);
+        return {
+          ...item,
+          basePrice,
+          optionAdjustment,
+          originalPrice: Number.isFinite(originalPrice) ? originalPrice : basePrice + optionAdjustment,
+          offeredPrice: Number.isFinite(offeredPrice) ? offeredPrice : basePrice + optionAdjustment,
+          selectedCustomFields: nextSelections,
+          selectedOptions,
+        };
+      });
+      return { ...prev, requestedItems: updatedItems };
+    });
+  };
+
+  const renderEditableSelections = (item) => {
+    const fields = Array.isArray(item?.productId?.customFields) ? item.productId.customFields : [];
+    if (fields.length === 0) return null;
+
+    return (
+      <div className="mt-2 space-y-2">
+        {fields.map((field) => {
+          const fieldKey = String(field?._id || field?.label || "");
+          if (!fieldKey) return null;
+          const selectedValue = getSelectionValue(item, field);
+          const options = Array.isArray(field.options) ? field.options : [];
+
+          return (
+            <div key={`${item._id}-${fieldKey}`} className="text-[11px] text-gray-600">
+              <div className="font-semibold text-gray-700">{field.label || "Option"}</div>
+              {field.type === "radio" && (
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {options.map((opt) => {
+                    const label = String(opt?.label || "").trim();
+                    if (!label) return null;
+                    return (
+                      <label key={`${fieldKey}-${label}`} className="flex items-center gap-1.5">
+                        <input
+                          type="radio"
+                          name={`${item._id}-${fieldKey}`}
+                          value={label}
+                          checked={String(selectedValue) === label}
+                          onChange={() => updateItemSelection(item._id, field, label)}
+                          className="accent-blue-600"
+                        />
+                        <span>{label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {field.type === "checkbox" && (
+                <div className="mt-1 flex flex-wrap gap-2">
+                  {options.map((opt) => {
+                    const label = String(opt?.label || "").trim();
+                    if (!label) return null;
+                    const isChecked = Array.isArray(selectedValue)
+                      ? selectedValue.map(String).includes(label)
+                      : false;
+                    return (
+                      <label key={`${fieldKey}-${label}`} className="flex items-center gap-1.5">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => updateItemSelection(item._id, field, label, e.target.checked)}
+                          className="accent-blue-600"
+                        />
+                        <span>{label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {field.type === "text" && (
+                <input
+                  type="text"
+                  value={typeof selectedValue === "string" ? selectedValue : ""}
+                  onChange={(e) => updateItemSelection(item._id, field, e.target.value)}
+                  className="mt-1 w-full max-w-xs rounded border border-gray-200 px-2 py-1 text-[11px] focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const fetchProducts = async (keyword = "") => {
+    try {
+      setProductsLoading(true);
+      const res = await api.get("/products", { params: { keyword, limit: 12 } });
+      setProducts(res.data.products || []);
+    } catch (error) {
+      console.error("Product fetch error:", error);
+      setProducts([]);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  const openProductPicker = async () => {
+    setShowProductPicker(true);
+    setSelectedProduct(null);
+    setProductSelections({});
+    await fetchProducts(productSearch);
+  };
+
+  const closeProductPicker = () => {
+    setShowProductPicker(false);
+    setSelectedProduct(null);
+    setProductSelections({});
+  };
+
+  const handlePickProduct = (product) => {
+    setSelectedProduct(product);
+    const initialSelections = {};
+    (product.customFields || []).forEach((field) => {
+      const key = String(field._id || field.label || "");
+      if (!key) return;
+      if (field.type === "checkbox") {
+        initialSelections[key] = [];
+      } else if (field.type === "radio") {
+        const first = (field.options || [])[0];
+        initialSelections[key] = String(first?.label || "");
+      } else {
+        initialSelections[key] = "";
+      }
+    });
+    setProductSelections(initialSelections);
+  };
+
+  const handleProductSelectionChange = (field, value, checked) => {
+    const key = String(field?._id || field?.label || "");
+    if (!key) return;
+    setProductSelections((prev) => {
+      let nextValue = value;
+      if (field.type === "checkbox") {
+        const currentArr = Array.isArray(prev[key]) ? prev[key] : [];
+        nextValue = checked
+          ? [...currentArr, value]
+          : currentArr.filter((entry) => String(entry) !== String(value));
+      }
+      return { ...prev, [key]: nextValue };
+    });
+  };
+
+  const addSelectedProductToQuote = () => {
+    if (!selectedProduct) return;
+    const hasMissingRequired = (selectedProduct.customFields || []).some((field) => {
+      if (!field.required) return false;
+      const key = String(field._id || field.label || "");
+      const value = productSelections[key] ?? productSelections[field.label];
+      if (field.type === "checkbox") {
+        return !Array.isArray(value) || value.length === 0;
+      }
+      return !value || String(value).trim() === "";
+    });
+    if (hasMissingRequired) {
+      alert("Please select all required options.");
+      return;
+    }
+    const { selectedOptions, optionAdjustment } = resolveSelections(selectedProduct, productSelections);
+    const basePrice = Number(selectedProduct.price || 0);
+    const originalPrice = basePrice + optionAdjustment;
+    const newItem = {
+      _id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      productId: selectedProduct,
+      name: selectedProduct.name || "Product",
+      quantity: 1,
+      basePrice,
+      optionAdjustment,
+      originalPrice,
+      offeredPrice: originalPrice,
+      selectedCustomFields: productSelections,
+      selectedOptions,
+    };
+
+    setQuote((prev) => ({
+      ...prev,
+      requestedItems: [...(prev?.requestedItems || []), newItem],
+    }));
+    closeProductPicker();
+  };
 
   useEffect(() => {
     fetchQuoteDetails();
@@ -29,8 +333,8 @@ const QuoteEditor = () => {
       const response = await api.get(`/quote/admin/${id}`);
       setQuote(response.data.quote);
       setAdminNotes(response.data.quote.adminNotes || "");
-      setTotalDiscount(response.data.quote.totalDiscount || "");
-      setShippingCharge(response.data.quote.shippingCharge || "");
+      setTotalDiscount(response.data.quote.totalDiscount ?? "");
+      setShippingCharge(response.data.quote.shippingCharge ?? "");
       
       if (response.data.quote.quoteToken && response.data.quote.status !== "Pending") {
          const generatedLink = `${window.location.origin}/quote/${response.data.quote.quoteToken}`;
@@ -56,6 +360,37 @@ const QuoteEditor = () => {
     setQuote({ ...quote, requestedItems: updatedItems });
   };
 
+  const resolveSelections = (product, selections) => {
+    if (!product || !Array.isArray(product.customFields)) {
+      return { selectedOptions: [], optionAdjustment: 0 };
+    }
+    const selectedOptions = [];
+    let optionAdjustment = 0;
+
+    product.customFields.forEach((field) => {
+      const fieldKey = String(field._id || field.label || "");
+      const selectedValue = selections[fieldKey] ?? selections[field.label];
+      if (!selectedValue || (Array.isArray(selectedValue) && !selectedValue.length)) return;
+
+      const options = Array.isArray(field.options) ? field.options : [];
+      const selectedValues = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
+      selectedValues.forEach((value) => {
+        const safeValue = String(value || "").trim();
+        if (!safeValue) return;
+        const matched = options.find((opt) => String(opt.label || "").trim() === safeValue);
+        const adj = Number(matched?.priceAdjustment || 0);
+        optionAdjustment += Number.isFinite(adj) ? adj : 0;
+        selectedOptions.push({
+          fieldLabel: String(field.label || fieldKey || "Option").trim(),
+          value: safeValue,
+          priceAdjustment: Number.isFinite(adj) ? adj : 0,
+        });
+      });
+    });
+
+    return { selectedOptions, optionAdjustment };
+  };
+
   const handleRemoveItem = (itemId) => {
     if(!window.confirm("Are you sure you want to remove this item?")) return;
     
@@ -63,15 +398,20 @@ const QuoteEditor = () => {
     setQuote({ ...quote, requestedItems: updatedItems });
   };
 
-  // 🔄 UPDATE: Ab ye blank row add nahi karega, seedha Product page pe bhejega
+  // Add product into the quote editor (admin flow)
   const handleAddItem = () => {
-    // '/products' ko aapne app ke actual products page ke route se change kar lena agar alag ho
-    navigate('/products', { state: { addingToQuoteId: id } });
+    openProductPicker();
   };
 
   const calculateSubTotal = () => {
     if (!quote || !quote.requestedItems) return 0;
-    return quote.requestedItems.reduce((acc, item) => acc + ((item.quantity || 0) * (item.offeredPrice || 0)), 0);
+    return quote.requestedItems.reduce((acc, item) => {
+      const quantity = Number(item.quantity || 0);
+      const offered = Number(item.offeredPrice);
+      const base = Number(item.originalPrice || item.price || 0);
+      const unit = Number.isFinite(offered) ? offered : base;
+      return acc + quantity * unit;
+    }, 0);
   };
 
   const handleCopyLink = () => {
@@ -100,11 +440,34 @@ const QuoteEditor = () => {
     const finalTotal = subTotal - Number(totalDiscount || 0) + Number(shippingCharge || 0);
 
     const itemsToSubmit = quote.requestedItems.map(item => {
+      const productId = item.productId?._id || item.productId || null;
+      const originalFallback = item.originalPrice === "" || item.originalPrice === null || item.originalPrice === undefined
+        ? Number(item.price || 0)
+        : Number(item.originalPrice);
+      const originalPrice = Number.isFinite(originalFallback) ? originalFallback : 0;
+      const offeredFallback = item.offeredPrice === "" || item.offeredPrice === null || item.offeredPrice === undefined
+        ? originalPrice
+        : Number(item.offeredPrice);
+      const offeredPrice = Number.isFinite(offeredFallback) ? offeredFallback : originalPrice;
+      const qtyFallback = item.quantity === "" || item.quantity === null || item.quantity === undefined
+        ? 1
+        : Number(item.quantity);
+      const quantity = Number.isFinite(qtyFallback) ? Math.max(1, Math.floor(qtyFallback)) : 1;
+
+      const normalizedItem = {
+        ...item,
+        productId,
+        name: String(item.name || "").trim(),
+        quantity,
+        originalPrice,
+        offeredPrice,
+      };
+
       if (item._id.startsWith("custom-")) {
         const { _id, ...rest } = item;
-        return rest; 
+        return { ...rest, ...normalizedItem, _id: undefined }; 
       }
-      return item;
+      return normalizedItem;
     });
 
     const updateData = {
@@ -271,6 +634,7 @@ const QuoteEditor = () => {
                             placeholder="Enter product name..."
                             className="w-full px-2 py-1 font-medium text-gray-800 transition-all border border-transparent rounded outline-none hover:border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-inherit"
                           />
+                          {renderSelectedOptions(item)}
                           {isDiscounted && item.offeredPrice > 0 && (
                             <div className="text-[10px] font-bold text-green-600 mt-1 ml-2 bg-green-50 inline-block px-1.5 py-0.5 rounded border border-green-200">
                               {discountPercent}% OFF
@@ -379,7 +743,7 @@ const QuoteEditor = () => {
                   <input 
                     type="number" 
                     min="0"
-                    value={totalDiscount === 0 ? "" : totalDiscount}
+                    value={totalDiscount === "" ? "" : totalDiscount}
                     onChange={(e) => setTotalDiscount(e.target.value === "" ? "" : Number(e.target.value))}
                     className="w-full py-1.5 pl-7 pr-3 text-sm font-bold text-right text-slate-800 transition-all bg-slate-50 border border-slate-200 rounded outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white focus:border-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
@@ -393,7 +757,7 @@ const QuoteEditor = () => {
                   <input
                     type="number"
                     min="0"
-                    value={shippingCharge === 0 ? "" : shippingCharge}
+                    value={shippingCharge === "" ? "" : shippingCharge}
                     onChange={(e) => setShippingCharge(e.target.value === "" ? "" : Number(e.target.value))}
                     className="w-full py-1.5 pl-8 pr-3 text-sm font-bold text-right text-slate-800 transition-all bg-slate-50 border border-slate-200 rounded outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white focus:border-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
@@ -437,6 +801,171 @@ const QuoteEditor = () => {
           </button>
         </div>
       </form>
+
+      {showProductPicker && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 md:items-center">
+          <div className="w-full max-w-5xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b px-6 py-4">
+              <h3 className="text-lg font-bold text-gray-900">Add Product to Quote</h3>
+              <button
+                onClick={closeProductPicker}
+                className="rounded-lg px-3 py-1.5 text-sm font-semibold text-gray-600 hover:bg-gray-100"
+              >
+                Close
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-0 md:grid-cols-[1fr_1.2fr]">
+              <div className="border-r">
+                <div className="p-4">
+                  <input
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    placeholder="Search product name..."
+                    className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fetchProducts(productSearch)}
+                    className="mt-3 w-full rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                  >
+                    Search
+                  </button>
+                </div>
+                <div className="max-h-[520px] overflow-y-auto">
+                  {productsLoading ? (
+                    <p className="p-4 text-sm text-gray-500">Loading products...</p>
+                  ) : products.length === 0 ? (
+                    <p className="p-4 text-sm text-gray-500">No products found.</p>
+                  ) : (
+                    products.map((product) => (
+                      <button
+                        key={product._id}
+                        type="button"
+                        onClick={() => handlePickProduct(product)}
+                        className={`flex w-full items-center gap-3 border-b px-4 py-3 text-left text-sm transition ${
+                          selectedProduct?._id === product._id ? "bg-blue-50" : "hover:bg-gray-50"
+                        }`}
+                      >
+                        <img
+                          src={product.image || "https://placehold.co/60x60?text=Img"}
+                          alt={product.name}
+                          className="h-12 w-12 rounded-md border object-contain"
+                        />
+                        <div>
+                          <p className="font-semibold text-gray-900">{product.name}</p>
+                          <p className="text-xs text-gray-500">Rs {Number(product.price || 0).toLocaleString("en-IN")}</p>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div className="p-6">
+                {!selectedProduct ? (
+                  <p className="text-sm text-gray-500">Select a product to configure options.</p>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={selectedProduct.image || "https://placehold.co/100x100?text=Img"}
+                        alt={selectedProduct.name}
+                        className="h-16 w-16 rounded-lg border object-contain"
+                      />
+                      <div>
+                        <p className="text-base font-bold text-gray-900">{selectedProduct.name}</p>
+                        <p className="text-sm text-gray-600">
+                          Base Price: Rs {Number(selectedProduct.price || 0).toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                    </div>
+
+                    {(selectedProduct.customFields || []).map((field) => {
+                      const fieldKey = String(field._id || field.label || "");
+                      if (!fieldKey) return null;
+                      const selectedValue =
+                        productSelections[fieldKey] ?? productSelections[field.label] ?? (field.type === "checkbox" ? [] : "");
+                      const options = Array.isArray(field.options) ? field.options : [];
+
+                      return (
+                        <div key={`picker-${fieldKey}`} className="rounded-lg border border-gray-200 p-3">
+                          <p className="text-xs font-bold uppercase text-gray-600">{field.label || "Option"}</p>
+                          {field.type === "radio" && (
+                            <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                              {options.map((opt) => {
+                                const label = String(opt?.label || "").trim();
+                                if (!label) return null;
+                                return (
+                                  <label key={`${fieldKey}-${label}`} className="flex items-center gap-2">
+                                    <input
+                                      type="radio"
+                                      name={`picker-${fieldKey}`}
+                                      checked={String(selectedValue) === label}
+                                      onChange={() => handleProductSelectionChange(field, label)}
+                                      className="accent-blue-600"
+                                    />
+                                    <span>{label}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {field.type === "checkbox" && (
+                            <div className="mt-2 flex flex-wrap gap-3 text-sm">
+                              {options.map((opt) => {
+                                const label = String(opt?.label || "").trim();
+                                if (!label) return null;
+                                const isChecked = Array.isArray(selectedValue)
+                                  ? selectedValue.map(String).includes(label)
+                                  : false;
+                                return (
+                                  <label key={`${fieldKey}-${label}`} className="flex items-center gap-2">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={(e) => handleProductSelectionChange(field, label, e.target.checked)}
+                                      className="accent-blue-600"
+                                    />
+                                    <span>{label}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
+                          {field.type === "text" && (
+                            <input
+                              type="text"
+                              value={typeof selectedValue === "string" ? selectedValue : ""}
+                              onChange={(e) => handleProductSelectionChange(field, e.target.value)}
+                              className="mt-2 w-full rounded border border-gray-200 px-3 py-2 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    <div className="flex items-center justify-between pt-2">
+                      <span className="text-sm font-semibold text-gray-700">
+                        Option Adjustment:
+                        {" "}
+                        Rs{" "}
+                        {resolveSelections(selectedProduct, productSelections).optionAdjustment.toLocaleString("en-IN")}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={addSelectedProductToQuote}
+                        className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                      >
+                        Add to Quote
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

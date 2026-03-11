@@ -48,6 +48,7 @@ export const QuoteProvider = ({ children }) => {
       const { data } = await api.post("/quote/add", {
         productId: product._id,
         quantity: 1, // Default quantity
+        selectedCustomFields: product.selectedCustomFields || {},
       });
 
       if (data.success) {

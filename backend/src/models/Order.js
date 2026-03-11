@@ -17,6 +17,7 @@ const orderItemSchema = new mongoose.Schema(
     unitPrice: { type: Number, required: true, min: 0 },
     gstAmount: { type: Number, required: true, min: 0 },
     price: { type: Number, required: true, min: 0 },
+    shippingCharge: { type: Number, default: 0, min: 0 },
     selectedCustomFields: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
@@ -30,6 +31,7 @@ const orderItemSchema = new mongoose.Schema(
     ],
     lineSubtotal: { type: Number, required: true, min: 0 },
     lineGstTotal: { type: Number, required: true, min: 0 },
+    lineShippingTotal: { type: Number, default: 0, min: 0 },
     lineTotal: { type: Number, required: true, min: 0 },
   },
   { _id: false }
@@ -85,6 +87,11 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       required: true,
       min: [0, "GST amount cannot be negative"],
+    },
+    shippingAmount: {
+      type: Number,
+      default: 0,
+      min: [0, "Shipping amount cannot be negative"],
     },
     totalAmount: {
       type: Number,

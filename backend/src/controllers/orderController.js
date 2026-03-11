@@ -190,6 +190,11 @@ const withNormalizedItems = (orderDoc) => {
     const gstRate = toSafeNumber(item.gstRate, 0);
     const unitPrice = toSafeNumber(item.unitPrice, toSafeNumber(item.price, basePrice + optionAdjustment));
     const gstAmount = toSafeNumber(item.gstAmount, round2(unitPrice - (basePrice + optionAdjustment)));
+    const shippingCharge = toSafeNumber(item.shippingCharge, toSafeNumber(populatedProduct?.shippingCharge, 0));
+    const lineShippingTotal = toSafeNumber(
+      item.lineShippingTotal,
+      round2(shippingCharge * toSafeNumber(item.quantity, 1))
+    );
 
     return {
       ...item,
@@ -203,6 +208,8 @@ const withNormalizedItems = (orderDoc) => {
       unitPrice,
       gstAmount,
       price: toSafeNumber(item.price, unitPrice),
+      shippingCharge,
+      lineShippingTotal,
     };
   });
 
@@ -217,6 +224,16 @@ const withNormalizedItems = (orderDoc) => {
   if (!Number.isFinite(toSafeNumber(order.gstAmount))) {
     order.gstAmount = round2(
       (order.items || []).reduce((sum, item) => sum + toSafeNumber(item.lineGstTotal, 0), 0)
+    );
+  }
+  if (!Number.isFinite(toSafeNumber(order.shippingAmount))) {
+    order.shippingAmount = round2(
+      (order.items || []).reduce((sum, item) => sum + toSafeNumber(item.lineShippingTotal, 0), 0)
+    );
+  }
+  if (!Number.isFinite(toSafeNumber(order.totalAmount))) {
+    order.totalAmount = round2(
+      toSafeNumber(order.subtotalAmount, 0) + toSafeNumber(order.gstAmount, 0) + toSafeNumber(order.shippingAmount, 0)
     );
   }
 
@@ -270,6 +287,7 @@ export const createOrder = async (req, res) => {
     const finalOrderItems = [];
     let subtotalAmount = 0;
     let gstAmount = 0;
+    let shippingAmount = 0;
 
     for (const rawItem of items) {
       const productId = rawItem?.productId?._id || rawItem?.productId;
@@ -308,6 +326,8 @@ export const createOrder = async (req, res) => {
       const lineSubtotal = round2(taxableUnit * quantity);
       const lineGstTotal = round2(unitGst * quantity);
       const lineTotal = round2(unitPrice * quantity);
+      const shippingCharge = Math.max(0, toSafeNumber(product.shippingCharge, 0));
+      const lineShippingTotal = round2(shippingCharge * quantity);
 
       finalOrderItems.push({
         productId: product._id,
@@ -321,10 +341,12 @@ export const createOrder = async (req, res) => {
         unitPrice,
         gstAmount: unitGst,
         price: unitPrice,
+        shippingCharge,
         selectedCustomFields,
         selectedOptions,
         lineSubtotal,
         lineGstTotal,
+        lineShippingTotal,
         lineTotal,
       });
 
@@ -333,6 +355,7 @@ export const createOrder = async (req, res) => {
 
       subtotalAmount += lineSubtotal;
       gstAmount += lineGstTotal;
+      shippingAmount += lineShippingTotal;
     }
 
     let savedOrder = null;
@@ -356,7 +379,8 @@ export const createOrder = async (req, res) => {
           paymentStatus: paymentMethod === "COD" ? "Pending" : "Paid",
           subtotalAmount: round2(subtotalAmount),
           gstAmount: round2(gstAmount),
-          totalAmount: round2(subtotalAmount + gstAmount),
+          shippingAmount: round2(shippingAmount),
+          totalAmount: round2(subtotalAmount + gstAmount + shippingAmount),
         });
 
         savedOrder = await order.save();

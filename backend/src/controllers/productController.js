@@ -92,11 +92,36 @@ const cleanLabel = (raw = "", prefix = "") =>
       .replace(/_/g, " ")
   ).toUpperCase();
 
-const splitOptionValues = (rawValue = "") =>
-  String(rawValue || "")
-    .split(/[|\n;]+/)
-    .map((value) => normalizeText(value))
-    .filter(Boolean);
+const splitOptionTokens = (rawValue = "") => {
+  const raw = String(rawValue || "").trim();
+  if (!raw) return [];
+  if (/[;\n]/.test(raw)) {
+    return raw
+      .split(/[;\n]+/)
+      .map((value) => normalizeText(value))
+      .filter(Boolean);
+  }
+  if (raw.includes("|")) {
+    const looksLikeAdjustment = /^.+\|\s*-?\d+(\.\d+)?$/.test(raw);
+    if (looksLikeAdjustment) return [normalizeText(raw)];
+    return raw
+      .split("|")
+      .map((value) => normalizeText(value))
+      .filter(Boolean);
+  }
+  return [normalizeText(raw)];
+};
+
+const parseOptionLine = (rawOption = "") => {
+  const [rawLabel, rawAdjustment] = String(rawOption || "").split("|");
+  const label = normalizeText(rawLabel);
+  if (!label) return null;
+  const adjustment = Number(rawAdjustment);
+  return {
+    label,
+    priceAdjustment: Number.isFinite(adjustment) ? adjustment : 0,
+  };
+};
 
 const ALLOWED_CUSTOM_FIELD_TYPES = new Set(["radio", "checkbox", "text"]);
 const toSafeNumber = (value, fallback = 0) => {
@@ -215,15 +240,24 @@ const buildCustomFieldsFromRows = (rows = []) => {
     .map((header) => {
       const uniqueMap = new Map();
       rows.forEach((row) => {
-        splitOptionValues(row[header]).forEach((option) => {
-          const key = option.toLowerCase();
-          if (!uniqueMap.has(key)) uniqueMap.set(key, option);
+        splitOptionTokens(row[header]).forEach((rawOption) => {
+          const parsed = parseOptionLine(rawOption);
+          if (!parsed) return;
+          const key = parsed.label.toLowerCase();
+          if (!uniqueMap.has(key)) {
+            uniqueMap.set(key, parsed);
+            return;
+          }
+          const existing = uniqueMap.get(key);
+          if (existing.priceAdjustment === 0 && parsed.priceAdjustment !== 0) {
+            uniqueMap.set(key, parsed);
+          }
         });
       });
 
       const options = Array.from(uniqueMap.values()).map((option) => ({
-        label: option,
-        priceAdjustment: 0,
+        label: option.label,
+        priceAdjustment: toSafeNumber(option.priceAdjustment, 0),
       }));
 
       return {
@@ -246,18 +280,25 @@ const buildCustomFieldsFromRows = (rows = []) => {
       if (!label) return;
       const mapKey = label.toLowerCase();
       if (!grouped.has(mapKey)) grouped.set(mapKey, { label: label.toUpperCase(), options: new Map() });
-      splitOptionValues(row[optionValueKey]).forEach((value) => {
-        const optionKey = value.toLowerCase();
+      splitOptionTokens(row[optionValueKey]).forEach((rawValue) => {
+        const parsed = parseOptionLine(rawValue);
+        if (!parsed) return;
+        const optionKey = parsed.label.toLowerCase();
         if (!grouped.get(mapKey).options.has(optionKey)) {
-          grouped.get(mapKey).options.set(optionKey, value);
+          grouped.get(mapKey).options.set(optionKey, parsed);
+          return;
+        }
+        const existing = grouped.get(mapKey).options.get(optionKey);
+        if (existing.priceAdjustment === 0 && parsed.priceAdjustment !== 0) {
+          grouped.get(mapKey).options.set(optionKey, parsed);
         }
       });
     });
 
     grouped.forEach((item) => {
-      const options = Array.from(item.options.values()).map((label) => ({
-        label,
-        priceAdjustment: 0,
+      const options = Array.from(item.options.values()).map((opt) => ({
+        label: opt.label,
+        priceAdjustment: toSafeNumber(opt.priceAdjustment, 0),
       }));
       if (options.length > 0) {
         genericOptionFields.push({
@@ -551,7 +592,26 @@ export const exportProductsCsv = async (req, res) => {
   try {
     const products = await Product.find({})
       .sort({ createdAt: -1 })
-      .select("name description price shippingCharge category brand stock image createdAt updatedAt");
+      .select("name description price shippingCharge category brand stock image createdAt updatedAt gstRate sku customFields details");
+
+    const detailKeys = new Map();
+    const variationKeys = new Map();
+
+    products.forEach((product) => {
+      (product.details || []).forEach((item) => {
+        const key = normalizeCsvKey(item?.key || "");
+        if (!key) return;
+        detailKeys.set(key, `product_attribute_${key}`);
+      });
+      (product.customFields || []).forEach((field) => {
+        const key = normalizeCsvKey(field?.label || "");
+        if (!key) return;
+        variationKeys.set(key, `product_variation_option_${key}`);
+      });
+    });
+
+    const detailHeaders = Array.from(detailKeys.values()).sort();
+    const variationHeaders = Array.from(variationKeys.values()).sort();
 
     const header = [
       "name",
@@ -559,28 +619,68 @@ export const exportProductsCsv = async (req, res) => {
       "brand",
       "category",
       "price",
+      "gst_rate",
       "shippingCharge",
       "stock",
       "image",
+      "sku",
+      "custom_fields",
+      "details",
       "createdAt",
       "updatedAt",
+      ...detailHeaders,
+      ...variationHeaders,
     ];
 
     const rows = products.map((product) =>
-      [
-        product.name,
-        product.description,
-        product.brand,
-        product.category,
-        product.price,
-        product.shippingCharge || 0,
-        product.stock,
-        product.image,
-        product.createdAt?.toISOString?.() || "",
-        product.updatedAt?.toISOString?.() || "",
-      ]
-        .map(csvEscape)
-        .join(",")
+      (() => {
+        const detailMap = new Map();
+        (product.details || []).forEach((item) => {
+          const key = normalizeCsvKey(item?.key || "");
+          if (!key) return;
+          detailMap.set(`product_attribute_${key}`, item?.value || "");
+        });
+
+        const variationMap = new Map();
+        (product.customFields || []).forEach((field) => {
+          const key = normalizeCsvKey(field?.label || "");
+          if (!key) return;
+          const headerKey = `product_variation_option_${key}`;
+          const options = Array.isArray(field.options)
+            ? field.options
+                .map((opt) => {
+                  const label = String(opt?.label || "").trim();
+                  if (!label) return null;
+                  const adj = Number(opt?.priceAdjustment || 0);
+                  return adj ? `${label}|${adj}` : label;
+                })
+                .filter(Boolean)
+            : [];
+          variationMap.set(headerKey, options.join(";"));
+        });
+
+        const base = [
+          product.name,
+          product.description,
+          product.brand,
+          product.category,
+          product.price,
+          product.gstRate || 0,
+          product.shippingCharge || 0,
+          product.stock,
+          product.image,
+          product.sku || "",
+          JSON.stringify(product.customFields || []),
+          JSON.stringify(product.details || []),
+          product.createdAt?.toISOString?.() || "",
+          product.updatedAt?.toISOString?.() || "",
+        ];
+
+        const detailValues = detailHeaders.map((key) => detailMap.get(key) || "");
+        const variationValues = variationHeaders.map((key) => variationMap.get(key) || "");
+
+        return [...base, ...detailValues, ...variationValues].map(csvEscape).join(",");
+      })()
     );
 
     const csv = [header.join(","), ...rows].join("\n");
@@ -625,6 +725,8 @@ export const importProductsCsv = async (req, res) => {
       image: ["image", "image_url", "imageurl", "product_media_main_image_url"],
       sku: ["sku", "product_sku"],
       internalId: ["product_internal_id", "internal_id"],
+      customFields: ["custom_fields", "customfields", "custom_fields_json", "customfields_json"],
+      details: ["details", "product_details", "product_attributes", "attributes", "specs"],
     };
 
     const hasAnyNameColumn = fieldAliases.name.some((h) => headers.includes(h));
@@ -689,6 +791,8 @@ export const importProductsCsv = async (req, res) => {
       const rawGstRate = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.gstRate);
       const rawIsAvailable = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.isAvailable).toLowerCase();
       const rawImage = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.image);
+      const rawCustomFields = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.customFields);
+      const rawDetails = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.details);
 
       const name = rawName || (sku ? `Product ${sku}` : `Imported Product ${groupKey}`);
       const description = stripHtml(rawDescription) || "No description provided";
@@ -718,8 +822,58 @@ export const importProductsCsv = async (req, res) => {
           : 18;
 
       const image = rawImage || DEFAULT_PRODUCT_IMAGE;
-      const customFields = buildCustomFieldsFromRows(sameProductRows);
-      const details = buildDetailsFromRows(sameProductRows);
+      const parsedCustomFields = parseCustomFields(rawCustomFields);
+      const parsedDetails = parseDetails(rawDetails);
+      const customFieldsFromRows = buildCustomFieldsFromRows(sameProductRows);
+      const detailsFromRows = buildDetailsFromRows(sameProductRows);
+
+      const customFields =
+        Array.isArray(parsedCustomFields) && parsedCustomFields.length > 0
+          ? (() => {
+              const merged = new Map();
+              parsedCustomFields.forEach((field) => {
+                const key = normalizeText(field.label).toLowerCase();
+                if (!key) return;
+                merged.set(key, { ...field, options: [...(field.options || [])] });
+              });
+              customFieldsFromRows.forEach((field) => {
+                const key = normalizeText(field.label).toLowerCase();
+                if (!key) return;
+                if (!merged.has(key)) {
+                  merged.set(key, { ...field, options: [...(field.options || [])] });
+                  return;
+                }
+                const existing = merged.get(key);
+                const optionMap = new Map(
+                  (existing.options || []).map((opt) => [normalizeText(opt.label).toLowerCase(), opt])
+                );
+                (field.options || []).forEach((opt) => {
+                  const optKey = normalizeText(opt.label).toLowerCase();
+                  if (!optionMap.has(optKey)) optionMap.set(optKey, opt);
+                });
+                existing.options = Array.from(optionMap.values());
+              });
+              return Array.from(merged.values()).filter((field) => (field.options || []).length > 0);
+            })()
+          : customFieldsFromRows;
+
+      const details =
+        Array.isArray(parsedDetails) && parsedDetails.length > 0
+          ? (() => {
+              const merged = new Map();
+              parsedDetails.forEach((item) => {
+                const key = normalizeText(item.key).toLowerCase();
+                if (!key) return;
+                merged.set(key, { key: item.key, value: item.value });
+              });
+              detailsFromRows.forEach((item) => {
+                const key = normalizeText(item.key).toLowerCase();
+                if (!key || merged.has(key)) return;
+                merged.set(key, { key: item.key, value: item.value });
+              });
+              return Array.from(merged.values());
+            })()
+          : detailsFromRows;
 
       preparedProducts.push({
         user: req.user._id,

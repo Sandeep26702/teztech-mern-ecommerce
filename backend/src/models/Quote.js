@@ -7,7 +7,7 @@ const requestedItemSchema = new mongoose.Schema(
     productId: { 
       type: mongoose.Schema.Types.ObjectId, 
       ref: "Product",
-      required: true 
+      default: null,
     },
     name: { type: String, required: true }, // Snapshot of product name
     quantity: { 
@@ -15,8 +15,21 @@ const requestedItemSchema = new mongoose.Schema(
       required: true,
       min: [1, "Quantity cannot be less than 1"]
     },
+    basePrice: { type: Number, default: 0 },
+    optionAdjustment: { type: Number, default: 0 },
     originalPrice: { type: Number, default: 0 },
-    offeredPrice: { type: Number, default: 0 } // Admin updates this later
+    offeredPrice: { type: Number, default: 0 }, // Admin updates this later
+    selectedCustomFields: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
+    selectedOptions: [
+      {
+        fieldLabel: { type: String, required: true },
+        value: { type: String, required: true },
+        priceAdjustment: { type: Number, default: 0 },
+      },
+    ],
   }
   // Note: We are NOT using {_id: false} here like we did in Cart. 
   // Why? Because Admins might need to update the price of a specific line-item later, and having an _id helps identify which item to update.

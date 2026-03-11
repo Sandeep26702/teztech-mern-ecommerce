@@ -45,6 +45,7 @@ const Quotation = () => {
           productId,
           name: item?.productId?.name || item?.name || "Product",
           quantity: Number(item?.quantity || 1),
+          selectedCustomFields: item?.selectedCustomFields || {},
         };
       })
       .filter((item) => item.productId && item.quantity > 0);

@@ -132,6 +132,7 @@ export const CartProvider = ({ children }) => {
           name: product.name,
           price: product.price,
           gstRate: product.gstRate || 0,
+          shippingCharge: product.shippingCharge || 0,
           image: product.image,
           stock: product.stock,
           category: product.category,

@@ -13,6 +13,8 @@ const getUnitPrice = (item) =>
       item?.price ??
       0
   );
+const getItemShippingCharge = (item) =>
+  Number(item?.productId?.shippingCharge ?? item?.shippingCharge ?? 0);
 
 const renderSelectedOptions = (item) => {
   const selected = item?.selectedCustomFields;
@@ -33,6 +35,11 @@ const renderSelectedOptions = (item) => {
 const Cart = () => {
   const { cartItems, removeFromCart, updateQuantity, getCartTotal } = useCart();
   const navigate = useNavigate();
+  const shippingTotal = cartItems.reduce(
+    (sum, item) => sum + getItemShippingCharge(item) * Number(item.quantity || 0),
+    0
+  );
+  const grandTotal = Math.round((getCartTotal() + shippingTotal) * 100) / 100;
 
   if (cartItems.length === 0) {
     return (
@@ -132,12 +139,16 @@ const Cart = () => {
                 </div>
                 <div className="flex justify-between text-gray-600">
                   <span>Delivery Charges</span>
-                  <span className="font-bold text-green-600">FREE</span>
+                  {shippingTotal > 0 ? (
+                    <span className="font-bold text-gray-800">Rs {shippingTotal}</span>
+                  ) : (
+                    <span className="font-bold text-green-600">FREE</span>
+                  )}
                 </div>
                 <div className="pt-4 mt-4 border-t border-gray-200 border-dashed">
                   <div className="flex justify-between text-xl font-black text-gray-900">
                     <span>Total Amount</span>
-                    <span className="text-orange-600">Rs {getCartTotal()}</span>
+                    <span className="text-orange-600">Rs {grandTotal}</span>
                   </div>
                 </div>
               </div>

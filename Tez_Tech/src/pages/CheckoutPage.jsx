@@ -8,6 +8,8 @@ import api from "../utils/api";
 const getItemKey = (item) => item._id || item.localItemId || item.productId?._id || item.productId;
 const getUnitPrice = (item) =>
   Number(item?.pricing?.unitPrice ?? item?.pricingSnapshot?.unitPrice ?? item?.unitPrice ?? item?.productId?.price ?? item?.price ?? 0);
+const getItemShippingCharge = (item) =>
+  Number(item?.productId?.shippingCharge ?? item?.shippingCharge ?? 0);
 
 const CheckoutPage = () => {
   const { cartItems, getCartTotal, clearCart } = useCart();
@@ -31,6 +33,11 @@ const CheckoutPage = () => {
   });
 
   const cartTotal = getCartTotal();
+  const shippingTotal = cartItems.reduce(
+    (sum, item) => sum + getItemShippingCharge(item) * Number(item.quantity || 0),
+    0
+  );
+  const grandTotal = Math.round((cartTotal + shippingTotal) * 100) / 100;
 
   useEffect(() => {
     if (!user) {
@@ -221,7 +228,7 @@ const CheckoutPage = () => {
                 </label>
               </div>
               <button type="submit" disabled={loading || cartItems.length === 0} className="w-full py-3 font-black text-white uppercase bg-orange-600 rounded-xl disabled:bg-gray-400">
-                {loading ? "Processing..." : `Place Order - Rs ${cartTotal}`}
+                {loading ? "Processing..." : `Place Order - Rs ${grandTotal}`}
               </button>
             </form>
           </div>
@@ -241,9 +248,17 @@ const CheckoutPage = () => {
                 ))}
               </div>
               <div className="pt-4 border-t">
+                <div className="flex justify-between mb-2 text-sm font-semibold text-gray-600">
+                  <span>Shipping</span>
+                  {shippingTotal > 0 ? (
+                    <span>Rs {shippingTotal}</span>
+                  ) : (
+                    <span className="text-green-600">FREE</span>
+                  )}
+                </div>
                 <div className="flex justify-between text-xl font-black text-orange-600">
                   <span>Total</span>
-                  <span>Rs {cartTotal}</span>
+                  <span>Rs {grandTotal}</span>
                 </div>
               </div>
             </div>

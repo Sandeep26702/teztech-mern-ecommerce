@@ -86,8 +86,8 @@ const AdminProductCsvManagement = () => {
 
   const downloadSampleCsv = () => {
     const sample = [
-      "name,description,brand,category,price,stock,image",
-      '"Sample Product","High quality industrial item","Sonani","Electronics",1999,25,https://placehold.co/600x600?text=Product',
+      "name,description,brand,category,price,gst_rate,shipping_charge,stock,image,sku,custom_fields,details,product_attribute_length,product_variation_option_material",
+      '"Sample Product","High quality industrial item","Sonani","Electronics",1999,18,50,25,"https://placehold.co/600x600?text=Product","SKU-123","[{""label"":""MATERIAL"",""type"":""radio"",""required"":true,""options"":[{""label"":""PolySheet"",""priceAdjustment"":0},{""label"":""Acrylic"",""priceAdjustment"":150}]}]","[{""key"":""LENGTH"",""value"":""2 Meter""}]","2 Meter","PolySheet|0;Acrylic|150"',
     ].join("\n");
 
     const blob = new Blob([sample], { type: "text/csv;charset=utf-8;" });

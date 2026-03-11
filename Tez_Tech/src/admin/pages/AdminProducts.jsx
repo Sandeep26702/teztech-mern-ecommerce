@@ -17,6 +17,7 @@ import {
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 
 const createFieldId = () => `cf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+const createDetailId = () => `dt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 const createEmptyCustomField = () => ({
   tempId: createFieldId(),
@@ -24,6 +25,12 @@ const createEmptyCustomField = () => ({
   type: "radio",
   required: false,
   optionsText: "",
+});
+
+const createEmptyDetail = () => ({
+  tempId: createDetailId(),
+  key: "",
+  value: "",
 });
 
 const parseOptionLine = (rawOption = "") => {
@@ -76,6 +83,7 @@ const AdminProducts = () => {
     imageFile: null,
     previewImage: null, // 🔥 Image preview state
     customFields: [],
+    details: [],
   });
 
   const navigate = useNavigate();
@@ -158,6 +166,7 @@ const AdminProducts = () => {
       imageFile: null,
       previewImage: null,
       customFields: [],
+      details: [],
     });
     setShowForm(true);
   };
@@ -183,6 +192,11 @@ const AdminProducts = () => {
         required: Boolean(field.required),
         optionsText: (field.options || []).map(optionToEditorText).filter(Boolean).join("\n"),
       })),
+      details: (product.details || []).map((item) => ({
+        tempId: createDetailId(),
+        key: item.key || "",
+        value: item.value || "",
+      })),
     });
     setShowForm(true);
   };
@@ -200,10 +214,24 @@ const AdminProducts = () => {
     }));
   };
 
+  const addDetailField = () => {
+    setFormData((prev) => ({
+      ...prev,
+      details: [...prev.details, createEmptyDetail()],
+    }));
+  };
+
   const removeCustomField = (index) => {
     setFormData((prev) => ({
       ...prev,
       customFields: prev.customFields.filter((_, i) => i !== index),
+    }));
+  };
+
+  const removeDetailField = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      details: prev.details.filter((_, i) => i !== index),
     }));
   };
 
@@ -213,6 +241,13 @@ const AdminProducts = () => {
       customFields: prev.customFields.map((field, i) =>
         i === index ? { ...field, [key]: value } : field
       ),
+    }));
+  };
+
+  const updateDetailField = (index, key, value) => {
+    setFormData((prev) => ({
+      ...prev,
+      details: prev.details.map((item, i) => (i === index ? { ...item, [key]: value } : item)),
     }));
   };
 
@@ -268,6 +303,16 @@ const AdminProducts = () => {
       .filter(Boolean);
       
     data.append("customFields", JSON.stringify(normalizedCustomFields));
+
+    const normalizedDetails = (formData.details || [])
+      .map((item) => {
+        const key = String(item.key || "").trim();
+        const value = String(item.value || "").trim();
+        if (!key || !value) return null;
+        return { key, value };
+      })
+      .filter(Boolean);
+    data.append("details", JSON.stringify(normalizedDetails));
 
     try {
       if (isEditing) {
@@ -710,6 +755,57 @@ const AdminProducts = () => {
                       </div>
                     );
                   })
+                )}
+              </div>
+
+              <div className="space-y-5 p-6 bg-white border border-gray-200 rounded-2xl shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-4">
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-900">Product Details</h4>
+                    <p className="text-sm text-gray-500">Key/value specs shown on product detail page.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addDetailField}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl hover:bg-emerald-100 transition shadow-sm"
+                  >
+                    <FaPlus size={12} /> Add Detail
+                  </button>
+                </div>
+
+                {formData.details.length === 0 ? (
+                  <div className="p-6 text-sm text-center text-gray-500 border-2 border-dashed border-gray-200 rounded-xl bg-gray-50">
+                    No details added. Click "Add Detail" to create specs.
+                  </div>
+                ) : (
+                  formData.details.map((item, index) => (
+                    <div
+                      key={item.tempId || `detail-${index}`}
+                      className="flex flex-col gap-3 md:flex-row md:items-center"
+                    >
+                      <input
+                        type="text"
+                        value={item.key}
+                        onChange={(e) => updateDetailField(index, "key", e.target.value)}
+                        placeholder="Key (e.g. Length, Material)"
+                        className="w-full md:w-1/3 px-4 py-2.5 text-sm border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      />
+                      <input
+                        type="text"
+                        value={item.value}
+                        onChange={(e) => updateDetailField(index, "value", e.target.value)}
+                        placeholder="Value"
+                        className="w-full md:flex-1 px-4 py-2.5 text-sm border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeDetailField(index)}
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-bold text-red-700 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition"
+                      >
+                        <FaTrash /> Remove
+                      </button>
+                    </div>
+                  ))
                 )}
               </div>
 

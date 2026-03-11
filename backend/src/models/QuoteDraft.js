@@ -13,6 +13,10 @@ const draftItemSchema = new mongoose.Schema(
       default: 1,
       min: 1,
     },
+    selectedCustomFields: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
   },
   { _id: false } // Mongoose optimization
 );
