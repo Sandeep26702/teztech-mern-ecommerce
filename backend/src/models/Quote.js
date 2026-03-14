@@ -72,7 +72,11 @@ const quoteSchema = new mongoose.Schema(
     adminNotes: { type: String, default: "" }, 
     totalDiscount: { type: Number, default: 0 },
     shippingCharge: { type: Number, default: 0, min: 0 },
-    finalTotal: { type: Number, default: 0 }, 
+    finalTotal: { type: Number, default: 0 },
+    isManual: { type: Boolean, default: false },
+    additionalChargeName: { type: String, default: "" },
+    additionalChargeAmount: { type: Number, default: 0, min: 0 },
+    gstPercentage: { type: Number, default: 0, min: 0, max: 100 },
     
     // 5. STATUS AND VALIDITY
     quoteToken: { 
@@ -102,7 +106,8 @@ quoteSchema.pre("validate", function () {
 // 6. DATABASE INDEXING (For Fast Queries)
 // ==========================================
 quoteSchema.index({ user: 1 });
-quoteSchema.index({ status: 1 }); 
+quoteSchema.index({ status: 1 });
+quoteSchema.index({ isManual: 1 });
 // quoteNumber already has unique index from schema field definition.
 
 export default mongoose.model("Quote", quoteSchema);

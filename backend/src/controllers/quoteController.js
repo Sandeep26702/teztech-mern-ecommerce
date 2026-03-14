@@ -571,3 +571,112 @@ export const updateQuoteStatus = async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
+
+export const createManualQuote = async (req, res) => {
+  try {
+    const { userDetails, requestedItems, shippingCharge = 0, additionalChargeName = "", additionalChargeAmount = 0, gstPercentage = 0 } = req.body;
+
+    if (!requestedItems || requestedItems.length === 0) {
+      return res.status(400).json({ success: false, message: "No items provided in the manual quotation" });
+    }
+    if (!userDetails?.name || !userDetails?.phone) {
+      return res.status(400).json({ success: false, message: "Client name and phone are required for manual quote" });
+    }
+
+    const normalizedItems = requestedItems.map((item) => {
+      const prodId = item.productId?._id || item.productId;
+      if (!prodId || !Number.isFinite(Number(item.quantity)) || Number(item.quantity) < 1) {
+        throw new Error("Invalid manual quote item data");
+      }
+      if (!mongoose.Types.ObjectId.isValid(prodId)) {
+        throw new Error(`Invalid productId: ${prodId}`);
+      }
+      return {
+        productId: prodId.toString(),
+        quantity: Number(item.quantity),
+        name: item.name || "Unknown Product",
+        offeredPrice: toSafeNumber(item.offeredPrice, 0), // Admin can override price
+        selectedCustomFields: normalizeSelectedCustomFields(item.selectedCustomFields || {}),
+      };
+    });
+
+    const productIds = [...new Set(normalizedItems.map((item) => item.productId))];
+    const products = await Product.find({ _id: { $in: productIds } }).select("_id name sku image sellingPrice price customFields");
+    const productMap = new Map(products.map((p) => [p._id.toString(), p]));
+
+    const missingProducts = productIds.filter((id) => !productMap.has(id));
+    if (missingProducts.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Some products are no longer available: ${missingProducts.slice(0,3).join(", ")}${missingProducts.length > 3 ? '...' : ''}`
+      });
+    }
+
+    const itemsWithPrices = normalizedItems.map((item) => {
+      const product = productMap.get(item.productId);
+      let basePrice = toSafeNumber(product?.sellingPrice || product?.price, 0);
+      const optionAdjustment = 0; // Simplified for manual, admin sets offeredPrice
+      const offeredPrice = Math.max(0, toSafeNumber(item.offeredPrice, basePrice));
+
+      return {
+        productId: item.productId,
+        name: product?.name || item.name,
+        quantity: item.quantity,
+        basePrice,
+        optionAdjustment,
+        originalPrice: basePrice,
+        offeredPrice,
+        selectedCustomFields: item.selectedCustomFields,
+        selectedOptions: [],
+      };
+    });
+
+    const subtotal = itemsWithPrices.reduce((sum, item) => sum + (item.offeredPrice * item.quantity), 0);
+    const gstAmount = round2(subtotal * (gstPercentage / 100));
+    const safeShipping = Math.max(0, toSafeNumber(shippingCharge, 0));
+    const safeAdditional = Math.max(0, toSafeNumber(additionalChargeAmount, 0));
+    const finalTotal = subtotal + gstAmount + safeShipping + safeAdditional;
+
+    const token = crypto.randomBytes(12).toString('hex');
+
+    const newQuote = new Quote({
+      user: null, // Manual quotes not tied to registered user
+      userDetails,
+      requestedItems: itemsWithPrices,
+      adminNotes: `Manual quote created by Admin on ${new Date().toISOString()}`,
+      shippingCharge: safeShipping,
+      additionalChargeName,
+      additionalChargeAmount: safeAdditional,
+      gstPercentage,
+      finalTotal,
+      quoteToken: token,
+      status: "Responded",
+      isManual: true,
+    });
+
+    await newQuote.save();
+
+    const shareableLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/quote/${token}`;
+
+    res.status(201).json({ 
+      success: true, 
+      message: "Manual quotation created successfully!", 
+      quote: newQuote,
+      shareLink: shareableLink 
+    });
+  } catch (error) {
+    console.error("Create Manual Quote Error:", error);
+    if (
+      error?.name === "ValidationError" ||
+      error?.name === "CastError" ||
+      error?.code === 11000 ||
+      error?.message?.includes("Invalid")
+    ) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+const round2 = (num) => Math.round(num * 100) / 100;
+

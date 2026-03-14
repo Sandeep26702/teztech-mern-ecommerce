@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { FaEye, FaEdit, FaFileInvoiceDollar } from "react-icons/fa";
+import { FaEye, FaEdit, FaFileInvoiceDollar, FaPlus } from "react-icons/fa";
 import api from "../../utils/api"; // Axios instance with interceptors for seamless API calls and error handling
+import CreateManualQuotationModal from "../components/CreateManualQuotationModal.jsx";
 
 const QuotesTable = () => {
   const [quotes, setQuotes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showManualModal, setShowManualModal] = useState(false);
 
   useEffect(() => {
     fetchQuotes();
@@ -39,6 +41,12 @@ const QuotesTable = () => {
         <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-800">
           <FaFileInvoiceDollar className="text-blue-600" /> Quotation Requests
         </h2>
+        <button 
+          onClick={() => setShowManualModal(true)}
+          className="flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white shadow-lg bg-emerald-600 rounded-xl hover:bg-emerald-700"
+        >
+          <FaPlus /> Create Manual Quotation
+        </button>
       </div>
 
       {loading ? (
@@ -90,6 +98,8 @@ const QuotesTable = () => {
           </table>
         </div>
       )}
+      </div>
+      <CreateManualQuotationModal isOpen={showManualModal} onClose={() => setShowManualModal(false)} />
     </div>
   );
 };

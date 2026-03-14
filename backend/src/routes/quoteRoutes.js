@@ -12,6 +12,7 @@ import {
   getAllQuotes, 
   getQuoteById, 
   respondToQuote, 
+  createManualQuote,
   getQuoteByToken, 
   updateQuoteStatus 
 } from '../controllers/quoteController.js';
@@ -57,6 +58,9 @@ router.get('/admin/:id', protect, admin, getQuoteById);
 
 // Admin updates the quote (sets offered prices, discounts, validity)
 router.put('/respond/:id', protect, admin, respondToQuote);
+
+// Admin creates manual quotation for WhatsApp clients
+router.post('/manual', protect, admin, createManualQuote);
 
 /* ============================================================
    4. PUBLIC ROUTES (Accessible via Shareable Links)
