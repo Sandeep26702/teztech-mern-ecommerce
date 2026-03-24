@@ -4,6 +4,12 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 
 const getItemKey = (item) => item._id || item.localItemId || item.productId?._id || item.productId;
+const getProductId = (item) =>
+  item?.productId?._id ||
+  item?.productId?.id ||
+  (typeof item?.productId === "string" ? item.productId : null) ||
+  item?.product?._id ||
+  item?.product;
 const getUnitPrice = (item) =>
   Number(
     item?.pricing?.unitPrice ??
@@ -20,14 +26,25 @@ const renderSelectedOptions = (item) => {
   const selected = item?.selectedCustomFields;
   if (!selected || typeof selected !== "object") return [];
 
+  const fields = Array.isArray(item?.productId?.customFields) ? item.productId.customFields : [];
+  const getLabel = (key) => {
+    const match = fields.find(
+      (field) =>
+        String(field?._id || "") === String(key) ||
+        String(field?.label || "").toLowerCase() === String(key || "").toLowerCase()
+    );
+    return String(match?.label || key || "").trim();
+  };
+
   return Object.entries(selected)
     .map(([key, value]) => {
+      const label = getLabel(key);
       if (Array.isArray(value)) {
         if (!value.length) return null;
-        return `${key}: ${value.join(", ")}`;
+        return `${label}: ${value.join(", ")}`;
       }
       if (!String(value || "").trim()) return null;
-      return `${key}: ${value}`;
+      return `${label}: ${value}`;
     })
     .filter(Boolean);
 };
@@ -64,6 +81,7 @@ const Cart = () => {
             <div className="overflow-hidden bg-white border border-gray-100 shadow-sm rounded-2xl">
               {cartItems.map((item) => {
                 const itemKey = getItemKey(item);
+                const productId = getProductId(item);
                 const itemImage =
                   item.productId?.image ||
                   item.productId?.images?.[0]?.url ||
@@ -75,7 +93,27 @@ const Cart = () => {
                 const selectedOptions = renderSelectedOptions(item);
 
                 return (
-                  <div key={itemKey} className="flex flex-col gap-4 p-4 border-b border-gray-100 sm:flex-row sm:items-center last:border-0 hover:bg-gray-50/50">
+                  <div
+                    key={itemKey}
+                    className="flex flex-col gap-4 p-4 border-b border-gray-100 sm:flex-row sm:items-center last:border-0 hover:bg-gray-50/50 cursor-pointer"
+                    onClick={() =>
+                      productId &&
+                      navigate(`/products/${productId}`, {
+                        state: { selectedCustomFields: item.selectedCustomFields || {} },
+                      })
+                    }
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (!productId) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        navigate(`/products/${productId}`, {
+                          state: { selectedCustomFields: item.selectedCustomFields || {} },
+                        });
+                      }
+                    }}
+                  >
                     <div className="flex-shrink-0 w-24 h-24 overflow-hidden border border-gray-100 bg-gray-50 rounded-xl">
                       <img src={itemImage} alt={itemName} className="object-contain w-full h-full" />
                     </div>
@@ -97,14 +135,20 @@ const Cart = () => {
                     <div className="flex items-center gap-4">
                       <div className="flex items-center bg-white border border-gray-200 rounded-lg shadow-sm">
                         <button
-                          onClick={() => updateQuantity(itemKey, Math.max(1, item.quantity - 1))}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateQuantity(itemKey, Math.max(1, item.quantity - 1));
+                          }}
                           className="p-2 transition-colors hover:text-orange-600"
                         >
                           <FaMinus className="text-xs" />
                         </button>
                         <span className="w-10 font-bold text-center text-gray-800">{item.quantity}</span>
                         <button
-                          onClick={() => updateQuantity(itemKey, item.quantity + 1)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateQuantity(itemKey, item.quantity + 1);
+                          }}
                           className="p-2 transition-colors hover:text-orange-600"
                         >
                           <FaPlus className="text-xs" />
@@ -112,7 +156,10 @@ const Cart = () => {
                       </div>
 
                       <button
-                        onClick={() => removeFromCart(itemKey)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFromCart(itemKey);
+                        }}
                         className="p-3 text-gray-400 transition-colors hover:text-red-500 hover:bg-red-50 rounded-xl"
                       >
                         <FaTrashAlt />

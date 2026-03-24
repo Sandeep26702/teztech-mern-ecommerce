@@ -158,7 +158,7 @@ const Products = () => {
             <input
               type="text"
               className="block w-full py-3.5 pl-11 pr-24 transition-all bg-white border border-gray-200 rounded-full shadow-sm leading-5 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Search components..."
+              placeholder="Search by name or tags..."
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
             />

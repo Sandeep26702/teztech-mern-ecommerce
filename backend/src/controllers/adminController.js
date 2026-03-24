@@ -6,10 +6,18 @@ import Order from "../models/Order.js";
 export const getDashboardStats = async (req, res) => {
   try {
     // 1. Sabhi counts parallel mein fetch karein (Performance fast hogi)
-    const [totalUsers, totalProducts, totalOrders] = await Promise.all([
+    const [totalUsers, totalProducts, activeProducts, outOfStockProducts, totalOrders, recentOrders] = await Promise.all([
       User.countDocuments(),
       Product ? Product.countDocuments() : Promise.resolve(0),
-      Order ? Order.countDocuments() : Promise.resolve(0)
+      Product ? Product.countDocuments({ status: { $regex: "^active$", $options: "i" } }) : Promise.resolve(0),
+      Product ? Product.countDocuments({ stock: { $lte: 0 } }) : Promise.resolve(0),
+      Order ? Order.countDocuments() : Promise.resolve(0),
+      Order
+        ? Order.find({})
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .select("orderCode orderNumber totalAmount createdAt orderStatus shippingInfo")
+        : Promise.resolve([]),
     ]);
 
     // 2. Revenue calculation
@@ -24,8 +32,11 @@ export const getDashboardStats = async (req, res) => {
       success: true,
       totalUsers,     // Seedha bhej rahe hain bina extra 'data' object ke
       totalProducts,
+      activeProducts,
+      outOfStockProducts,
       totalOrders,
-      totalRevenue
+      totalRevenue,
+      recentOrders: recentOrders || [],
     });
 
   } catch (error) {

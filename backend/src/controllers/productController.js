@@ -1,3 +1,4 @@
+import fs from "fs/promises";
 import Product from "../models/Product.js";
 import ProductImportJob from "../models/ProductImportJob.js";
 import Category from "../models/Category.js";
@@ -125,8 +126,136 @@ const parseOptionLine = (rawOption = "") => {
 
 const ALLOWED_CUSTOM_FIELD_TYPES = new Set(["radio", "checkbox", "text"]);
 const toSafeNumber = (value, fallback = 0) => {
-  const parsed = Number(value);
+  const parsed = Number(String(value ?? "").replace(/,/g, ""));
   return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const toOptionalNumber = (value) => {
+  if (value === undefined || value === null) return null;
+  const raw = String(value).replace(/,/g, "").trim();
+  if (!raw) return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const hasMeaningfulValue = (value) => {
+  if (value === undefined || value === null) return false;
+  const raw = String(value).trim();
+  if (!raw) return false;
+  const parsed = Number(raw);
+  if (Number.isFinite(parsed) && parsed === 0) return false;
+  return true;
+};
+
+const parseSearchTags = (rawValue = "") => {
+  const raw = String(rawValue || "").trim();
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((tag) => normalizeText(tag.replace(/[()]/g, "")))
+    .filter(Boolean);
+};
+
+const normalizeStatus = (rawValue = "") => {
+  const raw = normalizeText(rawValue).toLowerCase();
+  if (!raw) return "Active";
+  if (raw.includes("hidden") || raw.includes("inactive")) return "Hidden";
+  return "Active";
+};
+
+const buildCategoryPath = (categories = []) =>
+  categories.map((item) => normalizeText(item)).filter(Boolean).join(" / ");
+
+const buildSearchIndex = (name = "", sku = "", tags = []) =>
+  normalizeText([name, sku, ...(Array.isArray(tags) ? tags : [])].join(" ")).toLowerCase();
+
+const buildCatalogCustomFields = (variation) => {
+  const fields = [];
+  const buildOption = (label, adjustment) => {
+    if (adjustment === null || adjustment === undefined) return null;
+    const safeLabel = normalizeText(label);
+    if (!safeLabel) return null;
+    return { label: safeLabel, priceAdjustment: toSafeNumber(adjustment, 0) };
+  };
+
+  const colorOptions = [
+    buildOption("Red", variation.colorRedAdd),
+    buildOption("Green", variation.colorGreenAdd),
+    buildOption("Blue", variation.colorBlueAdd),
+  ].filter(Boolean);
+  if (colorOptions.length > 0) {
+    fields.push({ label: "Color", type: "radio", required: true, options: colorOptions });
+  }
+
+  const holeOptions = [
+    buildOption("9mm", variation.hole9mmAdd),
+    buildOption("12mm", variation.hole12mmAdd),
+  ].filter(Boolean);
+  if (holeOptions.length > 0) {
+    fields.push({ label: "Hole Size", type: "radio", required: true, options: holeOptions });
+  }
+
+  const materialOptions = [
+    buildOption("TezTech", variation.materialTezTechAdd),
+    buildOption("Sunrise", variation.materialSunriseAdd),
+  ].filter(Boolean);
+  if (materialOptions.length > 0) {
+    fields.push({ label: "Material Brand", type: "radio", required: true, options: materialOptions });
+  }
+
+  const powerOptions = [
+    buildOption("12W", variation.power12WAdd),
+    buildOption("24W", variation.power24WAdd),
+  ].filter(Boolean);
+  if (powerOptions.length > 0) {
+    fields.push({ label: "Power", type: "radio", required: true, options: powerOptions });
+  }
+
+  const addonOptions = [
+    buildOption("Remote", variation.remoteAdd),
+    buildOption("Waterproof", variation.waterproofAdd),
+  ].filter(Boolean);
+  if (addonOptions.length > 0) {
+    fields.push({ label: "Add-ons", type: "checkbox", required: false, options: addonOptions });
+  }
+
+  return fields;
+};
+
+const buildCatalogDetails = (specs = {}) => {
+  const specRows = [
+    { key: "Height (ft)", value: specs.heightFt },
+    { key: "Width (ft)", value: specs.widthFt },
+    { key: "Total Holes", value: specs.totalHoles },
+    { key: "Hole Size", value: specs.holeSize },
+    { key: "Material Type", value: specs.materialType },
+    { key: "Sheet Thickness", value: specs.sheetThickness },
+    { key: "LED Compatible", value: specs.ledCompatible },
+    { key: "Input Voltage", value: specs.inputVoltage },
+    { key: "Output Voltage", value: specs.outputVoltage },
+    { key: "Power (Watt)", value: specs.powerWatt },
+    { key: "Connectivity", value: specs.connectivity },
+    { key: "IC Number", value: specs.icNumber },
+    { key: "LED Per Meter", value: specs.ledPerMeter },
+    { key: "Controller Type", value: specs.controllerType },
+    { key: "Warranty", value: specs.warranty },
+  ];
+
+  return specRows
+    .map((item) => ({
+      key: normalizeText(item.key),
+      value: normalizeText(item.value),
+    }))
+    .filter((item) => item.key && hasMeaningfulValue(item.value));
+};
+
+const cleanupUploadedCsv = async (file) => {
+  if (!file?.path) return;
+  try {
+    await fs.unlink(file.path);
+  } catch {
+    // Ignore cleanup errors (file may already be removed).
+  }
 };
 
 const parseCustomFields = (rawValue) => {
@@ -396,29 +525,61 @@ const cleanupAllUnusedCategories = async () => {
   return cleanupUnusedCategoriesByNames(allCategoryNames);
 };
 
+const buildProductFilters = ({ keyword, category, minPriceRaw, maxPriceRaw, includeHidden }) => {
+  const filters = {};
+  const andConditions = [];
+
+  const searchTerm = normalizeText(keyword);
+  if (searchTerm) {
+    const regex = { $regex: searchTerm, $options: "i" };
+    andConditions.push({
+      $or: [
+        { name: regex },
+        { searchIndex: regex },
+        { searchTags: regex },
+        { sku: regex },
+      ],
+    });
+  }
+
+  const categoryTerm = normalizeText(category);
+  if (categoryTerm) {
+    const regex = { $regex: `^${escapeRegex(categoryTerm)}$`, $options: "i" };
+    andConditions.push({ $or: [{ category: regex }, { categoryPath: regex }] });
+  }
+
+  const minPrice = Number(minPriceRaw);
+  const maxPrice = Number(maxPriceRaw);
+  if (Number.isFinite(minPrice) || Number.isFinite(maxPrice)) {
+    const priceFilter = {};
+    if (Number.isFinite(minPrice)) priceFilter.$gte = minPrice;
+    if (Number.isFinite(maxPrice)) priceFilter.$lte = maxPrice;
+    andConditions.push({ price: priceFilter });
+  }
+
+  if (!includeHidden) {
+    filters.status = { $regex: "^active$", $options: "i" };
+  }
+
+  if (andConditions.length) {
+    filters.$and = andConditions;
+  }
+
+  return filters;
+};
+
 // @desc    Fetch all products from DB (With Search & Pagination)
 export const getProducts = async (req, res) => {
   try {
-    const keyword = String(req.query.keyword || "").trim();
+    const keyword = String(req.query.keyword || req.query.q || "").trim();
     const category = String(req.query.category || "").trim();
-    const minPriceRaw = req.query.minPrice;
-    const maxPriceRaw = req.query.maxPrice;
-
-    const filters = {};
-    if (keyword) {
-      filters.name = { $regex: keyword, $options: "i" };
-    }
-    if (category) {
-      filters.category = { $regex: `^${escapeRegex(category)}$`, $options: "i" };
-    }
-
-    const minPrice = Number(minPriceRaw);
-    const maxPrice = Number(maxPriceRaw);
-    if (Number.isFinite(minPrice) || Number.isFinite(maxPrice)) {
-      filters.price = {};
-      if (Number.isFinite(minPrice)) filters.price.$gte = minPrice;
-      if (Number.isFinite(maxPrice)) filters.price.$lte = maxPrice;
-    }
+    const filters = buildProductFilters({
+      keyword,
+      category,
+      minPriceRaw: req.query.minPrice,
+      maxPriceRaw: req.query.maxPrice,
+      includeHidden: false,
+    });
 
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 8;
@@ -444,13 +605,47 @@ export const getProducts = async (req, res) => {
         .limit(limit);
     }
 
-    // Frontend yahi format expect kar raha hai
-    res.status(200).json({ 
-      success: true, 
+    res.status(200).json({
+      success: true,
       products,
       page,
-      totalPages: Math.ceil(count / limit) || 1, 
-      totalProducts: count 
+      totalPages: Math.ceil(count / limit) || 1,
+      totalProducts: count,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Fetch all products for Admin (includes hidden)
+export const getProductsAdmin = async (req, res) => {
+  try {
+    const keyword = String(req.query.keyword || req.query.q || "").trim();
+    const category = String(req.query.category || "").trim();
+    const filters = buildProductFilters({
+      keyword,
+      category,
+      minPriceRaw: req.query.minPrice,
+      maxPriceRaw: req.query.maxPrice,
+      includeHidden: true,
+    });
+
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 50;
+    const skip = (page - 1) * limit;
+
+    const count = await Product.countDocuments(filters);
+    const products = await Product.find(filters)
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      products,
+      page,
+      totalPages: Math.ceil(count / limit) || 1,
+      totalProducts: count,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -478,27 +673,29 @@ export const createProduct = async (req, res) => {
     const customFields = parseCustomFields(req.body.customFields) || [];
     const details = parseDetails(req.body.details) || [];
 
-    if (!name || !description || !price || !brand) {
+    if (!name) {
       return res.status(400).json({ 
         success: false, 
-        message: "Please provide all required fields (Name, Price, Brand, Description)" 
+        message: "Please provide product name" 
       });
     }
 
     const product = await Product.create({
       name,
-      description,
-      price: Number(price),
-      category,
-      stock: Number(stock) || 0, 
+      description: description || name,
+      price: Number(price) || 0,
+      sellingPrice: Number(price) || 0,
+      category: category || "Uncategorized",
+      stock: Number(stock) || 0,
       gstRate: Math.max(0, Math.min(100, toSafeNumber(gstRate, 0))),
       shippingCharge: Math.max(0, toSafeNumber(shippingCharge, 0)),
-      brand,
-      sku: normalizeText(sku),
-      image,
+      brand: brand || "",
+      sku: normalizeText(sku) || undefined,
+      image: image || DEFAULT_PRODUCT_IMAGE,
       user: req.user._id,
       customFields,
       details,
+      searchIndex: buildSearchIndex(name, normalizeText(sku) || "", []),
     });
 
     res.status(201).json({ success: true, product });
@@ -525,14 +722,18 @@ export const updateProduct = async (req, res) => {
     const image = req.file ? req.file.path : product.image;
 
     // 3. Prepare Update Object with strict Number conversion
+    const nextName = name || product.name;
+    const nextSku = sku !== undefined ? normalizeText(sku) || undefined : product.sku;
+
     const updatedData = {
-      name: name || product.name,
+      name: nextName,
       description: description || product.description,
       price: price ? Number(price) : product.price,
+      sellingPrice: price ? Number(price) : product.sellingPrice ?? product.price,
       category: category || product.category,
       brand: brand || product.brand,
-      sku: sku !== undefined ? normalizeText(sku) : product.sku || "",
-      stock: stock !== undefined ? Math.max(0, Number(stock)) : product.stock, 
+      sku: nextSku,
+      stock: stock !== undefined ? Math.max(0, Number(stock)) : product.stock,
       gstRate:
         gstRate !== undefined
           ? Math.max(0, Math.min(100, toSafeNumber(gstRate, product.gstRate || 0)))
@@ -544,6 +745,7 @@ export const updateProduct = async (req, res) => {
       image: image,
       customFields: parsedCustomFields !== undefined ? parsedCustomFields : product.customFields,
       details: parsedDetails !== undefined ? parsedDetails : product.details,
+      searchIndex: buildSearchIndex(nextName, nextSku || "", product.searchTags || []),
     };
 
     // 4. Update in Database
@@ -556,6 +758,39 @@ export const updateProduct = async (req, res) => {
     res.status(200).json({ success: true, product: updatedProduct });
   } catch (error) {
     console.error("Update Error:", error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Update Product Status (Admin Only)
+export const updateProductStatus = async (req, res) => {
+  try {
+    const statusInput = req.body?.status;
+    const isActive = req.body?.isActive;
+    let nextStatus = "";
+
+    if (typeof isActive === "boolean") {
+      nextStatus = isActive ? "Active" : "Hidden";
+    } else if (statusInput !== undefined) {
+      nextStatus = normalizeStatus(statusInput);
+    }
+
+    if (!nextStatus) {
+      return res.status(400).json({ success: false, message: "Status or isActive is required" });
+    }
+
+    const product = await Product.findByIdAndUpdate(
+      req.params.id,
+      { status: nextStatus },
+      { new: true }
+    );
+
+    if (!product) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    res.status(200).json({ success: true, product });
+  } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -592,96 +827,113 @@ export const exportProductsCsv = async (req, res) => {
   try {
     const products = await Product.find({})
       .sort({ createdAt: -1 })
-      .select("name description price shippingCharge category brand stock image createdAt updatedAt gstRate sku customFields details");
-
-    const detailKeys = new Map();
-    const variationKeys = new Map();
-
-    products.forEach((product) => {
-      (product.details || []).forEach((item) => {
-        const key = normalizeCsvKey(item?.key || "");
-        if (!key) return;
-        detailKeys.set(key, `product_attribute_${key}`);
-      });
-      (product.customFields || []).forEach((field) => {
-        const key = normalizeCsvKey(field?.label || "");
-        if (!key) return;
-        variationKeys.set(key, `product_variation_option_${key}`);
-      });
-    });
-
-    const detailHeaders = Array.from(detailKeys.values()).sort();
-    const variationHeaders = Array.from(variationKeys.values()).sort();
+      .select(
+        "productId sku name categories categoryPath mrp sellingPrice stock status searchTags images heightFt widthFt totalHoles holeSize materialType sheetThickness ledCompatible inputVoltage outputVoltage powerWatt connectivity icNumber ledPerMeter controllerType warranty colorRedAdd colorGreenAdd colorBlueAdd hole9mmAdd hole12mmAdd materialTezTechAdd materialSunriseAdd power12WAdd power24WAdd remoteAdd waterproofAdd"
+      );
 
     const header = [
-      "name",
-      "description",
-      "brand",
-      "category",
-      "price",
-      "gst_rate",
-      "shippingCharge",
-      "stock",
-      "image",
-      "sku",
-      "custom_fields",
-      "details",
-      "createdAt",
-      "updatedAt",
-      ...detailHeaders,
-      ...variationHeaders,
+      "Product_ID",
+      "SKU",
+      "Product_Name",
+      "Category_1",
+      "Category_2",
+      "Category_3",
+      "Category_4",
+      "Category_5",
+      "MRP",
+      "Selling_Price",
+      "Stock",
+      "Status",
+      "Search_Tags",
+      "Image_1",
+      "Image_2",
+      "Image_3",
+      "Image_4",
+      "Image_5",
+      "Image_6",
+      "Height_ft",
+      "Width_ft",
+      "Total_Holes",
+      "Hole_Size",
+      "Material_Type",
+      "Sheet_Thickness",
+      "LED_Compatible",
+      "Input_Voltage",
+      "Output_Voltage",
+      "Power_Watt",
+      "Connectivity",
+      "IC_Number",
+      "LED_Per_Meter",
+      "Controller_Type",
+      "Warranty",
+      "Color_Red_Add",
+      "Color_Green_Add",
+      "Color_Blue_Add",
+      "Hole_9mm_Add",
+      "Hole_12mm_Add",
+      "Material_TezTech_Add",
+      "Material_Sunrise_Add",
+      "Power_12W_Add",
+      "Power_24W_Add",
+      "Remote_Add",
+      "Waterproof_Add",
     ];
 
-    const rows = products.map((product) =>
-      (() => {
-        const detailMap = new Map();
-        (product.details || []).forEach((item) => {
-          const key = normalizeCsvKey(item?.key || "");
-          if (!key) return;
-          detailMap.set(`product_attribute_${key}`, item?.value || "");
-        });
+    const rows = products.map((product) => {
+      const categories = Array.isArray(product.categories) ? product.categories : [];
+      const images = Array.isArray(product.images) ? product.images : [];
+      const searchTags = Array.isArray(product.searchTags) ? product.searchTags.join(",") : "";
 
-        const variationMap = new Map();
-        (product.customFields || []).forEach((field) => {
-          const key = normalizeCsvKey(field?.label || "");
-          if (!key) return;
-          const headerKey = `product_variation_option_${key}`;
-          const options = Array.isArray(field.options)
-            ? field.options
-                .map((opt) => {
-                  const label = String(opt?.label || "").trim();
-                  if (!label) return null;
-                  const adj = Number(opt?.priceAdjustment || 0);
-                  return adj ? `${label}|${adj}` : label;
-                })
-                .filter(Boolean)
-            : [];
-          variationMap.set(headerKey, options.join(";"));
-        });
+      const base = [
+        product.productId || "",
+        product.sku || "",
+        product.name || "",
+        categories[0] || "",
+        categories[1] || "",
+        categories[2] || "",
+        categories[3] || "",
+        categories[4] || "",
+        product.mrp ?? 0,
+        product.sellingPrice ?? product.price ?? 0,
+        product.stock ?? 0,
+        product.status || "Active",
+        searchTags,
+        images[0] || "",
+        images[1] || "",
+        images[2] || "",
+        images[3] || "",
+        images[4] || "",
+        images[5] || "",
+        product.heightFt || "",
+        product.widthFt || "",
+        product.totalHoles || "",
+        product.holeSize || "",
+        product.materialType || "",
+        product.sheetThickness || "",
+        product.ledCompatible || "",
+        product.inputVoltage || "",
+        product.outputVoltage || "",
+        product.powerWatt || "",
+        product.connectivity || "",
+        product.icNumber || "",
+        product.ledPerMeter || "",
+        product.controllerType || "",
+        product.warranty || "",
+        product.colorRedAdd ?? "",
+        product.colorGreenAdd ?? "",
+        product.colorBlueAdd ?? "",
+        product.hole9mmAdd ?? "",
+        product.hole12mmAdd ?? "",
+        product.materialTezTechAdd ?? "",
+        product.materialSunriseAdd ?? "",
+        product.power12WAdd ?? "",
+        product.power24WAdd ?? "",
+        product.remoteAdd ?? "",
+        product.waterproofAdd ?? "",
+      ];
 
-        const base = [
-          product.name,
-          product.description,
-          product.brand,
-          product.category,
-          product.price,
-          product.gstRate || 0,
-          product.shippingCharge || 0,
-          product.stock,
-          product.image,
-          product.sku || "",
-          JSON.stringify(product.customFields || []),
-          JSON.stringify(product.details || []),
-          product.createdAt?.toISOString?.() || "",
-          product.updatedAt?.toISOString?.() || "",
-        ];
-
-        const detailValues = detailHeaders.map((key) => detailMap.get(key) || "");
-        const variationValues = variationHeaders.map((key) => variationMap.get(key) || "");
-
-        return [...base, ...detailValues, ...variationValues].map(csvEscape).join(",");
-      })()
-    );
+      return base.map(csvEscape).join(",");
+    });
 
     const csv = [header.join(","), ...rows].join("\n");
 
@@ -711,35 +963,17 @@ export const importProductsCsv = async (req, res) => {
     }
 
     const headers = rows[0].map(normalizeCsvKey);
-    const fieldAliases = {
-      type: ["type"],
-      name: ["name", "product_name", "title"],
-      description: ["description", "product_description", "body_html"],
-      brand: ["brand", "product_brand", "vendor"],
-      category: ["category", "product_category_1", "category_path"],
-      price: ["price", "product_price", "sale_price"],
-      shippingCharge: ["shipping_charge", "shippingcharge", "delivery_charge", "deliverycharge"],
-      stock: ["stock", "product_quantity", "quantity", "inventory"],
-      isAvailable: ["product_is_available", "is_available"],
-      gstRate: ["gst_rate", "tax_rate", "product_gst_rate"],
-      image: ["image", "image_url", "imageurl", "product_media_main_image_url"],
-      sku: ["sku", "product_sku"],
-      internalId: ["product_internal_id", "internal_id"],
-      customFields: ["custom_fields", "customfields", "custom_fields_json", "customfields_json"],
-      details: ["details", "product_details", "product_attributes", "attributes", "specs"],
-    };
-
-    const hasAnyNameColumn = fieldAliases.name.some((h) => headers.includes(h));
-    if (!hasAnyNameColumn) {
-      return res.status(400).json({
-        success: false,
-        message: "CSV must include product name column (name or product_name)",
-      });
+    if (!headers.includes("sku")) {
+      return res.status(400).json({ success: false, message: "CSV must include SKU column" });
+    }
+    if (!headers.includes("product_name")) {
+      return res.status(400).json({ success: false, message: "CSV must include Product_Name column" });
     }
 
-    const groupedRows = new Map();
     const rowErrors = [];
     let skippedRows = 0;
+    const preparedProducts = [];
+    const touchedCategoryNames = new Set();
 
     for (let i = 1; i < rows.length; i += 1) {
       const rowNumber = i + 1;
@@ -756,154 +990,169 @@ export const importProductsCsv = async (req, res) => {
         continue;
       }
 
-      const sku = normalizeText(getFirstNonEmptyValue(rowObj, fieldAliases.sku));
-      const internalId = normalizeText(getFirstNonEmptyValue(rowObj, fieldAliases.internalId));
-      const rawName = normalizeText(getFirstNonEmptyValue(rowObj, fieldAliases.name));
-      const rowType = getFirstNonEmptyValue(rowObj, fieldAliases.type).toLowerCase();
-      const isLikelyProductLinkedRow =
-        sku !== "" ||
-        internalId !== "" ||
-        rawName !== "" ||
-        ["product", "option", "variation", "product_option"].includes(rowType);
-      if (!isLikelyProductLinkedRow) {
-        skippedRows += 1;
+      const sku = normalizeText(rowObj.sku);
+      if (!sku) {
+        rowErrors.push({ row: rowNumber, message: "Missing SKU" });
         continue;
       }
-      const groupKey = sku || internalId || rawName || `row-${rowNumber}`;
 
-      const grouped = groupedRows.get(groupKey) || [];
-      grouped.push(rowObj);
-      groupedRows.set(groupKey, grouped);
-    }
-
-    const preparedProducts = [];
-    const touchedCategoryNames = new Set();
-    for (const [groupKey, sameProductRows] of groupedRows.entries()) {
-      const sku = normalizeText(getFirstNonEmptyFromRows(sameProductRows, fieldAliases.sku));
-      const internalId = normalizeText(getFirstNonEmptyFromRows(sameProductRows, fieldAliases.internalId));
-      const rawName = normalizeText(getFirstNonEmptyFromRows(sameProductRows, fieldAliases.name));
-      const rawDescription = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.description);
-      const rawBrand = normalizeText(getFirstNonEmptyFromRows(sameProductRows, fieldAliases.brand));
-      const rawCategory = normalizeText(getFirstNonEmptyFromRows(sameProductRows, fieldAliases.category));
-      const rawPrice = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.price);
-      const rawShippingCharge = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.shippingCharge);
-      const rawStock = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.stock);
-      const rawGstRate = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.gstRate);
-      const rawIsAvailable = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.isAvailable).toLowerCase();
-      const rawImage = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.image);
-      const rawCustomFields = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.customFields);
-      const rawDetails = getFirstNonEmptyFromRows(sameProductRows, fieldAliases.details);
-
-      const name = rawName || (sku ? `Product ${sku}` : `Imported Product ${groupKey}`);
-      const description = stripHtml(rawDescription) || "No description provided";
-      const brand = rawBrand || "Generic";
-      const category = rawCategory || "Uncategorized";
+      const name = normalizeText(rowObj.product_name) || sku;
+      const categories = [
+        rowObj.category_1,
+        rowObj.category_2,
+        rowObj.category_3,
+        rowObj.category_4,
+        rowObj.category_5,
+      ]
+        .map((value) => normalizeText(value))
+        .filter(Boolean);
+      const categoryPath = buildCategoryPath(categories);
+      const category = categories[0] || "Uncategorized";
       touchedCategoryNames.add(category);
 
-      const parsedPrice = Number(rawPrice);
-      const price = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : 0;
+      const searchTags = parseSearchTags(rowObj.search_tags);
+      const searchIndex = buildSearchIndex(name, sku, searchTags);
 
-      const parsedShipping = Number(rawShippingCharge);
-      const shippingCharge = Number.isFinite(parsedShipping) && parsedShipping >= 0 ? parsedShipping : 0;
+      const mrp = Math.max(0, toSafeNumber(rowObj.mrp, 0));
+      const sellingPrice = Math.max(0, toSafeNumber(rowObj.selling_price, 0));
+      const stock = Math.max(0, Math.floor(toSafeNumber(rowObj.stock, 0)));
 
-      const parsedStock = Number(rawStock);
-      const availabilityHint = ["1", "true", "yes"].includes(rawIsAvailable);
-      const stock =
-        Number.isFinite(parsedStock) && parsedStock >= 0
-          ? Math.max(availabilityHint && parsedStock === 0 ? 1 : Math.floor(parsedStock), 0)
-          : availabilityHint
-          ? 1
-          : 0;
+      const images = [
+        rowObj.image_1,
+        rowObj.image_2,
+        rowObj.image_3,
+        rowObj.image_4,
+        rowObj.image_5,
+        rowObj.image_6,
+      ]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
 
-      const parsedGstRate = Number(rawGstRate);
-      const gstRate =
-        Number.isFinite(parsedGstRate) && parsedGstRate >= 0
-          ? Math.min(parsedGstRate, 100)
-          : 18;
+      const specs = {
+        heightFt: rowObj.height_ft,
+        widthFt: rowObj.width_ft,
+        totalHoles: rowObj.total_holes,
+        holeSize: rowObj.hole_size,
+        materialType: rowObj.material_type,
+        sheetThickness: rowObj.sheet_thickness,
+        ledCompatible: rowObj.led_compatible,
+        inputVoltage: rowObj.input_voltage,
+        outputVoltage: rowObj.output_voltage,
+        powerWatt: rowObj.power_watt,
+        connectivity: rowObj.connectivity,
+        icNumber: rowObj.ic_number,
+        ledPerMeter: rowObj.led_per_meter,
+        controllerType: rowObj.controller_type,
+        warranty: rowObj.warranty,
+      };
 
-      const image = rawImage || DEFAULT_PRODUCT_IMAGE;
-      const parsedCustomFields = parseCustomFields(rawCustomFields);
-      const parsedDetails = parseDetails(rawDetails);
-      const customFieldsFromRows = buildCustomFieldsFromRows(sameProductRows);
-      const detailsFromRows = buildDetailsFromRows(sameProductRows);
+      const variation = {
+        colorRedAdd: toOptionalNumber(rowObj.color_red_add),
+        colorGreenAdd: toOptionalNumber(rowObj.color_green_add),
+        colorBlueAdd: toOptionalNumber(rowObj.color_blue_add),
+        hole9mmAdd: toOptionalNumber(rowObj.hole_9mm_add),
+        hole12mmAdd: toOptionalNumber(rowObj.hole_12mm_add),
+        materialTezTechAdd: toOptionalNumber(rowObj.material_teztech_add),
+        materialSunriseAdd: toOptionalNumber(rowObj.material_sunrise_add),
+        power12WAdd: toOptionalNumber(rowObj.power_12w_add),
+        power24WAdd: toOptionalNumber(rowObj.power_24w_add),
+        remoteAdd: toOptionalNumber(rowObj.remote_add),
+        waterproofAdd: toOptionalNumber(rowObj.waterproof_add),
+      };
 
-      const customFields =
-        Array.isArray(parsedCustomFields) && parsedCustomFields.length > 0
-          ? (() => {
-              const merged = new Map();
-              parsedCustomFields.forEach((field) => {
-                const key = normalizeText(field.label).toLowerCase();
-                if (!key) return;
-                merged.set(key, { ...field, options: [...(field.options || [])] });
-              });
-              customFieldsFromRows.forEach((field) => {
-                const key = normalizeText(field.label).toLowerCase();
-                if (!key) return;
-                if (!merged.has(key)) {
-                  merged.set(key, { ...field, options: [...(field.options || [])] });
-                  return;
-                }
-                const existing = merged.get(key);
-                const optionMap = new Map(
-                  (existing.options || []).map((opt) => [normalizeText(opt.label).toLowerCase(), opt])
-                );
-                (field.options || []).forEach((opt) => {
-                  const optKey = normalizeText(opt.label).toLowerCase();
-                  if (!optionMap.has(optKey)) optionMap.set(optKey, opt);
-                });
-                existing.options = Array.from(optionMap.values());
-              });
-              return Array.from(merged.values()).filter((field) => (field.options || []).length > 0);
-            })()
-          : customFieldsFromRows;
-
-      const details =
-        Array.isArray(parsedDetails) && parsedDetails.length > 0
-          ? (() => {
-              const merged = new Map();
-              parsedDetails.forEach((item) => {
-                const key = normalizeText(item.key).toLowerCase();
-                if (!key) return;
-                merged.set(key, { key: item.key, value: item.value });
-              });
-              detailsFromRows.forEach((item) => {
-                const key = normalizeText(item.key).toLowerCase();
-                if (!key || merged.has(key)) return;
-                merged.set(key, { key: item.key, value: item.value });
-              });
-              return Array.from(merged.values());
-            })()
-          : detailsFromRows;
+      const customFields = buildCatalogCustomFields(variation);
+      const details = buildCatalogDetails(specs);
 
       preparedProducts.push({
         user: req.user._id,
+        productId: normalizeText(rowObj.product_id),
+        sku,
         name,
-        sku: sku || internalId,
-        description,
-        brand,
+        description: name,
+        brand: "",
         category,
-        price,
-        gstRate,
-        shippingCharge,
+        categoryPath,
+        categories,
+        mrp,
+        sellingPrice,
+        price: sellingPrice,
         stock,
-        image,
+        status: normalizeStatus(rowObj.status),
+        searchTags,
+        searchIndex,
+        images,
+        image: images[0] || DEFAULT_PRODUCT_IMAGE,
+        heightFt: normalizeText(specs.heightFt),
+        widthFt: normalizeText(specs.widthFt),
+        totalHoles: normalizeText(specs.totalHoles),
+        holeSize: normalizeText(specs.holeSize),
+        materialType: normalizeText(specs.materialType),
+        sheetThickness: normalizeText(specs.sheetThickness),
+        ledCompatible: normalizeText(specs.ledCompatible),
+        inputVoltage: normalizeText(specs.inputVoltage),
+        outputVoltage: normalizeText(specs.outputVoltage),
+        powerWatt: normalizeText(specs.powerWatt),
+        connectivity: normalizeText(specs.connectivity),
+        icNumber: normalizeText(specs.icNumber),
+        ledPerMeter: normalizeText(specs.ledPerMeter),
+        controllerType: normalizeText(specs.controllerType),
+        warranty: normalizeText(specs.warranty),
+        colorRedAdd: variation.colorRedAdd,
+        colorGreenAdd: variation.colorGreenAdd,
+        colorBlueAdd: variation.colorBlueAdd,
+        hole9mmAdd: variation.hole9mmAdd,
+        hole12mmAdd: variation.hole12mmAdd,
+        materialTezTechAdd: variation.materialTezTechAdd,
+        materialSunriseAdd: variation.materialSunriseAdd,
+        power12WAdd: variation.power12WAdd,
+        power24WAdd: variation.power24WAdd,
+        remoteAdd: variation.remoteAdd,
+        waterproofAdd: variation.waterproofAdd,
         customFields,
         details,
+        gstRate: 0,
+        shippingCharge: 0,
       });
     }
 
     await ensureCategoriesExist(Array.from(touchedCategoryNames), req.user._id);
 
     let insertedCount = 0;
+    let updatedCount = 0;
     let insertedProductIds = [];
+
     if (preparedProducts.length > 0) {
-      const inserted = await Product.insertMany(preparedProducts, { ordered: false });
-      insertedCount = inserted.length;
-      insertedProductIds = inserted.map((item) => item._id);
+      const now = new Date();
+      const bulkOps = preparedProducts.map((product) => {
+        const { user, ...payload } = product;
+        return {
+          updateOne: {
+            filter: { sku: product.sku },
+            update: {
+              $set: { ...payload, updatedAt: now },
+              $setOnInsert: { user, createdAt: now },
+            },
+            upsert: true,
+          },
+        };
+      });
+
+      const bulkResult = await Product.bulkWrite(bulkOps, { ordered: false });
+      insertedCount = bulkResult?.upsertedCount || 0;
+      updatedCount = bulkResult?.modifiedCount || 0;
+
+      const rawUpserted = bulkResult?.upsertedIds || [];
+      if (Array.isArray(rawUpserted)) {
+        insertedProductIds = rawUpserted.map((item) => item?._id).filter(Boolean);
+      } else {
+        insertedProductIds = Object.values(rawUpserted).map((item) => item?._id).filter(Boolean);
+      }
     }
 
     const summaryParts = [
-      `Imported ${insertedCount} products`,
+      `Processed ${preparedProducts.length} products`,
+      insertedCount ? `${insertedCount} new` : null,
+      updatedCount ? `${updatedCount} updated` : null,
       rowErrors.length ? `${rowErrors.length} row errors` : null,
       skippedRows ? `${skippedRows} rows skipped` : null,
     ].filter(Boolean);
@@ -911,7 +1160,7 @@ export const importProductsCsv = async (req, res) => {
 
     const importJob = await ProductImportJob.create({
       createdBy: req.user._id,
-      fileName: req.file.originalname || "products-import.csv",
+      fileName: req.file.originalname || "catalog-import.csv",
       totalRows: rows.length - 1,
       importedCount: insertedCount,
       failedCount: rowErrors.length,
@@ -925,11 +1174,14 @@ export const importProductsCsv = async (req, res) => {
       message,
       importJobId: importJob._id,
       importedCount: insertedCount,
+      updatedCount,
       failedCount: rowErrors.length,
       errors: rowErrors.slice(0, 50),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message || "CSV import failed" });
+  } finally {
+    await cleanupUploadedCsv(req.file);
   }
 };
 

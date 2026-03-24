@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { motion } from "framer-motion";
+import { User, Mail, Phone, Lock, Sparkles, Zap } from "lucide-react";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -25,176 +27,113 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const fullName = `${formData.firstName} ${formData.lastName}`.trim();
-    if (!/^[a-zA-Z][a-zA-Z\s.'-]{2,}$/.test(fullName)) {
-      setError("Please enter a valid full name");
-      return;
-    }
-
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(formData.email)) {
-      setError("Please enter a valid email");
-      return;
-    }
-
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
+      setError("Passwords do not match!");
       return;
     }
-
-    if (!/^\d{10}$/.test(formData.phone)) {
-      setError("Please enter valid 10-digit mobile number");
-      return;
-    }
-
     setLoading(true);
-
-    const payload = {
-      name: fullName,
+    const result = await register({
+      name: `${formData.firstName} ${formData.lastName}`.trim(),
       phone: formData.phone,
       email: formData.email,
       password: formData.password
-    };
-
-    const result = await register(payload);
-
-    if (result.success) {
-      navigate("/"); // ya /dashboard
-    } else {
-      setError(result.message);
-    }
-
+    });
+    if (result.success) navigate("/");
+    else setError(result.message);
     setLoading(false);
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen px-4 py-12 bg-gray-50 sm:px-6 lg:px-8">
-      <div className="w-full max-w-md p-8 space-y-8 bg-white border border-gray-100 shadow-lg rounded-xl">
+    <div 
+      className="relative flex items-center justify-center w-full min-h-screen px-4 py-8 overflow-hidden font-sans sm:p-8"
+      style={{ 
+        // Magical glowing background image
+        backgroundImage: `url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2064&auto=format&fit=crop')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center'
+      }}
+    >
+      {/* Dark Magic Overlay */}
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-[4px]"></div>
+
+      {/* Floating Magic Particles (Animated) */}
+      <motion.div animate={{ y: [0, -20, 0], opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 4 }} className="absolute top-20 left-10 text-purple-400 blur-[2px]"><Sparkles size={40} /></motion.div>
+      <motion.div animate={{ y: [0, 30, 0], opacity: [0.3, 0.8, 0.3] }} transition={{ repeat: Infinity, duration: 6 }} className="absolute bottom-20 right-10 text-blue-400 blur-[1px]"><Zap size={50} /></motion.div>
+
+      {/* --- THE 3D ROTATING BORDER BOX --- */}
+      <div className="relative p-[2px] sm:p-[3px] overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] group max-w-xl w-full z-10 shadow-[0_0_50px_rgba(99,102,241,0.3)]">
         
-        <div>
-          <h1 className="text-3xl font-extrabold text-center text-gray-900">
-            Create Account
-          </h1>
-          <p className="mt-2 text-sm text-center text-gray-600">
-            Join Sonani Electronics today
-          </p>
-        </div>
+        {/* Rotating Light Gradient */}
+        <div className="absolute inset-[-1000%] animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#E2E8F0_0%,#a855f7_25%,#3b82f6_50%,#a855f7_75%,#E2E8F0_100%)] opacity-80"></div>
 
-        {error && (
-          <div className="p-4 text-sm font-medium text-red-700 border-l-4 border-red-500 rounded-md bg-red-50">
-            {error}
+        {/* Main Content Box (Glassmorphism) */}
+        <div className="relative bg-slate-950/80 backdrop-blur-2xl rounded-[1.9rem] sm:rounded-[2.4rem] p-6 sm:p-10 md:p-12 z-10 border border-white/10">
+          
+          <div className="mb-8 text-center sm:mb-10">
+            <h1 className="text-3xl font-black tracking-tight text-transparent sm:text-4xl bg-clip-text bg-gradient-to-r from-purple-400 to-blue-500">
+              SONANI HUB
+            </h1>
+            <p className="text-slate-300 mt-2 text-xs sm:text-sm uppercase tracking-[0.2em] font-medium">
+              Unlock The Magic
+            </p>
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
-          <div className="space-y-4">
+          {error && (
+            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="p-3 mb-6 text-sm text-center text-red-400 border bg-red-500/10 border-red-500/30 rounded-xl">
+              {error}
+            </motion.div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5">
+            {/* Mobile pe ek ke neeche ek, Desktop pe side-by-side */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+              <InputGroup icon={<User size={18}/>} name="firstName" placeholder="First Name" value={formData.firstName} onChange={handleChange} />
+              <InputGroup icon={<User size={18}/>} name="lastName" placeholder="Last Name" value={formData.lastName} onChange={handleChange} />
+            </div>
+
+            <InputGroup icon={<Mail size={18}/>} name="email" type="email" placeholder="Email Address" value={formData.email} onChange={handleChange} />
+            <InputGroup icon={<Phone size={18}/>} name="phone" type="tel" placeholder="Mobile Number" value={formData.phone} onChange={handleChange} />
             
-            {/* First Name & Last Name in one row on larger screens */}
-            <div className="flex flex-col gap-4 sm:flex-row">
-              <div className="flex-1">
-                <label className="block mb-1 text-sm font-medium text-gray-700">First Name</label>
-                <input
-                  type="text"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  required
-                  className="block w-full px-3 py-2 placeholder-gray-400 transition-colors border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
-
-              <div className="flex-1">
-                <label className="block mb-1 text-sm font-medium text-gray-700">Last Name</label>
-                <input
-                  type="text"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  required
-                  className="block w-full px-3 py-2 placeholder-gray-400 transition-colors border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                />
-              </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
+              <InputGroup icon={<Lock size={18}/>} name="password" type="password" placeholder="Password" value={formData.password} onChange={handleChange} />
+              <InputGroup icon={<Lock size={18}/>} name="confirmPassword" type="password" placeholder="Confirm" value={formData.confirmPassword} onChange={handleChange} />
             </div>
 
-            <div>
-              <label className="block mb-1 text-sm font-medium text-gray-700">Mobile Number</label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                required
-                pattern="[0-9]{10}"
-                title="Enter 10 digit mobile number"
-                className="block w-full px-3 py-2 placeholder-gray-400 transition-colors border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              disabled={loading}
+              className="w-full mt-6 sm:mt-8 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_30px_rgba(168,85,247,0.6)] transition-all duration-300 flex items-center justify-center gap-2 uppercase tracking-wider text-sm sm:text-base border border-white/10"
+            >
+              {loading ? "Casting Spell..." : "Create Magic Account"}
+              {!loading && <Sparkles size={18} />}
+            </motion.button>
+          </form>
 
-            <div>
-              <label className="block mb-1 text-sm font-medium text-gray-700">Email</label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="block w-full px-3 py-2 placeholder-gray-400 transition-colors border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block mb-1 text-sm font-medium text-gray-700">Password</label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                className="block w-full px-3 py-2 placeholder-gray-400 transition-colors border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
-
-            <div>
-              <label className="block mb-1 text-sm font-medium text-gray-700">Confirm Password</label>
-              <input
-                type="password"
-                name="confirmPassword"
-                value={formData.confirmPassword}
-                onChange={handleChange}
-                required
-                className="block w-full px-3 py-2 placeholder-gray-400 transition-colors border border-gray-300 rounded-md shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors disabled:opacity-60 disabled:cursor-not-allowed mt-6"
-          >
-            {loading ? (
-              <span className="flex items-center gap-2">
-                <svg className="w-4 h-4 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                Creating account...
-              </span>
-            ) : (
-              "Create Account"
-            )}
-          </button>
-        </form>
-
-        <div className="mt-6 text-sm text-center text-gray-600">
-          <p>
-            Already have an account?{" "}
-            <Link to="/login" className="font-medium text-blue-600 transition-colors hover:text-blue-500">
-              Sign in
+          <p className="mt-8 text-sm text-center text-slate-400 sm:text-base">
+            Already have the key?{" "}
+            <Link to="/login" className="font-bold text-purple-400 underline transition-all hover:text-purple-300 underline-offset-4">
+              Login Here
             </Link>
           </p>
         </div>
-        
       </div>
     </div>
   );
 };
+
+// Glassmorphism Input
+const InputGroup = ({ icon, ...props }) => (
+  <div className="relative group">
+    <div className="absolute z-20 transition-colors -translate-y-1/2 left-4 top-1/2 text-slate-400 group-focus-within:text-purple-400">
+      {icon}
+    </div>
+    <input
+      {...props}
+      required
+      className="w-full bg-slate-900/50 border border-slate-700/50 text-white pl-12 pr-4 py-3.5 sm:py-4 rounded-xl outline-none focus:border-purple-500 focus:bg-slate-800/80 transition-all placeholder:text-slate-500 backdrop-blur-md relative z-10 text-sm sm:text-base shadow-inner"
+    />
+  </div>
+);
 
 export default Register;

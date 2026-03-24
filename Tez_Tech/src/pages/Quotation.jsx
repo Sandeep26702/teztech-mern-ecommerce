@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuote } from "../context/QuoteContext"; 
 import { FaTrashAlt, FaMinus, FaPlus, FaBoxOpen, FaPaperPlane } from "react-icons/fa";
 import api from "../utils/api"; 
@@ -6,6 +7,7 @@ import api from "../utils/api";
 const Quotation = () => {
   // Context se functions aur items nikalna
   const { quoteItems, removeFromQuote, updateQuoteQuantity, clearQuote } = useQuote();
+  const navigate = useNavigate();
 
   // User details ke liye state
   const [formData, setFormData] = useState({
@@ -17,6 +19,33 @@ const Quotation = () => {
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const renderSelectedOptions = (item) => {
+    const selected = item?.selectedCustomFields;
+    if (!selected || typeof selected !== "object") return [];
+
+    const fields = Array.isArray(item?.productId?.customFields) ? item.productId.customFields : [];
+    const getLabel = (key) => {
+      const match = fields.find(
+        (field) =>
+          String(field?._id || "") === String(key) ||
+          String(field?.label || "").toLowerCase() === String(key || "").toLowerCase()
+      );
+      return String(match?.label || key || "").trim();
+    };
+
+    return Object.entries(selected)
+      .map(([key, value]) => {
+        const label = getLabel(key);
+        if (Array.isArray(value)) {
+          if (!value.length) return null;
+          return `${label}: ${value.join(", ")}`;
+        }
+        if (!String(value || "").trim()) return null;
+        return `${label}: ${value}`;
+      })
+      .filter(Boolean);
+  };
 
   // Form input change handler
   const handleChange = (e) => {
@@ -118,6 +147,12 @@ const Quotation = () => {
                 {quoteItems.map((item) => {
                   // Unique ID calculation for keys
                   const itemId = item.productId?._id || item._id || item.id;
+                  const productId =
+                    item?.productId?._id ||
+                    item?.productId?.id ||
+                    (typeof item?.productId === "string" ? item.productId : null) ||
+                    item?.product?._id ||
+                    item?.product;
                   const imageUrl =
                     item.productId?.image ||
                     item.productId?.images?.[0]?.url ||
@@ -125,35 +160,77 @@ const Quotation = () => {
                     item.image ||
                     "https://placehold.co/100x100/f3f4f6/a1a1aa?text=No+Image";
                   const productName = item.productId?.name || item.name;
+                  const selectedOptions = renderSelectedOptions(item);
 
                   return (
-                    <div key={itemId} className="flex items-center gap-4 p-4 bg-white border border-gray-100 shadow-sm rounded-2xl">
+                    <div
+                      key={itemId}
+                      className="flex items-center gap-4 p-4 bg-white border border-gray-100 shadow-sm rounded-2xl cursor-pointer"
+                      onClick={() =>
+                        productId &&
+                        navigate(`/products/${productId}`, {
+                          state: { selectedCustomFields: item.selectedCustomFields || {} },
+                        })
+                      }
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (!productId) return;
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          navigate(`/products/${productId}`, {
+                            state: { selectedCustomFields: item.selectedCustomFields || {} },
+                          });
+                        }
+                      }}
+                    >
                       <div className="flex-shrink-0 w-16 h-16 overflow-hidden border bg-gray-50 rounded-xl">
                         <img src={imageUrl} alt={productName} className="object-contain w-full h-full" />
                       </div>
 
                       <div className="flex-1 min-w-0">
                         <h3 className="text-base font-bold text-gray-900 truncate">{productName}</h3>
+                        {selectedOptions.length > 0 && (
+                          <div className="mt-1 space-y-1">
+                            {selectedOptions.map((line) => (
+                              <p key={`${itemId}-${line}`} className="text-xs text-gray-500">
+                                {line}
+                              </p>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       {/* Qty Controls */}
                       <div className="flex items-center p-1 border rounded-lg bg-gray-50">
                         <button 
-                          onClick={() => updateQuoteQuantity(itemId, Math.max(1, item.quantity - 1))}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateQuoteQuantity(itemId, Math.max(1, item.quantity - 1));
+                          }}
                           className="flex items-center justify-center w-8 h-8 rounded hover:bg-white"
                         >
                           <FaMinus className="text-xs" />
                         </button>
                         <span className="w-8 font-bold text-center">{item.quantity}</span>
                         <button 
-                          onClick={() => updateQuoteQuantity(itemId, item.quantity + 1)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateQuoteQuantity(itemId, item.quantity + 1);
+                          }}
                           className="flex items-center justify-center w-8 h-8 rounded hover:bg-white"
                         >
                           <FaPlus className="text-xs" />
                         </button>
                       </div>
 
-                      <button onClick={() => removeFromQuote(itemId)} className="p-2 text-gray-400 hover:text-red-500">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeFromQuote(itemId);
+                        }}
+                        className="p-2 text-gray-400 hover:text-red-500"
+                      >
                         <FaTrashAlt />
                       </button>
                     </div>

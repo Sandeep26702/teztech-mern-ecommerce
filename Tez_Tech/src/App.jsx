@@ -22,6 +22,7 @@ import Quotation from "./pages/Quotation";
 import Cart from "./pages/Cart";
 import AddressesPage from './pages/AddressesPage'; 
 import QuoteViewer from "./pages/QuoteViewer"; 
+import QuoteItemViewer from "./pages/QuoteItemViewer";
 
 // 👇 YAHAN ADD KIYA HAI: Naye Pages ke Imports
 import CheckoutPage from "./pages/CheckoutPage";
@@ -85,6 +86,7 @@ function App() {
                 <Route path="/categories" element={<CategoriesPage />} />
                 <Route path="/category/:slug" element={<Products />} />
                 <Route path="/quote/:token" element={<QuoteViewer />} />
+                <Route path="/quote/:token/item/:itemId" element={<QuoteItemViewer />} />
 
                 <Route path="/cart" element={<Cart />} />
                 

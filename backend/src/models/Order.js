@@ -7,6 +7,7 @@ const orderItemSchema = new mongoose.Schema(
       ref: "Product",
       required: true,
     },
+    sku: { type: String, default: "" },
     name: { type: String, required: true },
     category: { type: String, default: "Uncategorized" },
     image: { type: String, required: true },

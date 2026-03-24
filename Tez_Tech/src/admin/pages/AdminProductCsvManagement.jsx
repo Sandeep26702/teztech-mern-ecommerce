@@ -85,10 +85,102 @@ const AdminProductCsvManagement = () => {
   }, [fetchImportOverview, fetchImportHistory]);
 
   const downloadSampleCsv = () => {
-    const sample = [
-      "name,description,brand,category,price,gst_rate,shipping_charge,stock,image,sku,custom_fields,details,product_attribute_length,product_variation_option_material",
-      '"Sample Product","High quality industrial item","Sonani","Electronics",1999,18,50,25,"https://placehold.co/600x600?text=Product","SKU-123","[{""label"":""MATERIAL"",""type"":""radio"",""required"":true,""options"":[{""label"":""PolySheet"",""priceAdjustment"":0},{""label"":""Acrylic"",""priceAdjustment"":150}]}]","[{""key"":""LENGTH"",""value"":""2 Meter""}]","2 Meter","PolySheet|0;Acrylic|150"',
-    ].join("\n");
+    const header = [
+      "Product_ID",
+      "SKU",
+      "Product_Name",
+      "Category_1",
+      "Category_2",
+      "Category_3",
+      "Category_4",
+      "Category_5",
+      "MRP",
+      "Selling_Price",
+      "Stock",
+      "Status",
+      "Search_Tags",
+      "Image_1",
+      "Image_2",
+      "Image_3",
+      "Image_4",
+      "Image_5",
+      "Image_6",
+      "Height_ft",
+      "Width_ft",
+      "Total_Holes",
+      "Hole_Size",
+      "Material_Type",
+      "Sheet_Thickness",
+      "LED_Compatible",
+      "Input_Voltage",
+      "Output_Voltage",
+      "Power_Watt",
+      "Connectivity",
+      "IC_Number",
+      "LED_Per_Meter",
+      "Controller_Type",
+      "Warranty",
+      "Color_Red_Add",
+      "Color_Green_Add",
+      "Color_Blue_Add",
+      "Hole_9mm_Add",
+      "Hole_12mm_Add",
+      "Material_TezTech_Add",
+      "Material_Sunrise_Add",
+      "Power_12W_Add",
+      "Power_24W_Add",
+      "Remote_Add",
+      "Waterproof_Add",
+    ].join(",");
+
+    const sampleRow = [
+      "1",
+      "SKU-001",
+      "Sample Poly Sheet",
+      "PolySheets",
+      "",
+      "",
+      "",
+      "",
+      "1500",
+      "1200",
+      "25",
+      "Active",
+      "poly,sheet,white,8mm",
+      "https://placehold.co/600x600?text=Image1",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "8",
+      "4",
+      "16",
+      "9mm",
+      "TezTech",
+      "1mm",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "0",
+      "50",
+      "0",
+      "0",
+      "100",
+      "0",
+      "",
+      "",
+      "",
+      "",
+    ].join(",");
+
+    const sample = [header, sampleRow].join("\n");
 
     const blob = new Blob([sample], { type: "text/csv;charset=utf-8;" });
     const url = window.URL.createObjectURL(blob);
@@ -125,7 +217,7 @@ const AdminProductCsvManagement = () => {
     }
   };
 
-  const handleCsvFileSelected = async (event) => {
+    const handleCsvFileSelected = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = "";
     if (!file) return;
@@ -148,7 +240,11 @@ const AdminProductCsvManagement = () => {
       });
 
       const result = response.data;
-      alert(`${result.message}\nImported: ${result.importedCount || 0}\nFailed: ${result.failedCount || 0}`);
+      alert(
+        `${result.message}\nNew: ${result.importedCount || 0}\nUpdated: ${result.updatedCount || 0}\nFailed: ${
+          result.failedCount || 0
+        }`
+      );
       fetchImportOverview();
       fetchImportHistory(historyStatusFilter, historySearch);
     } catch (error) {
@@ -200,12 +296,14 @@ const AdminProductCsvManagement = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 font-sans">
-      <div className="p-6 bg-white border border-gray-200 rounded-2xl shadow-sm">
+    <div className="mx-auto space-y-6 font-sans max-w-7xl">
+      <div className="p-6 bg-white border border-gray-200 shadow-sm rounded-2xl">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">CSV Management</h1>
-            <p className="text-sm text-gray-600 mt-1">Bulk import, export, history tracking, rollback and cleanup.</p>
+            <h1 className="text-2xl font-bold text-gray-900">Catalog Manager</h1>
+            <p className="mt-1 text-sm text-gray-600">
+              Upload the `Final_Clean_Catalog.csv` file to sync the entire website catalog in one click.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <input
@@ -221,7 +319,7 @@ const AdminProductCsvManagement = () => {
               disabled={importingCsv}
               className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 disabled:opacity-70"
             >
-              <FaFileImport /> {importingCsv ? "Importing..." : "Import CSV"}
+              <FaFileImport /> {importingCsv ? "Uploading..." : "Upload CSV Catalog"}
             </button>
 
             <button
@@ -234,7 +332,7 @@ const AdminProductCsvManagement = () => {
 
             <button
               onClick={downloadSampleCsv}
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-xl hover:bg-indigo-100"
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-semibold text-indigo-700 border border-indigo-200 bg-indigo-50 rounded-xl hover:bg-indigo-100"
             >
               <FaCloudUploadAlt /> Download Template
             </button>
@@ -242,9 +340,30 @@ const AdminProductCsvManagement = () => {
         </div>
       </div>
 
-      <div className="p-6 bg-white border border-gray-200 rounded-2xl shadow-sm space-y-5">
+      <div className="p-8 border shadow-sm bg-gradient-to-br from-emerald-50 to-white border-emerald-100 rounded-3xl">
+        <div className="flex flex-col items-center justify-center gap-4 text-center">
+          <div className="flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 text-emerald-600">
+            <FaCloudUploadAlt className="text-3xl" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-gray-900">Upload CSV Catalog</h2>
+            <p className="mt-1 text-sm text-gray-600">
+              Drag and drop the file or click the button below to sync all products, prices, stock, and variations.
+            </p>
+          </div>
+          <button
+            onClick={() => csvInputRef.current?.click()}
+            disabled={importingCsv}
+            className="px-6 py-3 text-base font-bold text-white bg-emerald-600 rounded-2xl hover:bg-emerald-700 disabled:opacity-70"
+          >
+            {importingCsv ? "Uploading..." : "Upload CSV Catalog"}
+          </button>
+        </div>
+      </div>
+
+      <div className="p-6 space-y-5 bg-white border border-gray-200 shadow-sm rounded-2xl">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="flex items-center gap-2 text-lg font-semibold text-gray-900">
             <FaHistory className="text-indigo-600" /> Upload History
           </h2>
           <button
@@ -258,41 +377,41 @@ const AdminProductCsvManagement = () => {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <div className="p-3 rounded-xl bg-gray-50 border">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+          <div className="p-3 border rounded-xl bg-gray-50">
             <p className="text-xs text-gray-500">Total Uploads</p>
             <p className="text-lg font-bold text-gray-900">{importOverview.totalJobs}</p>
           </div>
-          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-100">
+          <div className="p-3 border rounded-xl bg-emerald-50 border-emerald-100">
             <p className="text-xs text-emerald-700">Active</p>
             <p className="text-lg font-bold text-emerald-800">{importOverview.activeJobs}</p>
           </div>
-          <div className="p-3 rounded-xl bg-red-50 border border-red-100">
+          <div className="p-3 border border-red-100 rounded-xl bg-red-50">
             <p className="text-xs text-red-700">Rolled Back</p>
             <p className="text-lg font-bold text-red-800">{importOverview.rolledBackJobs}</p>
           </div>
-          <div className="p-3 rounded-xl bg-indigo-50 border border-indigo-100">
+          <div className="p-3 border border-indigo-100 rounded-xl bg-indigo-50">
             <p className="text-xs text-indigo-700">Imported Rows</p>
             <p className="text-lg font-bold text-indigo-800">{importOverview.totalImported}</p>
           </div>
-          <div className="p-3 rounded-xl bg-amber-50 border border-amber-100">
+          <div className="p-3 border rounded-xl bg-amber-50 border-amber-100">
             <p className="text-xs text-amber-700">Legacy Products</p>
             <p className="text-lg font-bold text-amber-800">{importOverview.untrackedProducts || 0}</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-12">
           <input
             type="text"
             value={historySearch}
             onChange={(e) => setHistorySearch(e.target.value)}
             placeholder="Search CSV file"
-            className="md:col-span-6 px-3 py-2 text-sm border border-gray-200 rounded-lg"
+            className="px-3 py-2 text-sm border border-gray-200 rounded-lg md:col-span-6"
           />
           <select
             value={historyStatusFilter}
             onChange={(e) => setHistoryStatusFilter(e.target.value)}
-            className="md:col-span-3 px-3 py-2 text-sm border border-gray-200 rounded-lg"
+            className="px-3 py-2 text-sm border border-gray-200 rounded-lg md:col-span-3"
           >
             <option value="all">All Status</option>
             <option value="active">Active</option>
@@ -300,7 +419,7 @@ const AdminProductCsvManagement = () => {
           </select>
           <button
             onClick={() => fetchImportHistory(historyStatusFilter, historySearch)}
-            className="md:col-span-3 px-3 py-2 text-sm font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100"
+            className="px-3 py-2 text-sm font-semibold text-indigo-700 border border-indigo-200 rounded-lg md:col-span-3 bg-indigo-50 hover:bg-indigo-100"
           >
             Apply Filter
           </button>
@@ -308,7 +427,7 @@ const AdminProductCsvManagement = () => {
 
         <div className="overflow-x-auto border rounded-xl">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
+            <thead className="text-xs text-gray-600 uppercase bg-gray-50">
               <tr>
                 <th className="px-3 py-2 text-left">File</th>
                 <th className="px-3 py-2 text-left">Rows</th>
@@ -361,7 +480,7 @@ const AdminProductCsvManagement = () => {
                       <div className="inline-flex items-center gap-2">
                         <button
                           onClick={() => setSelectedJob(job)}
-                          className="px-2 py-1 text-xs font-semibold rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 inline-flex items-center gap-1"
+                          className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-700 rounded-lg bg-blue-50 hover:bg-blue-100"
                         >
                           <FaEye /> View
                         </button>
@@ -370,7 +489,7 @@ const AdminProductCsvManagement = () => {
                           <button
                             onClick={() => handleRollbackImport(job._id)}
                             disabled={rollingBackJobId === job._id}
-                            className="px-2 py-1 text-xs font-semibold rounded-lg bg-red-50 text-red-700 hover:bg-red-100 inline-flex items-center gap-1 disabled:opacity-70"
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-red-700 rounded-lg bg-red-50 hover:bg-red-100 disabled:opacity-70"
                           >
                             <FaUndo /> {rollingBackJobId === job._id ? "Rolling..." : "Rollback"}
                           </button>
@@ -380,7 +499,7 @@ const AdminProductCsvManagement = () => {
                           <button
                             onClick={() => handleDeleteImportRecord(job._id)}
                             disabled={deletingRecordJobId === job._id}
-                            className="px-2 py-1 text-xs font-semibold rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 inline-flex items-center gap-1 disabled:opacity-70"
+                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-70"
                           >
                             <FaTrash /> {deletingRecordJobId === job._id ? "Removing..." : "Remove"}
                           </button>
@@ -397,7 +516,7 @@ const AdminProductCsvManagement = () => {
 
       {selectedJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="w-full max-w-2xl p-6 bg-white rounded-2xl border border-gray-200">
+          <div className="w-full max-w-2xl p-6 bg-white border border-gray-200 rounded-2xl">
             <div className="flex items-start justify-between mb-4">
               <div>
                 <h4 className="text-lg font-semibold text-gray-900">Upload Details</h4>
@@ -415,7 +534,7 @@ const AdminProductCsvManagement = () => {
               <div className="p-3 border rounded-lg bg-gray-50">Status: <strong>{selectedJob.status}</strong></div>
             </div>
 
-            <div className="max-h-60 overflow-y-auto border rounded-lg">
+            <div className="overflow-y-auto border rounded-lg max-h-60">
               {selectedJob.errors?.length ? (
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50">

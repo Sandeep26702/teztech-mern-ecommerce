@@ -9,6 +9,55 @@ const toSafeNumber = (value, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
+const getQuoteVersionNumber = (quote) => {
+  const num = Number(quote?.version);
+  return Number.isFinite(num) && num > 0 ? num : 1;
+};
+
+const getParentQuoteId = (quote) => quote?.parentQuoteId || quote?._id;
+
+const buildLogEntry = (action, actor = "", note = "") => ({
+  action,
+  actor,
+  note,
+  at: new Date(),
+});
+
+const ensureBaseLogs = (quote) => {
+  if (Array.isArray(quote?.quoteLogs) && quote.quoteLogs.length > 0) return quote.quoteLogs;
+  const createdAt = quote?.createdAt ? new Date(quote.createdAt) : new Date();
+  const actor = quote?.isManual ? "Admin" : "Client";
+  return [buildLogEntry("Created", actor, "Initial quotation created")].map((entry) => ({
+    ...entry,
+    at: createdAt,
+  }));
+};
+
+const fetchQuoteGroup = async (parentId) => {
+  if (!parentId) return [];
+  return Quote.find({ $or: [{ _id: parentId }, { parentQuoteId: parentId }] });
+};
+
+const getLatestQuoteFromGroup = (quotes) => {
+  if (!quotes || quotes.length === 0) return null;
+  return quotes.reduce((latest, current) => {
+    if (!latest) return current;
+    const latestVersion = getQuoteVersionNumber(latest);
+    const currentVersion = getQuoteVersionNumber(current);
+    if (currentVersion > latestVersion) return current;
+    if (currentVersion === latestVersion) {
+      return new Date(current.createdAt || 0) > new Date(latest.createdAt || 0) ? current : latest;
+    }
+    return latest;
+  }, null);
+};
+
+const getPreviousQuoteFromGroup = (quotes, currentVersion) => {
+  if (!quotes || quotes.length === 0) return null;
+  const candidates = quotes.filter((item) => getQuoteVersionNumber(item) < currentVersion);
+  return getLatestQuoteFromGroup(candidates);
+};
+
 const normalizeSelectionValue = (value) => {
   if (Array.isArray(value)) {
     return value
@@ -402,7 +451,10 @@ export const createQuote = async (req, res) => {
       userDetails,
       requestedItems: itemsWithPrices,
       quoteToken: token, 
-      status: "Pending"
+      status: "Pending",
+      version: 1,
+      parentQuoteId: null,
+      quoteLogs: [buildLogEntry("Created", "Client", "Quotation requested by client")],
     });
 
     await newQuote.save();
@@ -442,9 +494,46 @@ export const getQuoteById = async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id)
       .populate('user', 'name email')
-      .populate('requestedItems.productId', 'name price customFields');
+      .populate('requestedItems.productId', 'name price sellingPrice customFields image images sku details description category categoryPath gstRate heightFt widthFt totalHoles holeSize materialType sheetThickness ledCompatible inputVoltage outputVoltage powerWatt connectivity icNumber ledPerMeter controllerType warranty');
     if (!quote) return res.status(404).json({ success: false, message: "Quote not found" });
-    res.status(200).json({ success: true, quote });
+    const parentId = getParentQuoteId(quote);
+    const groupQuotes = await fetchQuoteGroup(parentId);
+    const latestQuote = getLatestQuoteFromGroup(groupQuotes);
+    const versions = groupQuotes
+      .map((item) => ({
+        _id: item._id,
+        version: getQuoteVersionNumber(item),
+        status: item.status,
+        updatedAt: item.updatedAt,
+        quoteNumber: item.quoteNumber,
+        requestedItems: (item.requestedItems || []).map((line) => ({
+          productId: line.productId,
+          name: line.name,
+          quantity: line.quantity,
+          originalPrice: line.originalPrice,
+          offeredPrice: line.offeredPrice,
+        })),
+        totalDiscount: item.totalDiscount,
+        extraDiscountType: item.extraDiscountType,
+        extraDiscountValue: item.extraDiscountValue,
+        shippingCharge: item.shippingCharge,
+        gstPercentage: item.gstPercentage,
+        additionalChargeName: item.additionalChargeName,
+        additionalChargeAmount: item.additionalChargeAmount,
+        finalTotal: item.finalTotal,
+        adminNotes: item.adminNotes,
+      }))
+      .sort((a, b) => a.version - b.version);
+    const latestVersion = latestQuote ? getQuoteVersionNumber(latestQuote) : getQuoteVersionNumber(quote);
+    const isLatest = latestQuote ? String(latestQuote._id) === String(quote._id) : true;
+    res.status(200).json({
+      success: true,
+      quote,
+      isLatest,
+      latestQuoteId: latestQuote?._id || quote._id,
+      latestVersion,
+      versions,
+    });
   } catch (error) {
     console.error("Get Quote By ID Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
@@ -464,7 +553,19 @@ export const getAllQuotes = async (req, res) => {
 export const respondToQuote = async (req, res) => {
   try {
     const { id } = req.params; 
-    const { requestedItems, adminNotes, totalDiscount, shippingCharge, finalTotal, validUntil } = req.body;
+    const {
+      requestedItems,
+      adminNotes,
+      totalDiscount,
+      shippingCharge,
+      finalTotal,
+      validUntil,
+      extraDiscountType,
+      extraDiscountValue,
+      gstPercentage,
+      additionalChargeName,
+      additionalChargeAmount,
+    } = req.body;
 
     const existingQuote = await Quote.findById(id);
     if (!existingQuote) return res.status(404).json({ success: false, message: "Quote not found" });
@@ -504,37 +605,92 @@ export const respondToQuote = async (req, res) => {
       };
     });
 
-    const safeDiscount = Math.max(0, toSafeNumber(totalDiscount, existingQuote.totalDiscount || 0));
+    const incomingDiscountType =
+      extraDiscountType === "percent" ? "percent" : extraDiscountType === "flat" ? "flat" : null;
+    const safeDiscountType =
+      incomingDiscountType || (existingQuote.extraDiscountType === "percent" ? "percent" : "flat");
+    const fallbackDiscountValue =
+      extraDiscountValue === undefined || extraDiscountValue === null
+        ? toSafeNumber(totalDiscount, existingQuote.extraDiscountValue ?? existingQuote.totalDiscount ?? 0)
+        : extraDiscountValue;
+    const rawDiscountValue = toSafeNumber(
+      fallbackDiscountValue,
+      existingQuote.extraDiscountValue ?? existingQuote.totalDiscount ?? 0
+    );
+    const safeDiscountValue =
+      safeDiscountType === "percent"
+        ? Math.min(100, Math.max(0, rawDiscountValue))
+        : Math.max(0, rawDiscountValue);
     const safeShipping = Math.max(0, toSafeNumber(shippingCharge, existingQuote.shippingCharge || 0));
     const computedSubTotal = enrichedItems.reduce(
       (sum, item) => sum + toSafeNumber(item.offeredPrice, 0) * toSafeNumber(item.quantity, 0),
       0
     );
-    const computedFinal = Math.max(0, toSafeNumber(finalTotal, computedSubTotal - safeDiscount + safeShipping));
-
-    const updatedQuote = await Quote.findByIdAndUpdate(
-      id,
-      {
-        requestedItems: enrichedItems,
-        adminNotes,
-        totalDiscount: safeDiscount,
-        shippingCharge: safeShipping,
-        finalTotal: computedFinal,
-        validUntil,
-        status: "Responded",
-      },
-      { new: true }
+    const discountAmount =
+      safeDiscountType === "percent"
+        ? round2(computedSubTotal * (safeDiscountValue / 100))
+        : safeDiscountValue;
+    const safeGst = Math.min(100, Math.max(0, toSafeNumber(gstPercentage, existingQuote.gstPercentage || 0)));
+    const gstAmount = round2(computedSubTotal * (safeGst / 100));
+    const safeAdditional = Math.max(0, toSafeNumber(additionalChargeAmount, existingQuote.additionalChargeAmount || 0));
+    const computedFinal = Math.max(
+      0,
+      toSafeNumber(finalTotal, computedSubTotal - discountAmount + safeShipping + gstAmount + safeAdditional)
     );
+    const parentId = getParentQuoteId(existingQuote);
+    const groupQuotes = await fetchQuoteGroup(parentId);
+    const latestQuote = getLatestQuoteFromGroup(groupQuotes);
+    if (latestQuote && String(latestQuote._id) !== String(existingQuote._id)) {
+      return res.status(409).json({
+        success: false,
+        message: "Cannot update an older version of this quote.",
+        latestQuoteId: latestQuote._id,
+        latestQuoteToken: latestQuote.quoteToken,
+      });
+    }
 
-    if (!updatedQuote) return res.status(404).json({ success: false, message: "Quote not found" });
+    const currentVersion = getQuoteVersionNumber(latestQuote || existingQuote);
+    const nextVersion = currentVersion + 1;
+    const nextStatus = existingQuote.status === "Pending" ? "Offered" : "Updated";
+    const updateLog = `Quote updated by Admin on ${new Date().toISOString()}`;
+    const baseLogs = ensureBaseLogs(existingQuote);
+    const nextLogs = [
+      ...baseLogs,
+      buildLogEntry(`V${nextVersion} Created`, "Admin", "Admin created a new version"),
+    ];
 
-    const shareableLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/quote/${updatedQuote.quoteToken}`;
+    const newQuote = new Quote({
+      user: existingQuote.user,
+      userDetails: existingQuote.userDetails,
+      requestedItems: enrichedItems,
+      adminNotes,
+      totalDiscount: discountAmount,
+      extraDiscountType: safeDiscountType,
+      extraDiscountValue: safeDiscountValue,
+      shippingCharge: safeShipping,
+      gstPercentage: safeGst,
+      additionalChargeName: String(additionalChargeName || existingQuote.additionalChargeName || "").trim(),
+      additionalChargeAmount: safeAdditional,
+      finalTotal: computedFinal,
+      validUntil,
+      status: nextStatus,
+      isManual: existingQuote.isManual,
+      quoteToken: crypto.randomBytes(12).toString("hex"),
+      parentQuoteId: parentId,
+      version: nextVersion,
+      adminUpdateLogs: [...(existingQuote.adminUpdateLogs || []), updateLog],
+      quoteLogs: nextLogs,
+    });
+
+    const savedQuote = await newQuote.save();
+
+    const shareableLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/quote/${savedQuote.quoteToken}`;
     
     res.status(200).json({ 
       success: true, 
       message: "Quote updated and responded successfully!", 
       link: shareableLink, 
-      quote: updatedQuote 
+      quote: savedQuote 
     });
   } catch (error) {
     console.error("Respond To Quote Error:", error);
@@ -546,9 +702,44 @@ export const getQuoteByToken = async (req, res) => {
   try {
     const quote = await Quote.findOne({ quoteToken: req.params.token })
       .populate('user', 'name email')
-      .populate('requestedItems.productId', 'name price customFields');
+      .populate('requestedItems.productId', 'name price sellingPrice customFields image images sku details description category categoryPath gstRate heightFt widthFt totalHoles holeSize materialType sheetThickness ledCompatible inputVoltage outputVoltage powerWatt connectivity icNumber ledPerMeter controllerType warranty');
     if (!quote) return res.status(404).json({ success: false, message: "Invalid or expired link" });
-    res.status(200).json({ success: true, quote });
+    const parentId = getParentQuoteId(quote);
+    const groupQuotes = await fetchQuoteGroup(parentId);
+    const latestQuote = getLatestQuoteFromGroup(groupQuotes);
+    const currentVersion = getQuoteVersionNumber(quote);
+    const isLatest = latestQuote ? String(latestQuote._id) === String(quote._id) : true;
+    const latestVersion = latestQuote ? getQuoteVersionNumber(latestQuote) : currentVersion;
+    const previousQuote = getPreviousQuoteFromGroup(groupQuotes, currentVersion);
+    const parentQuote = groupQuotes.find((item) => String(item._id) === String(parentId)) || quote;
+
+    await Quote.findByIdAndUpdate(quote._id, {
+      $push: { quoteLogs: buildLogEntry("Viewed by Client", "Client", "Quote viewed by client") },
+    });
+
+    res.status(200).json({
+      success: true,
+      quote,
+      isLatest,
+      latestQuoteToken: latestQuote?.quoteToken || null,
+      latestQuoteId: latestQuote?._id || null,
+      latestVersion,
+      previousQuote: previousQuote
+        ? {
+            _id: previousQuote._id,
+            version: getQuoteVersionNumber(previousQuote),
+            requestedItems: previousQuote.requestedItems,
+            totalDiscount: previousQuote.totalDiscount,
+            shippingCharge: previousQuote.shippingCharge,
+            gstPercentage: previousQuote.gstPercentage,
+            additionalChargeName: previousQuote.additionalChargeName,
+            additionalChargeAmount: previousQuote.additionalChargeAmount,
+            finalTotal: previousQuote.finalTotal,
+            updatedAt: previousQuote.updatedAt,
+          }
+        : null,
+      parentQuoteNumber: parentQuote?.quoteNumber || null,
+    });
   } catch (error) {
     console.error("Get Quote By Token Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
@@ -562,10 +753,36 @@ export const updateQuoteStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid status provided" });
     }
 
-    const quote = await Quote.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    const quote = await Quote.findById(req.params.id);
     if (!quote) return res.status(404).json({ success: false, message: "Quote not found" });
 
-    res.status(200).json({ success: true, status: quote.status, message: `Quote marked as ${quote.status}` });
+    const parentId = getParentQuoteId(quote);
+    const groupQuotes = await fetchQuoteGroup(parentId);
+    const latestQuote = getLatestQuoteFromGroup(groupQuotes);
+    if (latestQuote && String(latestQuote._id) !== String(quote._id)) {
+      return res.status(409).json({
+        success: false,
+        message: "Only the latest quote version can be updated.",
+        latestQuoteId: latestQuote._id,
+        latestQuoteToken: latestQuote.quoteToken,
+      });
+    }
+
+    const logAction = status === "Accepted" ? "Accepted" : "Revision Requested";
+    const updatedQuote = await Quote.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: { status },
+        $push: { quoteLogs: buildLogEntry(logAction, "Client", `Client ${status.toLowerCase()} the quote`) },
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      status: updatedQuote.status,
+      message: `Quote marked as ${updatedQuote.status}`,
+    });
   } catch (error) {
     console.error("Update Quote Status Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
@@ -574,7 +791,18 @@ export const updateQuoteStatus = async (req, res) => {
 
 export const createManualQuote = async (req, res) => {
   try {
-    const { userDetails, requestedItems, shippingCharge = 0, additionalChargeName = "", additionalChargeAmount = 0, gstPercentage = 0 } = req.body;
+    const {
+      userDetails: payloadUserDetails,
+      clientDetails,
+      requestedItems: payloadItems,
+      items,
+      shippingCharge = 0,
+      additionalChargeName = "",
+      additionalChargeAmount = 0,
+      gstPercentage = 0,
+    } = req.body;
+    const userDetails = payloadUserDetails || clientDetails || {};
+    const requestedItems = payloadItems || items || [];
 
     if (!requestedItems || requestedItems.length === 0) {
       return res.status(400).json({ success: false, message: "No items provided in the manual quotation" });
@@ -614,9 +842,11 @@ export const createManualQuote = async (req, res) => {
 
     const itemsWithPrices = normalizedItems.map((item) => {
       const product = productMap.get(item.productId);
-      let basePrice = toSafeNumber(product?.sellingPrice || product?.price, 0);
-      const optionAdjustment = 0; // Simplified for manual, admin sets offeredPrice
-      const offeredPrice = Math.max(0, toSafeNumber(item.offeredPrice, basePrice));
+      const basePrice = toSafeNumber(product?.sellingPrice || product?.price, 0);
+      const resolved = resolveSelectedOptions(product, item.selectedCustomFields);
+      const optionAdjustment = toSafeNumber(resolved.optionAdjustment, 0);
+      const originalPrice = basePrice + optionAdjustment;
+      const offeredPrice = Math.max(0, toSafeNumber(item.offeredPrice, originalPrice));
 
       return {
         productId: item.productId,
@@ -624,15 +854,16 @@ export const createManualQuote = async (req, res) => {
         quantity: item.quantity,
         basePrice,
         optionAdjustment,
-        originalPrice: basePrice,
+        originalPrice,
         offeredPrice,
-        selectedCustomFields: item.selectedCustomFields,
-        selectedOptions: [],
+        selectedCustomFields: resolved.selectedCustomFields,
+        selectedOptions: resolved.selectedOptions,
       };
     });
 
     const subtotal = itemsWithPrices.reduce((sum, item) => sum + (item.offeredPrice * item.quantity), 0);
-    const gstAmount = round2(subtotal * (gstPercentage / 100));
+    const safeGst = Math.max(0, toSafeNumber(gstPercentage, 0));
+    const gstAmount = round2(subtotal * (safeGst / 100));
     const safeShipping = Math.max(0, toSafeNumber(shippingCharge, 0));
     const safeAdditional = Math.max(0, toSafeNumber(additionalChargeAmount, 0));
     const finalTotal = subtotal + gstAmount + safeShipping + safeAdditional;
@@ -647,11 +878,15 @@ export const createManualQuote = async (req, res) => {
       shippingCharge: safeShipping,
       additionalChargeName,
       additionalChargeAmount: safeAdditional,
-      gstPercentage,
+      gstPercentage: safeGst,
       finalTotal,
       quoteToken: token,
       status: "Responded",
       isManual: true,
+      version: 1,
+      parentQuoteId: null,
+      adminUpdateLogs: [`Manual quote created by Admin on ${new Date().toISOString()}`],
+      quoteLogs: [buildLogEntry("Created", "Admin", "Manual quote created")],
     });
 
     await newQuote.save();
@@ -679,4 +914,3 @@ export const createManualQuote = async (req, res) => {
 };
 
 const round2 = (num) => Math.round(num * 100) / 100;
-

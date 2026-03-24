@@ -4,6 +4,8 @@
     "canvas-confetti": "^1.9.4",
     "cloudinary": "^2.9.0",
     "framer-motion": "^12.34.3",
+    "html-to-image": "^1.11.13",
+    "html2canvas": "^1.4.1",
     "lucide-react": "^0.575.0",
     "nodemon": "^3.1.11",
     "react-hot-toast": "^2.6.0",

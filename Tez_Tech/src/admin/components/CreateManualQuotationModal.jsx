@@ -1,23 +1,25 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { FaTimes, FaPlus, FaTrash, FaDownload, FaCopy, FaSearch } from 'react-icons/fa';
-import api from '../../../utils/api';
+import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
+import { FaTimes, FaTrash, FaDownload, FaSearch } from 'react-icons/fa';
+import api from '../../utils/api';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 const CreateManualQuotationModal = ({ isOpen, onClose }) => {
   const [formData, setFormData] = useState({
-    clientDetails: { name: '', phone: '', email: '', company: '' },
+    userDetails: { name: '', phone: '', email: '', company: '' },
     items: [],
     shippingCharge: 0,
     additionalChargeName: '',
     additionalChargeAmount: 0,
     gstPercentage: 0,
   });
+  const [_shareLink, setShareLink] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const searchRef = useRef();
   const debounceRef = useRef();
+  const printRef = useRef(null);
 
   // Debounced search
   const debouncedSearch = useCallback((query) => {
@@ -49,13 +51,77 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
 
   const updateTotal = useCallback(() => {
     const { items, shippingCharge, additionalChargeAmount, gstPercentage } = formData;
-    const subtotal = items.reduce((sum, item) => sum + (item.offeredPrice * item.quantity), 0);
-    const gstAmount = Math.round(subtotal * (gstPercentage / 100) * 100) / 100;
-    const total = subtotal + gstAmount + shippingCharge + additionalChargeAmount;
+    const safeShipping = Number.isFinite(Number(shippingCharge)) ? Number(shippingCharge) : 0;
+    const safeAdditional = Number.isFinite(Number(additionalChargeAmount)) ? Number(additionalChargeAmount) : 0;
+    const safeGst = Number.isFinite(Number(gstPercentage)) ? Number(gstPercentage) : 0;
+    const subtotal = items.reduce((sum, item) => sum + (Number(item.offeredPrice) * Number(item.quantity)), 0);
+    const gstAmount = Math.round(subtotal * (safeGst / 100) * 100) / 100;
+    const total = subtotal + gstAmount + safeShipping + safeAdditional;
     return { subtotal, gstAmount, total };
   }, [formData]);
 
   const { subtotal, gstAmount, total } = updateTotal();
+
+  const getFieldKey = (field) => String(field?._id || field?.label || "");
+
+  const getFieldLabel = (field, key) => {
+    if (field?.label) return String(field.label);
+    return String(key || "");
+  };
+
+  const getSelectedValue = (item, field, fieldKey) => {
+    const key = fieldKey || getFieldKey(field);
+    return item?.selectedCustomFields?.[key] ?? item?.selectedCustomFields?.[field?.label];
+  };
+
+  const updateItemSelection = (index, field, value, mode = "set") => {
+    const key = getFieldKey(field);
+    if (!key) return;
+    setFormData((prev) => ({
+      ...prev,
+      items: prev.items.map((item, i) => {
+        if (i !== index) return item;
+        const current = { ...(item.selectedCustomFields || {}) };
+        if (mode === "toggle") {
+          const existing = Array.isArray(current[key]) ? current[key] : [];
+          const safeValue = String(value || "").trim();
+          if (!safeValue) return item;
+          current[key] = existing.includes(safeValue)
+            ? existing.filter((v) => v !== safeValue)
+            : [...existing, safeValue];
+        } else {
+          current[key] = value;
+        }
+        return { ...item, selectedCustomFields: current };
+      }),
+    }));
+  };
+
+  const getSelectedOptionsLines = (item) => {
+    const selections = item?.selectedCustomFields || {};
+    const fields = Array.isArray(item?.customFields) ? item.customFields : [];
+    const lines = [];
+
+    Object.entries(selections).forEach(([key, rawValue]) => {
+      const field = fields.find(
+        (f) => String(f?._id || "") === String(key) || String(f?.label || "") === String(key)
+      );
+      const label = getFieldLabel(field, key);
+      const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+
+      values.forEach((value) => {
+        const safeValue = String(value || "").trim();
+        if (!safeValue) return;
+        const options = Array.isArray(field?.options) ? field.options : [];
+        const matched = options.find((opt) => String(opt?.label || "").trim() === safeValue);
+        const adj = Number(matched?.priceAdjustment || 0);
+        const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}Rs ${Math.abs(adj)})` : "";
+        lines.push(`${label}: ${safeValue}${adjText}`);
+      });
+    });
+
+    return lines;
+  };
 
   const addItem = (product) => {
     const newItem = {
@@ -63,6 +129,8 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
       name: product.name,
       sku: product.sku || '',
       image: product.image || product.images?.[0],
+      customFields: Array.isArray(product.customFields) ? product.customFields : [],
+      selectedCustomFields: {},
       price: product.sellingPrice || product.price || 0,
       offeredPrice: product.sellingPrice || product.price || 0,
       quantity: 1,
@@ -95,74 +163,84 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
   };
 
   const generatePDF = async () => {
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(`
-      <html>
-        <head><title>Quotation</title>
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .header { text-align: center; margin-bottom: 30px; }
-            .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-            .table th, .table td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            .table th { background-color: #f2f2f2; }
-            .totals { margin: 20px 0; }
-            .footer { margin-top: 40px; text-align: center; }
-            .qr { display: inline-block; margin: 10px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Tez Tech Quotation</h1>
-            <p>QT-${new Date().toLocaleDateString()}</p>
-            <p>Client: ${formData.clientDetails.name}<br>Phone: ${formData.clientDetails.phone}</p>
-          </div>
-          <table class="table">
-            <thead>
-              <tr><th>Item</th><th>Qty</th><th>Price</th><th>Total</th></tr>
-            </thead>
-            <tbody>
-              ${formData.items.map(item => `<tr>
-                <td>${item.name} (${item.sku})</td>
-                <td>${item.quantity}</td>
-                <td>Rs. ${item.offeredPrice.toFixed(2)}</td>
-                <td>Rs. ${(item.offeredPrice * item.quantity).toFixed(2)}</td>
-              </tr>`).join('')}
-            </tbody>
-          </table>
-          <div class="totals">
-            <p>Subtotal: Rs. ${subtotal.toFixed(2)}</p>
-            <p>GST (${formData.gstPercentage}%): Rs. ${gstAmount.toFixed(2)}</p>
-            ${formData.additionalChargeName ? `<p>${formData.additionalChargeName}: Rs. ${formData.additionalChargeAmount.toFixed(2)}</p>` : ''}
-            <p>Shipping: Rs. ${formData.shippingCharge.toFixed(2)}</p>
-            <p><strong>Grand Total: Rs. ${total.toFixed(2)}</strong></p>
-          </div>
-          <div class="footer">
-            <div class="qr">[UPI QR PLACEHOLDER]</div>
-            <p>Bank: [Details]<br>Thank you for your business!</p>
-          </div>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.onload = () => {
-      html2canvas(printWindow.document.body).then((canvas) => {
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF();
-        const imgProps = pdf.getImageProperties(imgData);
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save('quotation.pdf');
-      });
-      printWindow.close();
+    const element = printRef.current;
+    if (!element) return;
+
+    const waitForImages = async (container) => {
+      const images = Array.from(container.querySelectorAll('img'));
+      await Promise.all(
+        images.map((img) => {
+          if (img.complete) return Promise.resolve();
+          return new Promise((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          });
+        })
+      );
     };
+
+    await waitForImages(element);
+    const canvas = await html2canvas(element, {
+      useCORS: true,
+      allowTaint: true,
+      scale: 2,
+      backgroundColor: "#ffffff",
+    });
+
+    let imgData = "";
+    try {
+      imgData = canvas.toDataURL('image/png');
+    } catch (err) {
+      const fallbackCanvas = await html2canvas(element, {
+        useCORS: true,
+        allowTaint: true,
+        scale: 2,
+        backgroundColor: "#ffffff",
+        ignoreElements: (el) => el.tagName === "IMG",
+      });
+      imgData = fallbackCanvas.toDataURL('image/png');
+    }
+    const pdf = new jsPDF('p', 'pt', 'a4');
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pdfWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pdfHeight;
+
+    while (heightLeft > 0) {
+      position -= pdfHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pdfHeight;
+    }
+
+    pdf.save('quotation.pdf');
   };
 
   const submitQuote = async () => {
     if (formData.items.length === 0) return alert('Add at least one item');
     setSubmitting(true);
     try {
-      const res = await api.post('/quote/manual', formData);
+      const payload = {
+        userDetails: formData.userDetails,
+        requestedItems: formData.items.map((item) => ({
+          productId: item.productId,
+          name: item.name,
+          quantity: item.quantity,
+          offeredPrice: item.offeredPrice,
+          selectedCustomFields: item.selectedCustomFields || {},
+        })),
+        shippingCharge: formData.shippingCharge,
+        additionalChargeName: formData.additionalChargeName,
+        additionalChargeAmount: formData.additionalChargeAmount,
+        gstPercentage: formData.gstPercentage,
+      };
+      const res = await api.post('/quote/manual', payload);
       if (res.data.success) {
         setShareLink(res.data.shareLink);
         alert('Manual quote created! Share link copied.');
@@ -190,10 +268,10 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
         <div className="flex-1 p-6 overflow-y-auto">
           {/* Client Details */}
           <div className="grid grid-cols-1 gap-4 p-4 mb-6 md:grid-cols-2 bg-gray-50 rounded-xl">
-            <input placeholder="Client Name *" value={formData.clientDetails.name} onChange={(e) => updateField('clientDetails.name', e.target.value)} className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
-            <input placeholder="Phone *" value={formData.clientDetails.phone} onChange={(e) => updateField('clientDetails.phone', e.target.value)} className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
-            <input placeholder="Email" value={formData.clientDetails.email} onChange={(e) => updateField('clientDetails.email', e.target.value)} className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
-            <input placeholder="Company" value={formData.clientDetails.company} onChange={(e) => updateField('clientDetails.company', e.target.value)} className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+            <input placeholder="Client Name *" value={formData.userDetails.name} onChange={(e) => updateField('userDetails.name', e.target.value)} className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+            <input placeholder="Phone *" value={formData.userDetails.phone} onChange={(e) => updateField('userDetails.phone', e.target.value)} className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+            <input placeholder="Email" value={formData.userDetails.email} onChange={(e) => updateField('userDetails.email', e.target.value)} className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+            <input placeholder="Company" value={formData.userDetails.company} onChange={(e) => updateField('userDetails.company', e.target.value)} className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
           </div>
 
           {/* Product Search & Items */}
@@ -234,31 +312,117 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
                     </tr>
                   </thead>
                   <tbody>
-                    {formData.items.map((item, index) => (
-                      <tr key={index} className="border-t">
-                        <td className="p-3">
-                          <div className="flex items-center gap-2">
-                            <img src={item.image} alt={item.name} className="object-cover w-8 h-8 rounded" />
-                            <div>
-                              <div className="font-medium">{item.name}</div>
-                              <div className="text-xs text-gray-500">{item.sku}</div>
+                  {formData.items.map((item, index) => {
+                    const fields = Array.isArray(item.customFields) ? item.customFields : [];
+                    const optionLines = getSelectedOptionsLines(item);
+                    return (
+                      <Fragment key={`${item.productId || index}-block`}>
+                        <tr className="border-t">
+                          <td className="p-3">
+                            <div className="flex items-center gap-2">
+                              <img src={item.image} alt={item.name} className="object-cover w-8 h-8 rounded" />
+                              <div>
+                                <div className="font-medium">{item.name}</div>
+                                <div className="text-xs text-gray-500">{item.sku}</div>
+                                {optionLines.length > 0 && (
+                                  <div className="mt-1 space-y-0.5">
+                                    {optionLines.map((line, idx) => (
+                                      <div key={`${item.productId || index}-sel-${idx}`} className="text-[11px] text-gray-500">
+                                        {line}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                        <td className="p-3 text-right">
-                          <input type="number" min="1" value={item.quantity} onChange={(e) => updateItemField(index, 'quantity', Number(e.target.value))} className="w-16 p-1 text-right border rounded" />
-                        </td>
-                        <td className="p-3 text-right">
-                          <input type="number" min="0" step="0.01" value={item.offeredPrice} onChange={(e) => updateItemField(index, 'offeredPrice', Number(e.target.value))} className="w-24 p-1 text-right border rounded" />
-                        </td>
-                        <td className="p-3 font-semibold text-right text-green-600">Rs. {(item.offeredPrice * item.quantity).toFixed(2)}</td>
-                        <td className="p-3">
-                          <button onClick={() => removeItem(index)} className="p-1 text-red-500 hover:text-red-700">
-                            <FaTrash />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                          </td>
+                          <td className="p-3 text-right">
+                            <input type="number" min="1" value={item.quantity} onChange={(e) => updateItemField(index, 'quantity', Number(e.target.value))} className="w-16 p-1 text-right border rounded" />
+                          </td>
+                          <td className="p-3 text-right">
+                            <input type="number" min="0" step="0.01" value={item.offeredPrice} onChange={(e) => updateItemField(index, 'offeredPrice', Number(e.target.value))} className="w-24 p-1 text-right border rounded" />
+                          </td>
+                          <td className="p-3 font-semibold text-right text-green-600">Rs. {(item.offeredPrice * item.quantity).toFixed(2)}</td>
+                          <td className="p-3">
+                            <button onClick={() => removeItem(index)} className="p-1 text-red-500 hover:text-red-700">
+                              <FaTrash />
+                            </button>
+                          </td>
+                        </tr>
+                        <tr className="border-b bg-gray-50/70">
+                          <td colSpan={5} className="p-3">
+                            <div className="text-xs font-semibold text-gray-600 uppercase">Options</div>
+                            {fields.length === 0 ? (
+                              <div className="mt-1 text-xs text-gray-500">No options for this product.</div>
+                            ) : (
+                              <div className="grid grid-cols-1 gap-3 mt-2 md:grid-cols-2">
+                                {fields.map((field) => {
+                                  const fieldKey = getFieldKey(field);
+                                  const selectedValue = getSelectedValue(item, field, fieldKey);
+                                  const options = Array.isArray(field.options) ? field.options : [];
+
+                                  return (
+                                    <div key={`${item.productId || index}-${fieldKey}`} className="p-3 bg-white border rounded-lg">
+                                      <div className="text-xs font-semibold text-gray-700 uppercase">{getFieldLabel(field, fieldKey)}</div>
+                                      {field.type === "text" ? (
+                                        <input
+                                          type="text"
+                                          value={selectedValue || ""}
+                                          onChange={(e) => updateItemSelection(index, field, e.target.value, "set")}
+                                          className="w-full p-2 mt-2 text-sm border rounded"
+                                          placeholder="Enter value"
+                                        />
+                                      ) : field.type === "checkbox" ? (
+                                        <div className="grid grid-cols-1 gap-2 mt-2">
+                                          {options.map((opt) => {
+                                            const optLabel = String(opt.label || "").trim();
+                                            const selectedValues = Array.isArray(selectedValue) ? selectedValue : [];
+                                            const isChecked = selectedValues.includes(optLabel);
+                                            const adj = Number(opt.priceAdjustment || 0);
+                                            const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}Rs ${Math.abs(adj)})` : "";
+
+                                            return (
+                                              <label key={optLabel} className="flex items-center gap-2 text-sm text-gray-700">
+                                                <input
+                                                  type="checkbox"
+                                                  checked={isChecked}
+                                                  onChange={() => updateItemSelection(index, field, optLabel, "toggle")}
+                                                />
+                                                <span>{optLabel}{adjText}</span>
+                                              </label>
+                                            );
+                                          })}
+                                        </div>
+                                      ) : (
+                                        <div className="grid grid-cols-1 gap-2 mt-2">
+                                          {options.map((opt) => {
+                                            const optLabel = String(opt.label || "").trim();
+                                            const adj = Number(opt.priceAdjustment || 0);
+                                            const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}Rs ${Math.abs(adj)})` : "";
+                                            return (
+                                              <label key={optLabel} className="flex items-center gap-2 text-sm text-gray-700">
+                                                <input
+                                                  type="radio"
+                                                  name={`item-${index}-${fieldKey}`}
+                                                  checked={selectedValue === optLabel}
+                                                  onChange={() => updateItemSelection(index, field, optLabel, "set")}
+                                                />
+                                                <span>{optLabel}{adjText}</span>
+                                              </label>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      </Fragment>
+                    );
+                  })}
                   </tbody>
                 </table>
               </div>
@@ -295,6 +459,107 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
               <div className="text-right md:col-span-2 lg:col-span-1">
                 <div className="text-2xl font-bold text-emerald-700">Grand Total: Rs. {total.toFixed(2)}</div>
               </div>
+            </div>
+          </div>
+        </div>
+        <div className="absolute pointer-events-none opacity-0 -left-[9999px] top-0">
+          <div ref={printRef} className="w-[794px] p-8 text-gray-900 bg-white">
+            <div className="flex items-center justify-between pb-4 mb-4 border-b">
+              <div>
+                <h1 className="text-2xl font-bold">Tez Tech Quotation</h1>
+                <p className="text-sm text-gray-600">Date: {new Date().toLocaleDateString()}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-semibold">Client: {formData.userDetails.name || "-"}</p>
+                <p className="text-sm text-gray-600">Phone: {formData.userDetails.phone || "-"}</p>
+              </div>
+            </div>
+
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="text-sm uppercase border-b">
+                  <th className="p-2">Thumbnail</th>
+                  <th className="p-2">Item Name</th>
+                  <th className="p-2 text-right">Qty</th>
+                  <th className="p-2 text-right">Price</th>
+                  <th className="p-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody className="text-sm">
+                {formData.items.map((item, index) => (
+                  <tr key={`pdf-${item.productId || index}`} className="border-b">
+                    <td className="p-2">
+                      {item.image ? (
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          crossOrigin="anonymous"
+                          className="object-cover w-12 h-12 rounded"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-200 rounded" />
+                      )}
+                    </td>
+                    <td className="p-2">
+                      <div className="font-medium">{item.name}</div>
+                      {item.sku && <div className="text-xs text-gray-500">{item.sku}</div>}
+                      {getSelectedOptionsLines(item).length > 0 && (
+                        <div className="mt-1 space-y-0.5">
+                          {getSelectedOptionsLines(item).map((line, idx) => (
+                            <div key={`pdf-opt-${index}-${idx}`} className="text-[11px] text-gray-500">
+                              {line}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-2 text-right">{item.quantity}</td>
+                    <td className="p-2 text-right">Rs. {Number(item.offeredPrice || 0).toFixed(2)}</td>
+                    <td className="p-2 text-right">Rs. {(Number(item.offeredPrice || 0) * Number(item.quantity || 0)).toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="grid grid-cols-1 gap-2 mt-4 text-sm">
+              <div className="flex justify-between">
+                <span>Sub-Total:</span>
+                <span className="font-semibold">Rs. {subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>GST ({formData.gstPercentage}%):</span>
+                <span className="font-semibold">Rs. {gstAmount.toFixed(2)}</span>
+              </div>
+              {formData.additionalChargeName && (
+                <div className="flex justify-between">
+                  <span>{formData.additionalChargeName}:</span>
+                  <span className="font-semibold">Rs. {Number(formData.additionalChargeAmount || 0).toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>Shipping:</span>
+                <span className="font-semibold">Rs. {Number(formData.shippingCharge || 0).toFixed(2)}</span>
+              </div>
+              <div className="flex items-center justify-between pt-2 mt-2 border-t">
+                <span className="text-base font-bold">Grand Total:</span>
+                <span className="text-base font-bold">Rs. {total.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-4 mt-6 border-t">
+              <div className="text-sm">
+                <p className="font-semibold">Bank Details</p>
+                <p>Bank: Tez Tech</p>
+                <p>A/C: XXXXXXXXXXXX</p>
+                <p>IFSC: XXXXXXXX</p>
+                <p>UPI: teztech@upi</p>
+              </div>
+              <img
+                src={`${window.location.origin}/upi-qr-placeholder.svg`}
+                alt="UPI QR"
+                crossOrigin="anonymous"
+                className="w-28 h-28"
+              />
             </div>
           </div>
         </div>

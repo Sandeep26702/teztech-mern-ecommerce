@@ -13,6 +13,8 @@ import {
   getProductImportOverview,
   rollbackProductImport,
   deleteProductImportRecord,
+  getProductsAdmin,
+  updateProductStatus,
 } from "../controllers/productController.js";
 import { protect, authorize } from "../middleware/auth.Middleware.js";
 import { upload } from "../config/cloudinary.js";
@@ -21,6 +23,7 @@ const router = express.Router();
 const csvUpload = multer({ storage: multer.memoryStorage() });
 
 router.get("/export/csv", protect, authorize("admin", "subadmin"), exportProductsCsv);
+router.get("/admin", protect, authorize("admin", "subadmin"), getProductsAdmin);
 router.post(
   "/import/csv",
   protect,
@@ -45,5 +48,7 @@ router
   .get(getProductById)
   .put(protect, authorize("admin", "subadmin"), upload.single("image"), updateProduct)
   .delete(protect, authorize("admin", "subadmin"), deleteProduct);
+
+router.patch("/:id/status", protect, authorize("admin", "subadmin"), updateProductStatus);
 
 export default router;

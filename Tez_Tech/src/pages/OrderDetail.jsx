@@ -114,7 +114,7 @@ const OrderDetail = () => {
       : baseTotal + shippingAmount;
 
   return (
-    <div className="min-h-screen px-4 pb-12 bg-gray-50 pt-24">
+    <div className="min-h-screen px-4 pt-24 pb-12 bg-gray-50">
       <style>{`
         @media print {
           .no-print { display: none !important; }
@@ -124,7 +124,7 @@ const OrderDetail = () => {
       `}</style>
 
       <div className="max-w-6xl mx-auto space-y-4">
-        <div className="no-print flex items-center justify-between">
+        <div className="flex items-center justify-between no-print">
           {isAdminView ? (
             <button onClick={() => navigate(-1)} className="px-3 py-2 text-sm font-semibold bg-white border rounded-lg">
               Back
@@ -140,7 +140,7 @@ const OrderDetail = () => {
         </div>
 
         {isAdminView && (
-          <div className="print-label-only hidden p-4 bg-white border-2 border-dashed border-black">
+          <div className="hidden p-4 bg-white border-2 border-black border-dashed print-label-only">
             <p className="text-xs font-bold">SONANI ELECTRONICS - SHIPPING LABEL</p>
             <p className="mt-2 text-sm font-bold">Order: {order.orderCode || `#${order.orderNumber || order._id.slice(-8)}`}</p>
             <p className="text-sm">Name: {order.shippingInfo?.fullName}</p>
@@ -175,9 +175,10 @@ const OrderDetail = () => {
                 const selectedLines = renderSelectedOptions(item);
                 return (
                   <div key={`${order._id}-${index}`} className="flex gap-3 p-3 border rounded-xl">
-                    <img src={item.image} alt={item.name} className="object-contain w-20 h-20 border rounded-lg bg-white" />
+                    <img src={item.image} alt={item.name} className="object-contain w-20 h-20 bg-white border rounded-lg" />
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-900">{item.name}</p>
+                      {item.sku && <p className="text-xs text-gray-500">SKU: {item.sku}</p>}
                       <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
                       <p className="text-xs text-gray-500">Unit: {formatCurrency(item.unitPrice || item.price)}</p>
                       {selectedLines.length > 0 && (
@@ -240,7 +241,7 @@ const OrderDetail = () => {
             </div>
           </div>
 
-          <aside className="no-print h-fit bg-white border border-gray-200 rounded-2xl p-4 lg:sticky lg:top-24">
+          <aside className="p-4 bg-white border border-gray-200 no-print h-fit rounded-2xl lg:sticky lg:top-24">
             {order.orderStatus === "Delivered" ? (
               <div>
                 <h3 className="text-sm font-bold text-gray-900">Delivery Status</h3>

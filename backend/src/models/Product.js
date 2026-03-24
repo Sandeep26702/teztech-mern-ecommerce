@@ -63,34 +63,63 @@ const productSchema = new mongoose.Schema(
       required: true,
       ref: "User",
     },
+    productId: {
+      type: String,
+      trim: true,
+      default: "",
+    },
     name: {
       type: String,
       required: true,
+      trim: true,
     },
     sku: {
+      type: String,
+      trim: true,
+      index: true,
+      unique: true,
+      sparse: true,
+    },
+    image: {
+      type: String,
+      default: "https://placehold.co/600x600?text=Product",
+    },
+    images: {
+      type: [String],
+      default: [],
+    },
+    brand: {
+      type: String,
+      default: "",
+    },
+    category: {
+      type: String,
+      default: "Uncategorized",
+      trim: true,
+    },
+    categoryPath: {
       type: String,
       default: "",
       trim: true,
     },
-    image: {
-      type: String,
-      required: true,
-    },
-    brand: {
-      type: String,
-      required: true,
-    },
-    category: {
-      type: String,
-      required: true,
+    categories: {
+      type: [String],
+      default: [],
     },
     description: {
       type: String,
-      required: true,
+      default: "",
     },
     price: {
       type: Number,
-      required: true,
+      default: 0,
+    },
+    sellingPrice: {
+      type: Number,
+      default: 0,
+    },
+    mrp: {
+      type: Number,
       default: 0,
     },
     gstRate: {
@@ -106,8 +135,125 @@ const productSchema = new mongoose.Schema(
     },
     stock: {
       type: Number,
-      required: true,
       default: 0,
+    },
+    status: {
+      type: String,
+      default: "Active",
+      trim: true,
+    },
+    searchTags: {
+      type: [String],
+      default: [],
+    },
+    searchIndex: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    heightFt: {
+      type: String,
+      default: "",
+    },
+    widthFt: {
+      type: String,
+      default: "",
+    },
+    totalHoles: {
+      type: String,
+      default: "",
+    },
+    holeSize: {
+      type: String,
+      default: "",
+    },
+    materialType: {
+      type: String,
+      default: "",
+    },
+    sheetThickness: {
+      type: String,
+      default: "",
+    },
+    ledCompatible: {
+      type: String,
+      default: "",
+    },
+    inputVoltage: {
+      type: String,
+      default: "",
+    },
+    outputVoltage: {
+      type: String,
+      default: "",
+    },
+    powerWatt: {
+      type: String,
+      default: "",
+    },
+    connectivity: {
+      type: String,
+      default: "",
+    },
+    icNumber: {
+      type: String,
+      default: "",
+    },
+    ledPerMeter: {
+      type: String,
+      default: "",
+    },
+    controllerType: {
+      type: String,
+      default: "",
+    },
+    warranty: {
+      type: String,
+      default: "",
+    },
+    colorRedAdd: {
+      type: Number,
+      default: null,
+    },
+    colorGreenAdd: {
+      type: Number,
+      default: null,
+    },
+    colorBlueAdd: {
+      type: Number,
+      default: null,
+    },
+    hole9mmAdd: {
+      type: Number,
+      default: null,
+    },
+    hole12mmAdd: {
+      type: Number,
+      default: null,
+    },
+    materialTezTechAdd: {
+      type: Number,
+      default: null,
+    },
+    materialSunriseAdd: {
+      type: Number,
+      default: null,
+    },
+    power12WAdd: {
+      type: Number,
+      default: null,
+    },
+    power24WAdd: {
+      type: Number,
+      default: null,
+    },
+    remoteAdd: {
+      type: Number,
+      default: null,
+    },
+    waterproofAdd: {
+      type: Number,
+      default: null,
     },
     customFields: {
       type: [customFieldSchema],

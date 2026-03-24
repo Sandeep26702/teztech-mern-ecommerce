@@ -37,13 +37,6 @@ export const QuoteProvider = ({ children }) => {
 
   // 📝 2. Add to Quote (Save to Database)
   const addToQuote = async (product) => {
-    // Prevent duplicate API calls if the item is already in the local state
-    const exists = quoteItems.find((item) => (item.productId?._id || item.productId) === product._id);
-    if (exists) {
-      alert("ℹ️ Already in your Quotation list!");
-      return;
-    }
-
     try {
       const { data } = await api.post("/quote/add", {
         productId: product._id,

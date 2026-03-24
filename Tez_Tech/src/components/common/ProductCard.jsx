@@ -16,6 +16,10 @@ const ProductCard = ({ product }) => {
     product?.images?.[0] || 
     "https://placehold.co/400x300/f3f4f6/a1a1aa?text=No+Image";
 
+  const sellingPrice = Number(product?.sellingPrice ?? product?.price ?? 0);
+  const mrp = Number(product?.mrp ?? 0);
+  const discountPercent = mrp > sellingPrice ? Math.round(((mrp - sellingPrice) / mrp) * 100) : 0;
+
   // 🛠️ FIX 2: ID format check. '_id' aur 'id' dono ko support karega.
   const productId = product?._id || product?.id;
 
@@ -46,7 +50,7 @@ const ProductCard = ({ product }) => {
           className="object-contain w-full h-full transition-transform duration-500 ease-in-out group-hover:scale-110 mix-blend-multiply"
         />
         <div className="absolute px-3 py-1 text-xs font-bold text-gray-600 border border-gray-100 rounded-full shadow-sm top-3 right-3 bg-white/90 backdrop-blur-sm">
-          {product?.category || "Electronics"}
+          {product?.categoryPath || product?.category || "Electronics"}
         </div>
       </div>
 
@@ -60,9 +64,14 @@ const ProductCard = ({ product }) => {
         </p>
 
         <div className="flex flex-col pt-4 mt-auto border-t border-gray-100">
-          <span className="mb-3 text-xl font-extrabold text-gray-900">
-            ₹{product?.price ? product.price.toLocaleString('en-IN') : "0"}
+          <span className="text-xl font-extrabold text-gray-900">
+            ₹{sellingPrice.toLocaleString("en-IN")}
           </span>
+          {discountPercent > 0 && (
+            <span className="text-xs font-semibold text-green-700 mt-1">
+              MRP <span className="line-through">₹{mrp.toLocaleString("en-IN")}</span> ({discountPercent}% OFF)
+            </span>
+          )}
           
           <div className="flex items-center gap-2">
             <button 

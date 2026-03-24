@@ -10,6 +10,7 @@ import {
   updateUserProfileByAdmin,
   toggleUserBlockStatus,
 } from "../controllers/adminController.js"; 
+import { getQuoteById, respondToQuote } from "../controllers/quoteController.js";
 
 const router = express.Router();
 
@@ -38,5 +39,10 @@ router.patch("/users/:id/block", adminOnly, toggleUserBlockStatus);
 router.route("/users/:id")
   .delete(adminOnly, deleteUser)
   .put(adminOnly, updateUserRole);
+
+// Quote management routes for Admin Panel
+router.get("/quote/:id", getQuoteById);
+router.put("/quote/:id", respondToQuote);
+router.patch("/quote/:id", respondToQuote);
 
 export default router;

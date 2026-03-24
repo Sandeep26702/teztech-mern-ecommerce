@@ -1,12 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaFileAlt, FaShoppingCart } from "react-icons/fa";
-import { useNavigate, useParams } from "react-router-dom";
+import { FaFileAlt, FaShoppingCart, FaShareAlt } from "react-icons/fa";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useQuote } from "../context/QuoteContext";
 import { getProductById } from "../services/productService";
 
 const round2 = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 const toText = (value) => String(value || "").trim();
+const hasMeaningfulValue = (value) => {
+  if (value === undefined || value === null) return false;
+  const raw = String(value).trim();
+  if (!raw) return false;
+  const parsed = Number(raw);
+  if (Number.isFinite(parsed) && parsed === 0) return false;
+  return true;
+};
 
 const optionToConfig = (option) => {
   if (option && typeof option === "object" && !Array.isArray(option)) {
@@ -27,6 +35,7 @@ const getFieldOptions = (field) => (field?.options || []).map(optionToConfig);
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { addToCart } = useCart();
   const { addToQuote } = useQuote();
 
@@ -34,6 +43,8 @@ const ProductDetail = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCustomFields, setSelectedCustomFields] = useState({});
   const [customFieldError, setCustomFieldError] = useState("");
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [touchStartX, setTouchStartX] = useState(null);
 
   useEffect(() => {
     const loadProduct = async () => {
@@ -65,12 +76,46 @@ const ProductDetail = () => {
         initialSelections[fieldKey] = "";
       }
     });
+
+    const preselected = location.state?.selectedCustomFields || null;
+    if (preselected && typeof preselected === "object") {
+      (product.customFields || []).forEach((field) => {
+        const fieldKey = String(field._id || field.label || "");
+        if (!fieldKey) return;
+        const labelKey = String(field.label || "");
+        let selectedValue =
+          preselected[fieldKey] ?? (labelKey ? preselected[labelKey] : undefined);
+        if (selectedValue === undefined || selectedValue === null) return;
+
+        if (field.type === "checkbox") {
+          const rawValues = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
+          const options = getFieldOptions(field).map((opt) => opt.label);
+          const normalized = rawValues
+            .map((val) => String(val || "").trim())
+            .filter(Boolean);
+          initialSelections[fieldKey] = options.length
+            ? normalized.filter((val) => options.includes(val))
+            : normalized;
+        } else if (field.type === "radio") {
+          const value = String(selectedValue || "").trim();
+          if (!value) return;
+          const options = getFieldOptions(field).map((opt) => opt.label);
+          if (options.length === 0 || options.includes(value)) {
+            initialSelections[fieldKey] = value;
+          }
+        } else {
+          initialSelections[fieldKey] = String(selectedValue ?? "");
+        }
+      });
+    }
+
     setSelectedCustomFields(initialSelections);
     setCustomFieldError("");
-  }, [product]);
+    setActiveImageIndex(0);
+  }, [product, location.state]);
 
   const pricing = useMemo(() => {
-    const basePrice = Number(product?.price || 0);
+    const basePrice = Number(product?.sellingPrice ?? product?.price ?? 0);
     const gstRate = Number(product?.gstRate || 0);
     let optionAdjustment = 0;
 
@@ -121,12 +166,13 @@ const ProductDetail = () => {
       product.images?.[0] ||
       product.image ||
       "https://placehold.co/600x400/f3f4f6/a1a1aa?text=No+Image";
+    const basePrice = Number(product?.sellingPrice ?? product?.price ?? 0);
 
     return {
       ...product,
       image: resolvedImage,
       price: pricing.unitPrice,
-      originalBasePrice: product.price,
+      originalBasePrice: basePrice,
       selectedCustomFields,
       pricingSnapshot: pricing,
     };
@@ -153,7 +199,8 @@ const ProductDetail = () => {
 
   const handleAddToCart = () => {
     if (hasMissingRequiredCustomFields()) {
-      setCustomFieldError("Please select all required options before adding to cart.");
+      setCustomFieldError("Please select all required options.");
+      window.scrollBy({ top: -100, behavior: "smooth" });
       return;
     }
     addToCart(buildProductWithSelections(), 1);
@@ -162,219 +209,220 @@ const ProductDetail = () => {
 
   const handleAddToQuote = () => {
     if (hasMissingRequiredCustomFields()) {
-      setCustomFieldError("Please select all required options before requesting quote.");
+      setCustomFieldError("Please select all required options.");
+      window.scrollBy({ top: -100, behavior: "smooth" });
       return;
     }
     addToQuote(buildProductWithSelections(), 1);
     navigate("/quotation");
   };
 
+  const handleShare = async () => {
+    const shareData = {
+      title: product?.name || "Product",
+      url: window.location.href,
+    };
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (error) {
+        console.error("Error sharing:", error);
+      }
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      alert("Link copied to clipboard!");
+    }
+  };
+
+  const imageList = useMemo(() => {
+    if (!product) return [];
+    const images = Array.isArray(product.images) ? product.images : [];
+    const normalized = images.map((img) => (typeof img === "string" ? img : img?.url)).filter(Boolean);
+    if (normalized.length) return normalized;
+    if (product.image) return [product.image];
+    return [];
+  }, [product]);
+
+  const activeImage = imageList[activeImageIndex] || "https://placehold.co/600x400/f3f4f6/a1a1aa?text=No+Image";
+
+  const goPrevImage = () => {
+    if (!imageList.length) return;
+    setActiveImageIndex((prev) => (prev - 1 + imageList.length) % imageList.length);
+  };
+
+  const goNextImage = () => {
+    if (!imageList.length) return;
+    setActiveImageIndex((prev) => (prev + 1) % imageList.length);
+  };
+
+  const handleTouchStart = (event) => {
+    const touch = event.touches?.[0];
+    if (touch) setTouchStartX(touch.clientX);
+  };
+
+  const handleTouchEnd = (event) => {
+    if (touchStartX === null) return;
+    const touch = event.changedTouches?.[0];
+    if (!touch) return;
+    const delta = touch.clientX - touchStartX;
+    if (Math.abs(delta) > 40) {
+      if (delta > 0) goPrevImage();
+      else goNextImage();
+    }
+    setTouchStartX(null);
+  };
+
+  const specFallback = [
+    { key: "LENGTH", value: product?.heightFt || product?.length },
+    { key: "WIDTH", value: product?.widthFt || product?.width },
+    { key: "MATERIAL ", value: product?.materialType },
+  ];
+
+  const specRows = (product?.details?.length ? product.details : specFallback)
+    .map((item) => ({ key: toText(item.key), value: toText(item.value) }))
+    .filter((item) => item.key && hasMeaningfulValue(item.value));
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="w-12 h-12 border-4 border-orange-500 rounded-full border-t-transparent animate-spin" />
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="w-6 h-6 border-2 border-gray-600 rounded-full border-t-transparent animate-spin" />
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="flex flex-col items-center justify-center mt-20 text-center">
-        <p className="text-2xl font-semibold text-gray-800">Product not found.</p>
-        <button
-          onClick={() => navigate("/products")}
-          className="px-6 py-3 mt-6 text-white transition-all shadow-md bg-orange-600 rounded-xl hover:bg-orange-700 hover:shadow-lg"
-        >
-          Go Back to Store
-        </button>
+      <div className="flex flex-col items-center justify-center min-h-[40vh] text-center">
+        <p className="text-lg font-medium text-gray-800">Product not found.</p>
+        <button onClick={() => navigate("/products")} className="px-4 py-2 mt-4 text-sm text-white bg-gray-800 rounded hover:bg-black">Go Back</button>
       </div>
     );
   }
 
-  const isOutOfStock = product.stock === 0;
-  const categoryTrail = toText(product.category)
-    .split("/")
-    .map((part) => toText(part))
-    .filter(Boolean);
-  const shippingCharge = Number(product.shippingCharge || 0);
-
-  const productDetails = Array.isArray(product.details) ? product.details : [];
-  const resolvedLength =
-    productDetails.find((item) => toText(item.key).includes("LENGTH"))?.value || "--";
-  const resolvedWidth =
-    productDetails.find((item) => toText(item.key) === "WIDTH" || toText(item.key).includes("WIDTH"))
-      ?.value || "--";
-  const resolvedHoles =
-    productDetails.find((item) => toText(item.key).includes("TOTAL HOLES"))?.value ||
-    productDetails.find((item) => toText(item.key).includes("HOLES"))?.value ||
-    "--";
-  const detailList = productDetails.reduce((acc, item) => {
-    const key = toText(item.key).toUpperCase();
-    if (!key) return acc;
-    if (key.includes("TOTAL HOLES")) return acc;
-    if (key === "WIDTH" || key.includes("WIDTH")) return acc;
-    if (key.includes("LENGTH")) return acc;
-    const signature = `${key}::${toText(item.value)}`.toLowerCase();
-    if (acc._seen.has(signature)) return acc;
-    acc._seen.add(signature);
-    acc.items.push(item);
-    return acc;
-  }, { items: [], _seen: new Set() }).items;
+  const isOutOfStock = Number(product.stock) === 0;
+  const categoryTrail = toText(product.categoryPath || product.category).split("/").map(toText).filter(Boolean);
 
   return (
-    <div className="max-w-7xl px-4 py-10 mx-auto sm:px-6 lg:px-8">
-      {/* MAIN GRID CONTAINER 
-        'items-start' is crucial here. It prevents the left column from stretching 
-        to the height of the right column, allowing 'sticky' to work. 
-      */}
-      <div className="grid gap-10 md:grid-cols-2 items-start lg:gap-16">
+    <div className="max-w-6xl px-4 py-8 mx-auto font-sans text-gray-900 bg-white sm:px-6 lg:px-8">
+      <div className="grid gap-10 md:grid-cols-12 md:items-start">
         
-        {/* ================= LEFT COLUMN: STICKY IMAGE ================= */}
-        <div className="sticky top-24 z-10 flex flex-col items-center justify-center p-6 bg-white border border-gray-100 shadow-xl rounded-3xl">
-          <img
-            src={product.images?.[0]?.url || product.image || "https://placehold.co/600x400/f3f4f6/a1a1aa?text=No+Image"}
-            alt={product.name}
-            className={`object-contain w-full h-auto max-h-[600px] transition-transform duration-500 hover:scale-105 ${isOutOfStock ? "grayscale opacity-70" : ""}`}
-          />
+        {/* === LEFT: IMAGE SECTION === */}
+        <div className="relative flex flex-col md:col-span-7 group">
+          {/* Simple Share Button */}
+          <button 
+            onClick={handleShare}
+            className="absolute z-10 flex items-center justify-center w-10 h-10 text-gray-600 transition-colors rounded-full shadow top-4 right-4 bg-white/90 hover:bg-white hover:text-gray-900"
+            title="Share this product"
+          >
+            <FaShareAlt size={16} />
+          </button>
+
+          <div
+            className="relative flex items-center justify-center w-full overflow-hidden border border-gray-100 rounded-lg bg-gray-50 group"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+          >
+            <img
+              src={activeImage}
+              alt={product.name}
+              className={`object-contain w-full h-auto min-h-[350px] max-h-[550px] transition-transform duration-500 group-hover:scale-105 ${isOutOfStock ? "grayscale opacity-70" : ""}`}
+            />
+            {imageList.length > 1 && (
+              <>
+                <button onClick={goPrevImage} className="absolute flex items-center justify-center w-8 h-8 text-xl text-gray-500 -translate-y-1/2 rounded-full shadow left-4 top-1/2 hover:text-gray-900 bg-white/80">‹</button>
+                <button onClick={goNextImage} className="absolute flex items-center justify-center w-8 h-8 text-xl text-gray-500 -translate-y-1/2 rounded-full shadow right-4 top-1/2 hover:text-gray-900 bg-white/80">›</button>
+              </>
+            )}
+          </div>
+
+          {imageList.length > 1 && (
+            <div className="flex gap-2 pb-2 mt-4 overflow-x-auto scrollbar-hide">
+              {imageList.map((img, index) => (
+                <button
+                  key={index}
+                  onClick={() => setActiveImageIndex(index)}
+                  className={`flex-shrink-0 w-16 h-16 border p-1 rounded-md transition-all ${
+                    index === activeImageIndex ? "border-gray-800" : "border-gray-200 hover:border-gray-400"
+                  }`}
+                >
+                  <img src={img} alt="Thumb" className="object-cover w-full h-full mix-blend-multiply" />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* ================= RIGHT COLUMN: SCROLLABLE DETAILS ================= */}
-        <div className="flex flex-col px-2 py-4 md:px-6">
+        {/* === RIGHT: DETAILS SECTION === */}
+        <div className="flex flex-col px-1 md:col-span-5 md:px-0">
           
-          {/* Header Section */}
-          <div className="mb-6">
-            <p className="mb-2 text-xs font-semibold tracking-widest text-orange-600 uppercase">
-              {categoryTrail.join(" / ") || "Store / Product"}
+          <div className="flex flex-col gap-1 mb-4">
+            <p className="text-[10px] font-bold tracking-wider text-gray-400 uppercase">{categoryTrail.join(" / ") || "STORE"}</p>
+            <h1 className="text-xl font-extrabold leading-snug text-gray-900 uppercase sm:text-2xl">
+              {product.name}
+            </h1>
+            <p className="text-[11px] text-gray-500 uppercase mt-1">
+              SKU: <span className="font-mono text-gray-600">{toText(product.sku) || "DEMO"}</span>
             </p>
-            <h1 className="text-3xl font-bold leading-tight text-gray-900 md:text-4xl uppercase">{product.name}</h1>
-            <p className="mt-2 text-sm text-gray-500">SKU: <span className="font-mono text-gray-800">{toText(product.sku) || "DEMO"}</span></p>
           </div>
 
-          {/* Pricing Box */}
-          <div className="p-6 mb-8 border border-orange-200 bg-orange-50/50 rounded-2xl shadow-sm">
-            <div className="flex items-center justify-between text-sm font-medium text-gray-600">
-              <span>Base price</span>
-              <span>Rs. {pricing.basePrice.toLocaleString("en-IN")}</span>
-            </div>
-            {pricing.optionAdjustment !== 0 && (
-              <div className="flex items-center justify-between mt-2 text-sm font-medium text-gray-600">
-                <span>Option adjustment</span>
-                <span>
-                  {pricing.optionAdjustment >= 0 ? "+" : "-"} Rs. {Math.abs(pricing.optionAdjustment).toLocaleString("en-IN")}
-                </span>
-              </div>
-            )}
-            {pricing.gstRate > 0 && (
-              <div className="flex items-center justify-between mt-2 text-sm font-medium text-gray-600">
-                <span>GST ({pricing.gstRate}%)</span>
-                <span>Rs. {pricing.gstAmount.toLocaleString("en-IN")}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between mt-2 text-sm font-medium text-gray-600">
-              <span>Shipping Charge</span>
-              {shippingCharge > 0 ? (
-                <span>Rs. {shippingCharge.toLocaleString("en-IN")}</span>
-              ) : (
-                <span className="px-2 py-0.5 text-xs font-bold text-green-700 bg-green-100 rounded-full">FREE</span>
-              )}
-            </div>
-            
-            <div className="flex items-center justify-between pt-4 mt-4 border-t border-orange-200">
-              <h2 className="text-lg font-bold text-gray-800">Total Price</h2>
-              <h2 className="text-3xl font-black text-orange-600">Rs. {pricing.unitPrice.toLocaleString("en-IN")}</h2>
-            </div>
+          <div className="flex items-center justify-between p-4 mb-6 border border-gray-100 rounded-lg bg-gray-50/50">
+            <h2 className="text-3xl font-black text-gray-900">₹{pricing.unitPrice.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</h2>
+            <p className="text-[11px] text-right font-medium text-gray-500">
+              Incl. GST ({pricing.gstRate}%)<br/>₹{pricing.gstAmount.toFixed(2)}
+            </p>
           </div>
 
-          {/* Custom Fields (Options) */}
           {(product.customFields || []).length > 0 && (
-            <div className="mb-8 space-y-6">
+            <div className="mb-6 space-y-5">
               {(product.customFields || []).map((field) => {
                 const fieldKey = String(field._id || field.label || "");
                 const selectedValue = selectedCustomFields[fieldKey];
                 const options = getFieldOptions(field);
 
                 return (
-                  <div key={fieldKey} className="space-y-3">
-                    <p className="text-sm font-bold tracking-wide text-gray-800 uppercase">
-                      {field.label} {field.required && <span className="text-red-500">*</span>}
+                  <div key={fieldKey} className="space-y-2">
+                    <p className="text-[11px] font-semibold text-gray-800 uppercase tracking-wide flex items-center gap-1">
+                      {field.label} {field.required && <span className="text-lg leading-none text-red-500">*</span>}
                     </p>
 
-                    {/* Radio Options */}
-                    {field.type === "radio" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {options.map((option) => (
-                          <label
-                            key={`${fieldKey}-${option.label}`}
-                            className={`flex items-center justify-between p-3 border rounded-xl cursor-pointer transition-all ${
-                              selectedValue === option.label 
-                                ? "border-orange-500 bg-orange-50 ring-1 ring-orange-500" 
-                                : "border-gray-200 hover:border-orange-300 hover:bg-gray-50"
-                            }`}
-                          >
-                            <span className="flex items-center gap-3 text-sm font-medium text-gray-700">
+                    {(field.type === "radio" || field.type === "checkbox") && (
+                      <div className="flex flex-col space-y-2">
+                        {options.map((option) => {
+                          const isChecked = field.type === "radio" 
+                            ? selectedValue === option.label 
+                            : (Array.isArray(selectedValue) && selectedValue.includes(option.label));
+
+                          return (
+                            <label key={option.label} className="flex items-center cursor-pointer group p-1.5 rounded-md hover:bg-gray-50 transition-colors">
                               <input
-                                type="radio"
+                                type={field.type}
                                 name={fieldKey}
                                 value={option.label}
-                                checked={selectedValue === option.label}
-                                onChange={(e) => handleRadioChange(fieldKey, e.target.value)}
-                                className="w-4 h-4 text-orange-600 accent-orange-600 focus:ring-orange-500"
+                                checked={isChecked}
+                                onChange={(e) => field.type === "radio" ? handleRadioChange(fieldKey, e.target.value) : handleCheckboxChange(fieldKey, option.label, e.target.checked)}
+                                className="w-4 h-4 text-gray-900 bg-white border-gray-300 cursor-pointer focus:ring-gray-900"
                               />
-                              {option.label}
-                            </span>
-                            {option.priceAdjustment !== 0 && (
-                              <span className="text-xs font-bold text-gray-500">
-                                {option.priceAdjustment >= 0 ? "+" : "-"}₹{Math.abs(option.priceAdjustment)}
-                              </span>
-                            )}
-                          </label>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Checkbox Options */}
-                    {field.type === "checkbox" && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {options.map((option) => {
-                          const isChecked = Array.isArray(selectedValue) ? selectedValue.includes(option.label) : false;
-                          return (
-                            <label
-                              key={`${fieldKey}-${option.label}`}
-                              className={`flex items-center justify-between p-3 border rounded-xl cursor-pointer transition-all ${
-                                isChecked 
-                                  ? "border-orange-500 bg-orange-50 ring-1 ring-orange-500" 
-                                  : "border-gray-200 hover:border-orange-300 hover:bg-gray-50"
-                              }`}
-                            >
-                              <span className="flex items-center gap-3 text-sm font-medium text-gray-700">
-                                <input
-                                  type="checkbox"
-                                  value={option.label}
-                                  checked={isChecked}
-                                  onChange={(e) => handleCheckboxChange(fieldKey, option.label, e.target.checked)}
-                                  className="w-4 h-4 text-orange-600 rounded accent-orange-600 focus:ring-orange-500"
-                                />
+                              <span className={`ml-3 text-sm transition-colors ${isChecked ? "text-gray-900 font-semibold" : "text-gray-700"}`}>
                                 {option.label}
+                                {option.priceAdjustment !== 0 && (
+                                  <span className={`text-[11px] font-medium ml-1.5 ${isChecked ? "text-gray-900" : "text-gray-400"}`}>
+                                    ({option.priceAdjustment >= 0 ? "+" : "-"} ₹{Math.abs(option.priceAdjustment).toFixed(2)})
+                                  </span>
+                                )}
                               </span>
-                              {option.priceAdjustment !== 0 && (
-                                <span className="text-xs font-bold text-gray-500">
-                                  {option.priceAdjustment >= 0 ? "+" : "-"}₹{Math.abs(option.priceAdjustment)}
-                               </span>
-                              )}
                             </label>
-                          )
+                          );
                         })}
                       </div>
                     )}
 
-                    {/* Text Options */}
                     {field.type === "text" && (
                       <input
                         type="text"
                         value={typeof selectedValue === "string" ? selectedValue : ""}
                         onChange={(e) => handleTextChange(fieldKey, e.target.value)}
-                        placeholder={`Enter ${String(field.label || "").toLowerCase()}`}
-                        className="w-full px-4 py-3 text-sm transition-all border border-gray-300 rounded-xl outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-200"
+                        placeholder="Type here..."
+                        className="w-full max-w-sm px-3 py-2.5 text-sm border border-gray-300 rounded-md outline-none focus:border-gray-500 focus:ring-1 focus:ring-gray-500 transition-all"
                       />
                     )}
                   </div>
@@ -383,74 +431,53 @@ const ProductDetail = () => {
             </div>
           )}
 
-          {/* Description */}
-          <div className="mb-8">
-             <h3 className="mb-3 text-lg font-bold text-gray-900">Description</h3>
-             <p className="text-sm leading-relaxed text-gray-600">{product.description}</p>
+          <div className={`mb-5 inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold tracking-wide ${
+              isOutOfStock ? "bg-red-50 text-red-700 border border-red-100" : "bg-green-50 text-green-700 border border-green-100"
+            }`}>
+              <span className={`relative inline-flex rounded-full w-2 h-2 ${isOutOfStock ? 'bg-red-500' : 'bg-green-500'}`}></span>
+              {isOutOfStock ? "Out of stock" : "In stock & Ready to Ship"}
           </div>
 
-          {/* Error & Stock Status */}
           {customFieldError && (
-            <div className="p-4 mb-4 text-sm font-semibold text-red-700 border border-red-200 rounded-xl bg-red-50 flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-              {customFieldError}
-            </div>
+            <div className="p-3 mb-4 text-xs font-semibold text-red-700 border border-red-200 rounded-md bg-red-50">{customFieldError}</div>
           )}
 
-          <div className="mb-6">
-            <span className={`inline-flex items-center px-3 py-1 text-sm font-bold rounded-full ${isOutOfStock ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"}`}>
-              {isOutOfStock ? "Out of stock" : "In stock"}
-            </span>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex flex-col gap-4 sm:flex-row pb-8 border-b border-gray-200">
-            <button
-              disabled={isOutOfStock}
-              onClick={handleAddToCart}
-              className="flex items-center justify-center flex-1 gap-3 py-4 text-lg font-bold text-white transition-all duration-300 shadow-md bg-orange-600 rounded-2xl hover:bg-orange-700 hover:shadow-lg active:scale-95 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed disabled:shadow-none"
+          {/* Screenshot ke hisaab se exact buttons */}
+          <div className="flex flex-col gap-3 pb-6 mb-2 border-b border-gray-100 sm:flex-row">
+            {!isOutOfStock ? (
+              <button 
+                onClick={handleAddToCart} 
+                className="flex-1 py-3 px-5 text-sm font-semibold text-white bg-gray-900 hover:bg-black rounded-md transition-colors flex items-center justify-center gap-2.5 shadow-sm"
+              >
+                <FaShoppingCart size={15} /> Add to Cart
+              </button>
+            ) : (
+              <div className="flex-1 px-5 py-3 text-sm font-semibold text-center text-gray-500 bg-gray-100 border border-gray-200 rounded-md">Available in store</div>
+            )}
+            
+            <button 
+              onClick={handleAddToQuote} 
+              className="flex-1 py-3 px-5 text-sm font-semibold text-white bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 rounded-md transition-colors flex items-center justify-center gap-2.5 shadow-sm"
             >
-              <FaShoppingCart className="text-xl" /> {isOutOfStock ? "Out of Stock" : "Add to Cart"}
-            </button>
-
-            <button
-              onClick={handleAddToQuote}
-              className="flex items-center justify-center flex-1 gap-3 py-4 text-lg font-bold text-gray-800 transition-all duration-300 bg-white border-2 border-gray-200 shadow-sm rounded-2xl hover:bg-gray-50 hover:border-gray-300 hover:shadow active:scale-95"
-            >
-              <FaFileAlt className="text-xl text-gray-600" /> Request Quote
+              <FaFileAlt size={15} /> Request Custom Quote
             </button>
           </div>
 
-          {/* Additional Product Details */}
-          <div className="pt-8">
-            <h3 className="mb-4 text-lg font-bold text-gray-900">Specifications</h3>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-xs font-semibold text-gray-500 uppercase">Length</p>
-                <p className="text-sm font-medium text-gray-900 mt-1">{resolvedLength}</p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-xs font-semibold text-gray-500 uppercase">Width</p>
-                <p className="text-sm font-medium text-gray-900 mt-1">{resolvedWidth}</p>
-              </div>
-              <div className="p-4 bg-gray-50 rounded-xl">
-                <p className="text-xs font-semibold text-gray-500 uppercase">Total Holes</p>
-                <p className="text-sm font-medium text-gray-900 mt-1">{resolvedHoles}</p>
-              </div>
-            </div>
+          <div className="pt-2">
+            <h3 className="mb-3 text-[12px] font-bold text-gray-900 uppercase tracking-wide">Details</h3>
+            
+            {product.description && (
+              <p className="mb-4 text-sm leading-relaxed text-gray-600 whitespace-pre-line">{product.description}</p>
+            )}
 
-            {detailList.length > 0 && (
-              <div className="mt-6">
-                <p className="mb-3 text-sm font-bold text-gray-700">Other Details</p>
-                <ul className="space-y-2">
-                  {detailList.slice(0, 10).map((item) => (
-                    <li key={`${item.key}-${item.value}`} className="flex justify-between py-2 text-sm border-b border-gray-100 last:border-0">
-                      <span className="text-gray-500">{item.key}</span>
-                      <span className="font-medium text-gray-900">{item.value}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {specRows.length > 0 && (
+              <ul className="text-[12px] text-gray-700 space-y-1.5 uppercase tracking-wide">
+                {specRows.map((item) => (
+                  <li key={item.key}>
+                    {item.key}: {item.value}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 

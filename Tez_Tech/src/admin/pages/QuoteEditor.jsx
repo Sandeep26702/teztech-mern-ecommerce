@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { 
   FaArrowLeft, FaPaperPlane, FaCopy, FaCheck, 
   FaLink, FaClipboardList, FaWhatsapp, FaEnvelope, FaTrash, FaPlus 
@@ -9,6 +9,8 @@ import api from "../../utils/api"; // Axios instance with interceptors for seaml
 const QuoteEditor = () => {
   const { id } = useParams(); 
   const navigate = useNavigate();
+  const location = useLocation();
+  const viewOldVersion = new URLSearchParams(location.search).get("view") === "1";
   
   const [quote, setQuote] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,14 +19,24 @@ const QuoteEditor = () => {
   const [copied, setCopied] = useState(false);
 
   const [adminNotes, setAdminNotes] = useState("");
-  const [totalDiscount, setTotalDiscount] = useState(""); 
+  const [extraDiscountType, setExtraDiscountType] = useState("flat");
+  const [extraDiscountValue, setExtraDiscountValue] = useState("");
   const [shippingCharge, setShippingCharge] = useState("");
+  const [gstPercentage, setGstPercentage] = useState("");
+  const [additionalChargeName, setAdditionalChargeName] = useState("");
+  const [additionalChargeAmount, setAdditionalChargeAmount] = useState("");
   const [showProductPicker, setShowProductPicker] = useState(false);
   const [productSearch, setProductSearch] = useState("");
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [productSelections, setProductSelections] = useState({});
+  const [expandedRequirements, setExpandedRequirements] = useState({});
+  const [isLatest, setIsLatest] = useState(true);
+  const [latestQuoteId, setLatestQuoteId] = useState(null);
+  const [latestVersion, setLatestVersion] = useState(null);
+  const [versionOptions, setVersionOptions] = useState([]);
+  const [showTimeline, setShowTimeline] = useState(false);
 
   const renderSelectedOptions = (item) => {
     const options = Array.isArray(item?.selectedOptions) ? item.selectedOptions : [];
@@ -227,6 +239,10 @@ const QuoteEditor = () => {
     );
   };
 
+  const toggleRequirementView = (itemId) => {
+    setExpandedRequirements((prev) => ({ ...prev, [itemId]: !prev[itemId] }));
+  };
+
   const fetchProducts = async (keyword = "") => {
     try {
       setProductsLoading(true);
@@ -326,15 +342,34 @@ const QuoteEditor = () => {
 
   useEffect(() => {
     fetchQuoteDetails();
-  }, [id]);
+  }, [id, viewOldVersion]);
 
   const fetchQuoteDetails = async () => {
     try {
-      const response = await api.get(`/quote/admin/${id}`);
+      const response = await api.get(`/admin/quote/${id}`);
+      if (
+        !viewOldVersion &&
+        response.data.isLatest === false &&
+        response.data.latestQuoteId &&
+        String(response.data.latestQuoteId) !== String(id)
+      ) {
+        navigate(`/admin/quotes/${response.data.latestQuoteId}`, { replace: true });
+        return;
+      }
       setQuote(response.data.quote);
       setAdminNotes(response.data.quote.adminNotes || "");
-      setTotalDiscount(response.data.quote.totalDiscount ?? "");
+      setExtraDiscountType(response.data.quote.extraDiscountType || "flat");
+      const discountValue =
+        response.data.quote.extraDiscountValue ?? response.data.quote.totalDiscount ?? "";
+      setExtraDiscountValue(discountValue === null || discountValue === undefined ? "" : discountValue);
       setShippingCharge(response.data.quote.shippingCharge ?? "");
+      setGstPercentage(response.data.quote.gstPercentage ?? "");
+      setAdditionalChargeName(response.data.quote.additionalChargeName || "");
+      setAdditionalChargeAmount(response.data.quote.additionalChargeAmount ?? "");
+      setIsLatest(response.data.isLatest !== false);
+      setLatestQuoteId(response.data.latestQuoteId || null);
+      setLatestVersion(response.data.latestVersion || null);
+      setVersionOptions(response.data.versions || []);
       
       if (response.data.quote.quoteToken && response.data.quote.status !== "Pending") {
          const generatedLink = `${window.location.origin}/quote/${response.data.quote.quoteToken}`;
@@ -391,11 +426,19 @@ const QuoteEditor = () => {
     return { selectedOptions, optionAdjustment };
   };
 
+  const getLineId = (item) =>
+    String(item?._id || item?.productId?._id || item?.productId || "");
+
   const handleRemoveItem = (itemId) => {
-    if(!window.confirm("Are you sure you want to remove this item?")) return;
-    
-    const updatedItems = quote.requestedItems.filter(item => item._id !== itemId);
-    setQuote({ ...quote, requestedItems: updatedItems });
+    if (!window.confirm("Are you sure you want to remove this item?")) return;
+    const targetId = String(itemId || "");
+    setQuote((prev) => {
+      if (!prev?.requestedItems) return prev;
+      const updatedItems = prev.requestedItems.filter(
+        (item) => getLineId(item) !== targetId
+      );
+      return { ...prev, requestedItems: updatedItems };
+    });
   };
 
   // Add product into the quote editor (admin flow)
@@ -414,6 +457,8 @@ const QuoteEditor = () => {
     }, 0);
   };
 
+  const round2 = (value) => Math.round(Number(value || 0) * 100) / 100;
+
   const handleCopyLink = () => {
     navigator.clipboard.writeText(shareLink);
     setCopied(true);
@@ -422,6 +467,11 @@ const QuoteEditor = () => {
 
   const handleSubmitResponse = async (e) => {
     e.preventDefault();
+
+    if (!isLatest) {
+      alert("You are viewing an older version. Please open the latest version to update this quote.");
+      return;
+    }
     
     if (quote.requestedItems.length === 0) {
       alert("⚠️ You must have at least one item in the quotation before submitting.");
@@ -437,7 +487,19 @@ const QuoteEditor = () => {
     setSubmitting(true);
 
     const subTotal = calculateSubTotal();
-    const finalTotal = subTotal - Number(totalDiscount || 0) + Number(shippingCharge || 0);
+    const safeDiscountType = extraDiscountType === "percent" ? "percent" : "flat";
+    const rawDiscountValue = Number(extraDiscountValue || 0);
+    const safeDiscountValue =
+      safeDiscountType === "percent"
+        ? Math.min(100, Math.max(0, rawDiscountValue))
+        : Math.max(0, rawDiscountValue);
+    const discountAmount =
+      safeDiscountType === "percent" ? round2(subTotal * (safeDiscountValue / 100)) : safeDiscountValue;
+    const safeShipping = Math.max(0, Number(shippingCharge || 0));
+    const safeGst = Math.min(100, Math.max(0, Number(gstPercentage || 0)));
+    const gstAmount = round2(subTotal * (safeGst / 100));
+    const safeAdditional = Math.max(0, Number(additionalChargeAmount || 0));
+    const finalTotal = Math.max(0, subTotal - discountAmount + safeShipping + gstAmount + safeAdditional);
 
     const itemsToSubmit = quote.requestedItems.map(item => {
       const productId = item.productId?._id || item.productId || null;
@@ -473,24 +535,35 @@ const QuoteEditor = () => {
     const updateData = {
       requestedItems: itemsToSubmit, 
       adminNotes,
-      totalDiscount: Number(totalDiscount || 0),
-      shippingCharge: Number(shippingCharge || 0),
+      totalDiscount: discountAmount,
+      extraDiscountType: safeDiscountType,
+      extraDiscountValue: safeDiscountValue,
+      shippingCharge: safeShipping,
+      gstPercentage: safeGst,
+      additionalChargeName: String(additionalChargeName || "").trim(),
+      additionalChargeAmount: safeAdditional,
       finalTotal,
       validUntil: new Date(new Date().setDate(new Date().getDate() + 7)) 
     };
 
     try {
-      const response = await api.put(`/quote/respond/${id}`, updateData);
-      alert("✅ Quote updated and link generated successfully!");
+      const response = await api.put(`/admin/quote/${id}`, updateData);
+      alert("✅ Quote updated successfully!");
       
       setQuote(response.data.quote); 
       
       const newLink = response.data.link || `${window.location.origin}/quote/${response.data.quote.quoteToken}`;
       setShareLink(newLink);
+      navigate(`/quote/${response.data.quote.quoteToken}`);
       
     } catch (error) {
       console.error("Error sending response:", error);
-      alert("❌ Failed to process quote. Please try again.");
+      if (error.response?.status === 409 && error.response?.data?.latestQuoteId) {
+        alert("A newer version exists. Opening the latest version now.");
+        navigate(`/admin/quotes/${error.response.data.latestQuoteId}`);
+      } else {
+        alert("❌ Failed to process quote. Please try again.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -500,13 +573,169 @@ const QuoteEditor = () => {
   if (!quote) return <div className="p-10 font-medium text-center text-red-500">Quote not found!</div>;
 
   const subTotal = calculateSubTotal();
-  const finalTotal = subTotal - Number(totalDiscount || 0) + Number(shippingCharge || 0);
+  const safeDiscountType = extraDiscountType === "percent" ? "percent" : "flat";
+  const rawDiscountValue = Number(extraDiscountValue || 0);
+  const safeDiscountValue =
+    safeDiscountType === "percent"
+      ? Math.min(100, Math.max(0, rawDiscountValue))
+      : Math.max(0, rawDiscountValue);
+  const discountAmount =
+    safeDiscountType === "percent" ? round2(subTotal * (safeDiscountValue / 100)) : safeDiscountValue;
+  const safeShipping = Math.max(0, Number(shippingCharge || 0));
+  const safeGst = Math.min(100, Math.max(0, Number(gstPercentage || 0)));
+  const gstAmount = round2(subTotal * (safeGst / 100));
+  const safeAdditional = Math.max(0, Number(additionalChargeAmount || 0));
+  const finalTotal = Math.max(0, subTotal - discountAmount + safeShipping + gstAmount + safeAdditional);
+  const timelineEntries = Array.isArray(quote.quoteLogs)
+    ? [...quote.quoteLogs].sort((a, b) => new Date(a.at) - new Date(b.at))
+    : [];
+  const versionsList = versionOptions.length
+    ? versionOptions
+    : [
+        {
+          _id: quote._id,
+          version: quote.version || 1,
+          status: quote.status,
+          updatedAt: quote.updatedAt,
+        },
+      ];
+
+  const getItemKey = (item) => item?.productId?._id || item?.productId || String(item?.name || "");
+
+  const buildVersionChangeMap = (versions) => {
+    if (!Array.isArray(versions) || versions.length === 0) return {};
+    const sorted = [...versions].sort((a, b) => (a.version || 0) - (b.version || 0));
+    const changes = {};
+
+    for (let i = 0; i < sorted.length; i += 1) {
+      const current = sorted[i];
+      const prev = sorted[i - 1];
+      if (!prev) {
+        changes[current._id] = [{ label: "Created", className: "bg-gray-100 text-gray-700" }];
+        continue;
+      }
+
+      const prevItems = Array.isArray(prev.requestedItems) ? prev.requestedItems : [];
+      const currItems = Array.isArray(current.requestedItems) ? current.requestedItems : [];
+      const prevMap = new Map(prevItems.map((item) => [String(getItemKey(item)), item]));
+      const currMap = new Map(currItems.map((item) => [String(getItemKey(item)), item]));
+
+      const added = currItems.filter((item) => !prevMap.has(String(getItemKey(item))));
+      const removed = prevItems.filter((item) => !currMap.has(String(getItemKey(item))));
+
+      let qtyChanged = false;
+      let priceDown = false;
+      let priceUp = false;
+      currItems.forEach((item) => {
+        const key = String(getItemKey(item));
+        const prevItem = prevMap.get(key);
+        if (!prevItem) return;
+        if (Number(prevItem.quantity || 0) !== Number(item.quantity || 0)) qtyChanged = true;
+        const prevPrice = Number(prevItem.offeredPrice || 0);
+        const nextPrice = Number(item.offeredPrice || 0);
+        if (nextPrice < prevPrice) priceDown = true;
+        if (nextPrice > prevPrice) priceUp = true;
+      });
+
+      const discountChanged =
+        Number(prev.totalDiscount || 0) !== Number(current.totalDiscount || 0) ||
+        String(prev.extraDiscountType || "") !== String(current.extraDiscountType || "") ||
+        Number(prev.extraDiscountValue || 0) !== Number(current.extraDiscountValue || 0);
+
+      const chargesChanged =
+        Number(prev.shippingCharge || 0) !== Number(current.shippingCharge || 0) ||
+        Number(prev.gstPercentage || 0) !== Number(current.gstPercentage || 0) ||
+        Number(prev.additionalChargeAmount || 0) !== Number(current.additionalChargeAmount || 0) ||
+        String(prev.additionalChargeName || "") !== String(current.additionalChargeName || "");
+
+      const notesChanged = String(prev.adminNotes || "") !== String(current.adminNotes || "");
+
+      const labels = [];
+      if (added.length || removed.length) labels.push({ label: "Items", className: "text-purple-700" });
+      if (qtyChanged) labels.push({ label: "Qty", className: "text-amber-700" });
+      if (priceDown) labels.push({ label: "Price ↓", className: "text-emerald-700" });
+      if (!priceDown && priceUp) labels.push({ label: "Price ↑", className: "text-rose-600" });
+      if (discountChanged) labels.push({ label: "Discount", className: "text-blue-700" });
+      if (chargesChanged) labels.push({ label: "Charges", className: "text-indigo-700" });
+      if (notesChanged) labels.push({ label: "Notes", className: "text-slate-600" });
+
+      changes[current._id] =
+        labels.length > 0 ? labels : [{ label: "No change", className: "text-gray-500" }];
+    }
+
+    return changes;
+  };
+
+  const versionChangeMap = buildVersionChangeMap(versionsList);
+  const currentVersionChanges = versionChangeMap[quote._id] || [];
+  const previousVersionEntry = (() => {
+    if (!versionsList || versionsList.length < 2) return null;
+    const currentVersion = Number(quote.version || 1);
+    const sorted = [...versionsList].sort((a, b) => (a.version || 0) - (b.version || 0));
+    let prev = null;
+    sorted.forEach((entry) => {
+      if (Number(entry.version || 0) < currentVersion) {
+        prev = entry;
+      }
+    });
+    return prev;
+  })();
+
+  const findPreviousItem = (item) => {
+    if (!previousVersionEntry || !Array.isArray(previousVersionEntry.requestedItems)) return null;
+    const currentId = item?.productId?._id || item?.productId || null;
+    const currentName = String(item?.name || "").trim();
+    return previousVersionEntry.requestedItems.find((prevItem) => {
+      const prevId = prevItem?.productId?._id || prevItem?.productId || null;
+      if (currentId && prevId && String(prevId) === String(currentId)) return true;
+      if (currentName && String(prevItem?.name || "").trim() === currentName) return true;
+      return false;
+    });
+  };
+
+  const getHighlightClass = (changed) =>
+    changed ? "bg-amber-50 border-amber-300 text-amber-800" : "";
+
+  const discountChanged =
+    previousVersionEntry &&
+    (String(previousVersionEntry.extraDiscountType || "") !== String(extraDiscountType || "") ||
+      Number(previousVersionEntry.extraDiscountValue || 0) !== Number(extraDiscountValue || 0));
+  const shippingChanged =
+    previousVersionEntry &&
+    Number(previousVersionEntry.shippingCharge || 0) !== Number(shippingCharge || 0);
+  const gstChanged =
+    previousVersionEntry &&
+    Number(previousVersionEntry.gstPercentage || 0) !== Number(gstPercentage || 0);
+  const additionalChanged =
+    previousVersionEntry &&
+    (Number(previousVersionEntry.additionalChargeAmount || 0) !== Number(additionalChargeAmount || 0) ||
+      String(previousVersionEntry.additionalChargeName || "") !== String(additionalChargeName || ""));
+  const formDisabled = !isLatest;
 
   return (
     <div className="p-4 mx-auto font-sans max-w-7xl sm:p-6">
       <button onClick={() => navigate(-1)} className="flex items-center gap-2 mb-6 font-medium text-gray-500 transition-colors hover:text-blue-600">
         <FaArrowLeft /> Back to Quotes
       </button>
+      {!isLatest && latestQuoteId && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-semibold">You are viewing an older version of this quote.</p>
+              {latestVersion && (
+                <p className="text-xs text-amber-700">Latest version: V{latestVersion}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate(`/admin/quotes/${latestQuoteId}`)}
+              className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-700"
+            >
+              Open Latest Version
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ========================================= */}
       {/* TOP SECTION: Client Info & Sharing        */}
@@ -518,9 +747,38 @@ const QuoteEditor = () => {
           <h3 className="pb-2 mb-4 text-lg font-bold text-gray-800 border-b">Client Details</h3>
           <div className="space-y-3 text-sm text-gray-600">
             <p><strong className="text-gray-900">Name:</strong> {quote.userDetails.name}</p>
-            <p><strong className="text-gray-900">Email:</strong> {quote.userDetails.email}</p>
+            <p><strong className="text-gray-900">Email:</strong> {quote.userDetails.email || "N/A"}</p>
             <p><strong className="text-gray-900">Phone:</strong> {quote.userDetails.phone || "N/A"}</p>
             <p><strong className="text-gray-900">Company:</strong> {quote.userDetails.company || "N/A"}</p>
+            <p><strong className="text-gray-900">Version:</strong> V{quote.version || 1}</p>
+            {versionsList.length > 1 && (
+              <div className="pt-3 mt-3 border-t border-gray-100">
+                <label className="block mb-2 text-xs font-bold uppercase tracking-wider text-gray-500">Switch Version</label>
+                <select
+                  value={quote._id}
+                    onChange={(e) => navigate(`/admin/quotes/${e.target.value}?view=1`)}
+                  className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                >
+                  {versionsList.map((entry) => (
+                    <option key={entry._id} value={entry._id}>
+                      {`V${entry.version} • ${entry.status} • ${new Date(entry.updatedAt || Date.now()).toLocaleDateString()}`}
+                    </option>
+                  ))}
+                </select>
+                {currentVersionChanges.length > 0 && (
+                  <div className="mt-2 text-xs font-semibold text-gray-500">
+                    Changes in this version:
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {currentVersionChanges.map((badge) => (
+                        <span key={`${quote._id}-${badge.label}`} className={badge.className}>
+                          {badge.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="p-3 mt-2 border border-gray-100 rounded-lg bg-gray-50">
               <strong className="block mb-1 text-gray-900">Message:</strong> 
               <p className="italic text-gray-600">{quote.userDetails.message || "No notes provided by client."}</p>
@@ -531,7 +789,9 @@ const QuoteEditor = () => {
                 quote.status === "Pending" ? "bg-yellow-100 text-yellow-800" : 
                 quote.status === "Accepted" ? "bg-green-100 text-green-800" :
                 quote.status === "Rejected" ? "bg-red-100 text-red-800" :
-                "bg-blue-100 text-blue-800"
+                quote.status === "Updated" ? "bg-indigo-100 text-indigo-800" :
+                quote.status === "Offered" ? "bg-blue-100 text-blue-800" :
+                "bg-slate-100 text-slate-800"
               }`}>
                 {quote.status}
               </span>
@@ -542,7 +802,7 @@ const QuoteEditor = () => {
         {/* 🔗 DIRECT LINK & SHARE BOX */}
         <div className="h-full">
           {shareLink ? (
-            <div className="flex flex-col justify-center h-full p-6 border border-green-200 shadow-sm bg-green-50 rounded-2xl">
+            <div className={`flex flex-col justify-center h-full p-6 border border-green-200 shadow-sm bg-green-50 rounded-2xl ${!isLatest ? "opacity-60 pointer-events-none" : ""}`}>
               <h3 className="flex items-center gap-2 mb-2 text-lg font-bold text-green-900">
                 <FaLink /> Shareable Quote Link
               </h3>
@@ -550,7 +810,12 @@ const QuoteEditor = () => {
               
               <div className="flex mb-4 overflow-hidden transition-all bg-white border border-green-200 rounded-lg focus-within:ring-2 focus-within:ring-green-400">
                 <input type="text" value={shareLink} readOnly className="w-full p-3 text-xs text-gray-600 outline-none" />
-                <button type="button" onClick={handleCopyLink} className="flex items-center justify-center gap-2 px-4 text-sm font-medium text-white transition-colors bg-green-600 hover:bg-green-700">
+                <button
+                  type="button"
+                  onClick={handleCopyLink}
+                  disabled={!isLatest}
+                  className="flex items-center justify-center gap-2 px-4 text-sm font-medium text-white transition-colors bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed"
+                >
                   {copied ? <><FaCheck /> Copied</> : <><FaCopy /> Copy</>}
                 </button>
               </div>
@@ -558,16 +823,30 @@ const QuoteEditor = () => {
               {/* 📲 WhatsApp & Email Buttons */}
               <div className="grid grid-cols-2 gap-3 mt-auto">
                 <a 
-                  href={`https://api.whatsapp.com/send?phone=${quote.userDetails.phone || ""}&text=Hello ${quote.userDetails.name},%0A%0AHere is the custom quotation you requested from Sonani:%0A${shareLink}%0A%0AThank you!`}
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href={
+                    !isLatest
+                      ? undefined
+                      : `https://api.whatsapp.com/send?phone=${quote.userDetails.phone || ""}&text=Hello ${quote.userDetails.name},%0A%0AHere is the custom quotation you requested from Sonani:%0A${shareLink}%0A%0AThank you!`
+                  }
+                  target={isLatest ? "_blank" : undefined}
+                  rel={isLatest ? "noopener noreferrer" : undefined}
+                  onClick={(e) => {
+                    if (!isLatest) e.preventDefault();
+                  }}
                   className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe57] text-white py-2 rounded-lg font-bold text-sm transition-colors"
                 >
                   <FaWhatsapp size={16} /> WhatsApp
                 </a>
                 
                 <a 
-                  href={`mailto:${quote.userDetails.email}?subject=Your Custom Quotation from Sonani&body=Hello ${quote.userDetails.name},%0D%0A%0D%0AHere is the link to view and accept your custom quotation:%0D%0A${shareLink}%0D%0A%0D%0AThank you!`}
+                  href={
+                    !isLatest
+                      ? undefined
+                      : `mailto:${quote.userDetails.email}?subject=Your Custom Quotation from Sonani&body=Hello ${quote.userDetails.name},%0D%0A%0D%0AHere is the link to view and accept your custom quotation:%0D%0A${shareLink}%0D%0A%0D%0AThank you!`
+                  }
+                  onClick={(e) => {
+                    if (!isLatest) e.preventDefault();
+                  }}
                   className="flex items-center justify-center gap-2 py-2 text-sm font-bold text-white transition-colors bg-gray-800 rounded-lg hover:bg-gray-900"
                 >
                   <FaEnvelope size={16} /> Email
@@ -583,11 +862,51 @@ const QuoteEditor = () => {
         </div>
       </div>
 
+      {/* Activity Timeline */}
+      <div className="mb-8 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setShowTimeline((prev) => !prev)}
+          className="flex w-full items-center justify-between text-left text-lg font-bold text-gray-800"
+        >
+          <span>Activity Timeline</span>
+          <span className="text-sm font-semibold text-blue-600">
+            {showTimeline ? "Hide" : "Show"}
+          </span>
+        </button>
+        {showTimeline && (
+          <div className="mt-4">
+            {timelineEntries.length === 0 ? (
+              <p className="text-sm text-gray-500">No activity logs yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {timelineEntries.map((entry, idx) => (
+                  <div key={`${entry.action}-${entry.at}-${idx}`} className="flex items-start gap-3">
+                    <span className="mt-1 h-2.5 w-2.5 rounded-full bg-blue-600" />
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900">
+                        {entry.action}
+                        {entry.actor ? ` • ${entry.actor}` : ""}
+                      </p>
+                      {entry.note && <p className="text-xs text-gray-500">{entry.note}</p>}
+                      <p className="text-xs text-gray-400">
+                        {new Date(entry.at || entry.createdAt || Date.now()).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* ========================================= */}
       {/* BOTTOM SECTION: Full Width Pricing Setup  */}
       {/* ========================================= */}
       <form onSubmit={handleSubmitResponse} className="w-full p-6 bg-white border border-gray-100 shadow-sm md:p-8 rounded-2xl">
-        <div className="flex items-center justify-between gap-2 mb-6">
+        <fieldset disabled={formDisabled} className={formDisabled ? "opacity-60" : ""}>
+          <div className="flex items-center justify-between gap-2 mb-6">
           <h3 className="flex items-center gap-2 text-xl font-bold text-gray-800">
             <span className="p-2 text-blue-600 bg-blue-100 rounded-lg"><FaClipboardList size={18} /></span> 
             Pricing Setup
@@ -595,7 +914,8 @@ const QuoteEditor = () => {
           <button 
             type="button" 
             onClick={handleAddItem}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-blue-700 transition-colors border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100"
+            disabled={!isLatest}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold text-blue-700 transition-colors border border-blue-200 rounded-lg bg-blue-50 hover:bg-blue-100 ${!isLatest ? "opacity-50 cursor-not-allowed hover:bg-blue-50" : ""}`}
           >
             <FaPlus /> Add Item
           </button>
@@ -621,20 +941,60 @@ const QuoteEditor = () => {
                     const basePrice = item.originalPrice !== undefined ? item.originalPrice : (item.price || 0); 
                     const isDiscounted = item.offeredPrice < basePrice;
                     const discountPercent = basePrice > 0 ? Math.round(((basePrice - item.offeredPrice) / basePrice) * 100) : 0;
+                    const isRequirementsOpen = Boolean(expandedRequirements[item._id]);
+                    const prevItem = findPreviousItem(item);
+                    const prevOffered = Number(prevItem?.offeredPrice || 0);
+                    const currentOffered = Number(item.offeredPrice || 0);
+                    const priceTrend =
+                      prevItem && currentOffered < prevOffered
+                        ? "down"
+                        : prevItem && currentOffered > prevOffered
+                          ? "up"
+                          : "same";
+                    const isNewItem = Boolean(previousVersionEntry) && !prevItem;
+                    const nameChanged =
+                      isNewItem ||
+                      (prevItem && String(prevItem.name || "").trim() !== String(item.name || "").trim());
+                    const qtyChanged =
+                      isNewItem ||
+                      (prevItem && Number(prevItem.quantity || 0) !== Number(item.quantity || 0));
+                    const originalChanged =
+                      isNewItem ||
+                      (prevItem && Number(prevItem.originalPrice || 0) !== Number(item.originalPrice || 0));
+                    const offeredChanged =
+                      isNewItem ||
+                      (prevItem && Number(prevItem.offeredPrice || 0) !== Number(item.offeredPrice || 0));
+                    const totalChanged =
+                      isNewItem ||
+                      (prevItem &&
+                        Number(prevItem.offeredPrice || 0) * Number(prevItem.quantity || 0) !==
+                          Number(item.offeredPrice || 0) * Number(item.quantity || 0));
 
                     return (
                       <tr key={item._id} className="transition-colors hover:bg-slate-50/50 group">
                         
-                        {/* ✏️ Editable Product Name */}
+                        {/* 📌 Product Name + Requirements */}
                         <td className="p-4 align-middle">
-                          <input 
-                            type="text"
-                            value={item.name}
-                            onChange={(e) => handleItemChange(item._id, "name", e.target.value)}
-                            placeholder="Enter product name..."
-                            className="w-full px-2 py-1 font-medium text-gray-800 transition-all border border-transparent rounded outline-none hover:border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-inherit"
-                          />
-                          {renderSelectedOptions(item)}
+                          <button
+                            type="button"
+                            onClick={() => toggleRequirementView(item._id)}
+                            className={`w-full text-left px-2 py-1 rounded transition-all hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+                              nameChanged ? "bg-amber-50 text-amber-900" : "text-gray-800"
+                            }`}
+                            title="Click to view requirements"
+                          >
+                            <div className="font-medium">{item.name || "Unnamed Product"}</div>
+                            <div className="text-[11px] text-gray-500">
+                              {isRequirementsOpen ? "Hide requirements" : "View requirements"}
+                            </div>
+                          </button>
+                          {isRequirementsOpen && (
+                            <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50/70 p-2">
+                              {renderSelectedOptions(item) || (
+                                <p className="text-[11px] text-gray-500">No requirements selected.</p>
+                              )}
+                            </div>
+                          )}
                           {isDiscounted && item.offeredPrice > 0 && (
                             <div className="text-[10px] font-bold text-green-600 mt-1 ml-2 bg-green-50 inline-block px-1.5 py-0.5 rounded border border-green-200">
                               {discountPercent}% OFF
@@ -649,21 +1009,20 @@ const QuoteEditor = () => {
                             min="1"
                             value={item.quantity === 0 ? "" : item.quantity}
                             onChange={(e) => handleItemChange(item._id, "quantity", e.target.value)}
-                            className="w-full px-3 py-2 text-sm text-center font-medium text-gray-800 transition-all bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            className={`w-full px-3 py-2 text-sm text-center font-medium transition-all bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                              qtyChanged ? "border-amber-300 bg-amber-50 text-amber-900" : "text-gray-800"
+                            }`}
                           />
                         </td>
                         
-                        {/* ✏️ Editable Original Price */}
+                        {/* Original Price */}
                         <td className="p-4 align-middle bg-yellow-50/30">
-                          <div className="relative flex items-center">
-                            <span className="absolute font-medium text-gray-400 left-3">₹</span>
-                            <input 
-                              type="number" 
-                              min="0"
-                              value={basePrice === 0 ? "" : basePrice}
-                              onChange={(e) => handleItemChange(item._id, "originalPrice", e.target.value)}
-                              className={`w-full py-2 pl-7 pr-2 text-sm text-right font-medium transition-all bg-white border border-gray-200 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${isDiscounted ? "text-gray-400 line-through" : "text-gray-800"}`}
-                            />
+                          <div
+                            className={`w-full rounded-lg border border-transparent px-3 py-2 text-sm text-right font-semibold ${
+                              isDiscounted ? "text-gray-400 line-through" : originalChanged ? "text-amber-900" : "text-gray-800"
+                            } ${originalChanged ? "border-amber-300 bg-amber-50" : ""}`}
+                          >
+                            ₹ {Number(basePrice || 0).toLocaleString("en-IN")}
                           </div>
                         </td>
 
@@ -678,13 +1037,25 @@ const QuoteEditor = () => {
                               value={item.offeredPrice === 0 ? "" : item.offeredPrice}
                               onChange={(e) => handleItemChange(item._id, "offeredPrice", e.target.value)}
                               placeholder="0"
-                              className="w-full py-2 pl-7 pr-3 font-bold text-right text-blue-900 transition-all border border-blue-200 rounded-lg outline-none bg-blue-50/50 focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                              className={`w-full py-2 pl-7 pr-3 font-bold text-right transition-all border border-blue-200 rounded-lg outline-none bg-blue-50/50 focus:ring-2 focus:ring-blue-500 focus:bg-white focus:border-blue-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                priceTrend === "down"
+                                  ? "text-emerald-700"
+                                  : priceTrend === "up"
+                                    ? "text-rose-600"
+                                    : "text-blue-900"
+                              } ${offeredChanged ? "border-amber-300 bg-amber-50" : ""}`}
                             />
                           </div>
                         </td>
 
                         {/* Total */}
-                        <td className="p-4 font-bold text-right text-gray-800 align-middle whitespace-nowrap">
+                        <td className={`p-4 font-bold text-right align-middle whitespace-nowrap ${
+                          priceTrend === "down"
+                            ? "text-emerald-700"
+                            : priceTrend === "up"
+                              ? "text-rose-600"
+                              : "text-gray-800"
+                        } ${totalChanged ? "bg-amber-50 text-amber-900" : ""}`}>
                           {((item.offeredPrice || 0) * (item.quantity || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </td>
 
@@ -692,7 +1063,7 @@ const QuoteEditor = () => {
                         <td className="p-4 text-center align-middle">
                           <button 
                             type="button"
-                            onClick={() => handleRemoveItem(item._id)}
+                            onClick={() => handleRemoveItem(getLineId(item))}
                             className="p-2 transition-colors rounded text-slate-400 hover:text-red-500 hover:bg-red-50"
                             title="Remove Item"
                           >
@@ -736,21 +1107,42 @@ const QuoteEditor = () => {
                 <span className="font-bold text-slate-800">₹ {subTotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
               </div>
               
-              <div className="flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm border-slate-200">
-                <span className="text-sm font-medium text-slate-600">Extra Discount (₹):</span>
-                <div className="relative flex items-center w-36">
-                  <span className="absolute text-sm font-medium left-3 text-slate-400">₹</span>
-                  <input 
-                    type="number" 
-                    min="0"
-                    value={totalDiscount === "" ? "" : totalDiscount}
-                    onChange={(e) => setTotalDiscount(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="w-full py-1.5 pl-7 pr-3 text-sm font-bold text-right text-slate-800 transition-all bg-slate-50 border border-slate-200 rounded outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white focus:border-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
+              <div className={`flex flex-col gap-2 p-3 bg-white border rounded-lg shadow-sm border-slate-200 ${getHighlightClass(discountChanged)}`}>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-600">Extra Discount:</span>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={extraDiscountType}
+                      onChange={(e) => setExtraDiscountType(e.target.value)}
+                      className={`rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 ${discountChanged ? "border-amber-300 bg-amber-50 text-amber-800" : ""}`}
+                    >
+                      <option value="flat">Flat</option>
+                      <option value="percent">Percent</option>
+                    </select>
+                    <div className="relative flex items-center w-28">
+                      <span className="absolute text-sm font-medium left-3 text-slate-400">
+                        {extraDiscountType === "percent" ? "%" : "₹"}
+                      </span>
+                      <input
+                        type="number"
+                        min="0"
+                        max={extraDiscountType === "percent" ? 100 : undefined}
+                        step="0.01"
+                        value={extraDiscountValue === "" ? "" : extraDiscountValue}
+                        onChange={(e) => setExtraDiscountValue(e.target.value === "" ? "" : Number(e.target.value))}
+                        className={`w-full py-1.5 pl-7 pr-3 text-sm font-bold text-right text-slate-800 transition-all bg-slate-50 border border-slate-200 rounded outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white focus:border-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${discountChanged ? "border-amber-300 bg-amber-50 text-amber-800" : ""}`}
+                      />
+                    </div>
+                  </div>
                 </div>
+                {discountAmount > 0 && (
+                  <div className="text-xs font-semibold text-slate-500">
+                    Discount Applied: ₹ {discountAmount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                  </div>
+                )}
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm border-slate-200">
+              <div className={`flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm border-slate-200 ${getHighlightClass(shippingChanged)}`}>
                 <span className="text-sm font-medium text-slate-600">Shipping Charge (Rs):</span>
                 <div className="relative flex items-center w-36">
                   <span className="absolute text-sm font-medium left-3 text-slate-400">Rs</span>
@@ -759,8 +1151,49 @@ const QuoteEditor = () => {
                     min="0"
                     value={shippingCharge === "" ? "" : shippingCharge}
                     onChange={(e) => setShippingCharge(e.target.value === "" ? "" : Number(e.target.value))}
-                    className="w-full py-1.5 pl-8 pr-3 text-sm font-bold text-right text-slate-800 transition-all bg-slate-50 border border-slate-200 rounded outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white focus:border-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className={`w-full py-1.5 pl-8 pr-3 text-sm font-bold text-right text-slate-800 transition-all bg-slate-50 border border-slate-200 rounded outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white focus:border-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${shippingChanged ? "border-amber-300 bg-amber-50 text-amber-800" : ""}`}
                   />
+                </div>
+              </div>
+
+              <div className={`flex items-center justify-between p-3 bg-white border rounded-lg shadow-sm border-slate-200 ${getHighlightClass(gstChanged)}`}>
+                <span className="text-sm font-medium text-slate-600">GST (%):</span>
+                <div className="relative flex items-center w-36">
+                  <span className="absolute text-sm font-medium left-3 text-slate-400">%</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    value={gstPercentage === "" ? "" : gstPercentage}
+                    onChange={(e) => setGstPercentage(e.target.value === "" ? "" : Number(e.target.value))}
+                    className={`w-full py-1.5 pl-7 pr-3 text-sm font-bold text-right text-slate-800 transition-all bg-slate-50 border border-slate-200 rounded outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white focus:border-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${gstChanged ? "border-amber-300 bg-amber-50 text-amber-800" : ""}`}
+                  />
+                </div>
+              </div>
+
+              <div className={`flex flex-col gap-3 p-3 bg-white border rounded-lg shadow-sm border-slate-200 ${getHighlightClass(additionalChanged)}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-slate-600">Additional Charge:</span>
+                  <input
+                    type="text"
+                    value={additionalChargeName}
+                    onChange={(e) => setAdditionalChargeName(e.target.value)}
+                    placeholder="Name (e.g. Installation)"
+                    className={`flex-1 rounded border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 ${additionalChanged ? "border-amber-300 bg-amber-50 text-amber-800" : ""}`}
+                  />
+                </div>
+                <div className="flex items-center justify-end">
+                  <div className="relative flex items-center w-36">
+                    <span className="absolute text-sm font-medium left-3 text-slate-400">₹</span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={additionalChargeAmount === "" ? "" : additionalChargeAmount}
+                      onChange={(e) => setAdditionalChargeAmount(e.target.value === "" ? "" : Number(e.target.value))}
+                      className={`w-full py-1.5 pl-7 pr-3 text-sm font-bold text-right text-slate-800 transition-all bg-slate-50 border border-slate-200 rounded outline-none focus:ring-2 focus:ring-blue-400 focus:bg-white focus:border-blue-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${additionalChanged ? "border-amber-300 bg-amber-50 text-amber-800" : ""}`}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -779,6 +1212,8 @@ const QuoteEditor = () => {
 
         </div>
 
+        </fieldset>
+
         {/* 🚀 Action Buttons */}
         <div className="flex flex-col justify-end gap-4 pt-6 border-t border-gray-100 sm:flex-row">
           <button 
@@ -790,7 +1225,7 @@ const QuoteEditor = () => {
           </button>
           <button 
             type="submit"
-            disabled={submitting || finalTotal <= 0 || quote.requestedItems.length === 0}
+            disabled={submitting || finalTotal <= 0 || quote.requestedItems.length === 0 || !isLatest}
             className="flex items-center justify-center w-full gap-2 px-8 py-3 font-bold text-white transition-all bg-blue-600 rounded-xl hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/30 disabled:opacity-50 disabled:cursor-not-allowed sm:w-auto"
           >
             {submitting ? "Saving..." : (

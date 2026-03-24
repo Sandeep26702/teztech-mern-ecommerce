@@ -30,7 +30,6 @@ const normalizeSelectedCustomFields = (input) => {
   return normalized;
 };
 
-const getSelectionSignature = (input) => JSON.stringify(normalizeSelectedCustomFields(input));
 const createLocalId = () => `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
 const getItemKey = (item) => item._id || item.localItemId || item.productId?._id || item.productId || item._id;
@@ -51,10 +50,33 @@ export const CartProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
 
+  const mergeLocalItemsByProduct = (items) => {
+    if (!Array.isArray(items)) return [];
+    const merged = new Map();
+    items.forEach((item) => {
+      const productId = String(item?.productId?._id || item?.productId || item?._id || "").trim();
+      if (!productId) return;
+      if (!merged.has(productId)) {
+        merged.set(productId, { ...item });
+        return;
+      }
+      const existing = merged.get(productId);
+      existing.quantity = (existing.quantity || 0) + Number(item.quantity || 0);
+      if (item.selectedCustomFields && Object.keys(item.selectedCustomFields).length > 0) {
+        existing.selectedCustomFields = item.selectedCustomFields;
+      }
+      if (item.pricingSnapshot) {
+        existing.pricingSnapshot = item.pricingSnapshot;
+      }
+    });
+    return Array.from(merged.values());
+  };
+
   const getLocalCart = () => {
     try {
       const storedCart = localStorage.getItem("guestCart");
-      return storedCart ? JSON.parse(storedCart) : [];
+      const parsed = storedCart ? JSON.parse(storedCart) : [];
+      return mergeLocalItemsByProduct(parsed);
     } catch {
       return [];
     }
@@ -114,15 +136,15 @@ export const CartProvider = ({ children }) => {
     }
 
     const localCart = getLocalCart();
-    const targetSignature = getSelectionSignature(selectedCustomFields);
     const existingIndex = localCart.findIndex((item) => {
       const itemProductId = item.productId?._id || item.productId;
       if (String(itemProductId) !== String(product._id)) return false;
-      return getSelectionSignature(item.selectedCustomFields) === targetSignature;
+      return true;
     });
 
     if (existingIndex > -1) {
       localCart[existingIndex].quantity += 1;
+      localCart[existingIndex].selectedCustomFields = selectedCustomFields;
       localCart[existingIndex].pricingSnapshot = pricingSnapshot || localCart[existingIndex].pricingSnapshot;
     } else {
       localCart.push({

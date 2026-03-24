@@ -29,8 +29,6 @@ const normalizeSelectedCustomFields = (input) => {
   return normalized;
 };
 
-const getSelectionSignature = (input) => JSON.stringify(normalizeSelectedCustomFields(input));
-
 const sanitizePricing = (pricing) => {
   if (!pricing || typeof pricing !== "object") {
     return {
@@ -65,7 +63,28 @@ export const getMyCart = async (req, res) => {
     const originalLength = cart.items.length;
     cart.items = cart.items.filter((item) => item.productId !== null);
 
-    if (cart.items.length !== originalLength) {
+    // Merge duplicate product entries (keeps latest selections, sums quantity)
+    const mergedMap = new Map();
+    cart.items.forEach((item) => {
+      const productKey = String(item.productId?._id || item.productId || "");
+      if (!productKey) return;
+      if (!mergedMap.has(productKey)) {
+        mergedMap.set(productKey, item);
+        return;
+      }
+      const existing = mergedMap.get(productKey);
+      existing.quantity += item.quantity || 0;
+      if (item.selectedCustomFields && Object.keys(item.selectedCustomFields).length > 0) {
+        existing.selectedCustomFields = item.selectedCustomFields;
+      }
+      if (item.pricing) {
+        existing.pricing = item.pricing;
+      }
+    });
+
+    const mergedItems = Array.from(mergedMap.values());
+    if (mergedItems.length !== cart.items.length || mergedItems.length !== originalLength) {
+      cart.items = mergedItems;
       await cart.save();
     }
 
@@ -87,7 +106,6 @@ export const addToCart = async (req, res) => {
 
     const safeQuantity = Math.max(1, Math.floor(toSafeNumber(quantity, 1)));
     const normalizedSelections = normalizeSelectedCustomFields(selectedCustomFields);
-    const selectionSignature = getSelectionSignature(normalizedSelections);
     const safePricing = sanitizePricing(pricingSnapshot);
 
     let cart = await Cart.findOne({ user: userId });
@@ -95,11 +113,9 @@ export const addToCart = async (req, res) => {
       cart = new Cart({ user: userId, items: [] });
     }
 
-    const itemIndex = cart.items.findIndex((item) => {
-      const sameProduct = item.productId.toString() === String(productId);
-      if (!sameProduct) return false;
-      return getSelectionSignature(item.selectedCustomFields) === selectionSignature;
-    });
+    const itemIndex = cart.items.findIndex(
+      (item) => item.productId.toString() === String(productId)
+    );
 
     if (itemIndex > -1) {
       cart.items[itemIndex].quantity += safeQuantity;
@@ -247,16 +263,14 @@ export const mergeCart = async (req, res) => {
 
       const quantity = Math.max(1, Math.floor(toSafeNumber(localItem.quantity, 1)));
       const normalizedSelections = normalizeSelectedCustomFields(localItem.selectedCustomFields);
-      const selectionSignature = getSelectionSignature(normalizedSelections);
-
-      const itemIndex = cart.items.findIndex((dbItem) => {
-        const sameProduct = dbItem.productId.toString() === String(productId);
-        if (!sameProduct) return false;
-        return getSelectionSignature(dbItem.selectedCustomFields) === selectionSignature;
-      });
+      const itemIndex = cart.items.findIndex(
+        (dbItem) => dbItem.productId.toString() === String(productId)
+      );
 
       if (itemIndex > -1) {
         cart.items[itemIndex].quantity += quantity;
+        cart.items[itemIndex].selectedCustomFields = normalizedSelections;
+        cart.items[itemIndex].pricing = sanitizePricing(localItem.pricingSnapshot || localItem.pricing);
       } else {
         cart.items.push({
           productId,

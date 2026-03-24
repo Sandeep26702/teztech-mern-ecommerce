@@ -202,6 +202,7 @@ const withNormalizedItems = (orderDoc) => {
       image: item.image || populatedProduct?.image || "https://placehold.co/600x600?text=Product",
       category: item.category || populatedProduct?.category || "Uncategorized",
       name: item.name || populatedProduct?.name || "Product",
+      sku: item.sku || populatedProduct?.sku || "",
       basePrice,
       optionAdjustment,
       gstRate,
@@ -331,6 +332,7 @@ export const createOrder = async (req, res) => {
 
       finalOrderItems.push({
         productId: product._id,
+        sku: product.sku || "",
         name: product.name,
         category: product.category || "Uncategorized",
         image: product.image || "https://placehold.co/600x600?text=Product",
