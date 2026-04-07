@@ -17,6 +17,15 @@ const draftItemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    // 👇 Ye dono naye fields add kiye hain 👇
+    selectedVariant: {
+      type: mongoose.Schema.Types.Mixed, // Mixed use kiya taaki Object ya String kuch bhi easily save ho jaye
+      default: null,
+    },
+    selectedAttributes: {
+      type: mongoose.Schema.Types.Mixed, // Object store karne ke liye
+      default: {},
+    },
   },
   { _id: false } // Mongoose optimization
 );

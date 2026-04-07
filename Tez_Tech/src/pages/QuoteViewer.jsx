@@ -4,7 +4,7 @@ import {
   FaFileInvoice, FaCheckCircle, FaPrint, 
   FaRegCalendarAlt, FaTimesCircle, FaBuilding, FaPhoneAlt, FaEnvelope, FaExternalLinkAlt, FaCopy 
 } from "react-icons/fa";
-import api from "../utils/api"; // Axios instance with interceptors for seamless API calls and error handling
+import api from "../utils/api"; 
 
 const QuoteViewer = () => {
   const { token } = useParams(); 
@@ -92,7 +92,7 @@ const QuoteViewer = () => {
             const label = String(option.fieldLabel || "Option").trim();
             const value = String(option.value || "").trim();
             const adj = Number(option.priceAdjustment || 0);
-            const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}Rs ${Math.abs(adj)})` : "";
+            const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}₹ ${Math.abs(adj)})` : "";
             return (
               <p key={`${item._id || "item"}-${label}-${value}-${idx}`} className="text-[11px] text-gray-500">
                 {label}: {value}{adjText}
@@ -135,7 +135,7 @@ const QuoteViewer = () => {
               const label = String(option.fieldLabel || "Option").trim();
               const value = String(option.value || "").trim();
               const adj = Number(option.priceAdjustment || 0);
-              const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}Rs ${Math.abs(adj)})` : "";
+              const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}₹ ${Math.abs(adj)})` : "";
               return (
                 <p key={`${item._id || "item"}-resolved-${label}-${value}-${idx}`} className="text-[11px] text-gray-500">
                   {label}: {value}{adjText}
@@ -254,10 +254,10 @@ const QuoteViewer = () => {
         `}
       </style>
 
-      <div className="min-h-screen px-4 py-10 bg-gray-50 sm:px-6 print:py-0 print:bg-white">
+      <div className="min-h-screen px-3 py-6 bg-gray-50 sm:px-6 sm:py-10 print:py-0 print:bg-white">
         <div className="max-w-4xl mx-auto">
           {!isLatest && latestQuoteToken && (
-            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 print:hidden">
+            <div className="p-4 mb-4 text-sm border rounded-lg border-amber-200 bg-amber-50 text-amber-800 print:hidden">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="font-semibold">A newer version of this quotation is available.</p>
@@ -267,7 +267,7 @@ const QuoteViewer = () => {
                 </div>
                 <Link
                   to={`/quote/${latestQuoteToken}`}
-                  className="inline-flex items-center justify-center rounded-lg bg-amber-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-amber-700"
+                  className="inline-flex items-center justify-center w-full px-4 py-2 text-xs font-bold text-white transition rounded-lg bg-amber-600 hover:bg-amber-700 sm:w-auto"
                 >
                   View Latest Version
                 </Link>
@@ -278,37 +278,37 @@ const QuoteViewer = () => {
           <div className="flex justify-end mb-4 print:hidden">
             <button 
               onClick={() => window.print()} 
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition shadow-md"
+              className="flex items-center justify-center w-full gap-2 px-5 py-2.5 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition shadow-md sm:w-auto"
             >
               <FaPrint /> Print Quotation
             </button>
           </div>
 
           {/* 📄 MAIN PRINTABLE INVOICE AREA */}
-          <div id="printable-bill" className="p-8 bg-white border border-gray-100 shadow-xl md:p-12 rounded-2xl print:p-0 print:shadow-none print:border-none print:rounded-none">
+          <div id="printable-bill" className="p-4 bg-white border border-gray-100 shadow-xl sm:p-8 md:p-12 rounded-2xl print:p-0 print:shadow-none print:border-none print:rounded-none">
             
             {/* Header */}
-            <div className="flex flex-col items-start justify-between pb-6 mb-6 border-b-2 border-gray-800 sm:flex-row sm:items-center">
+            <div className="flex flex-col items-start justify-between pb-4 mb-6 border-b-2 border-gray-800 sm:flex-row sm:items-center sm:pb-6">
               <div>
-                <h1 className="flex items-center gap-3 text-3xl font-black tracking-tight text-gray-900">
+                <h1 className="flex items-center gap-3 text-2xl font-black tracking-tight text-gray-900 sm:text-3xl">
                   QUOTATION
                 </h1>
-                <p className="mt-1 font-bold text-gray-600">Ref ID: #{quote._id.slice(-6).toUpperCase()}</p>
+                <p className="mt-1 text-sm font-bold text-gray-600 sm:text-base">Ref ID: #{quote._id.slice(-6).toUpperCase()}</p>
                 {parentQuoteNumber && (
                   <p className="text-xs font-semibold text-gray-500">Quote No: {parentQuoteNumber}</p>
                 )}
                 <p className="text-xs font-semibold text-gray-500">Version: V{quote.version || 1}</p>
               </div>
               
-              <div className="mt-4 text-left sm:mt-0 sm:text-right">
-                <h2 className="text-xl font-bold tracking-wide text-gray-900 uppercase">Sonani Industries</h2>
+              <div className="mt-6 text-left sm:mt-0 sm:text-right">
+                <h2 className="text-lg font-bold tracking-wide text-gray-900 uppercase sm:text-xl">Sonani Industries</h2>
                 <p className="mt-1 text-sm text-gray-700">123 Industrial Estate, Surat, Gujarat</p>
                 <p className="text-sm text-gray-700">contact@sonani.com | +91 9876543210</p>
               </div>
             </div>
 
             {/* Client Details */}
-            <div className="grid grid-cols-2 gap-6 mb-8">
+            <div className="grid grid-cols-1 gap-6 mb-8 sm:grid-cols-2">
               <div className="print:break-inside-avoid">
                 <p className="pb-1 mb-2 text-xs font-bold tracking-widest text-gray-500 uppercase border-b">Prepared For</p>
                 <h3 className="text-lg font-bold text-gray-900">{quote.userDetails.name}</h3>
@@ -317,24 +317,24 @@ const QuoteViewer = () => {
                 <p className="text-sm text-gray-800">{quote.userDetails.phone}</p>
               </div>
 
-              <div className="text-right print:break-inside-avoid">
+              <div className="text-left sm:text-right print:break-inside-avoid">
                  <p className="pb-1 mb-2 text-xs font-bold tracking-widest text-gray-500 uppercase border-b">Quote Details</p>
-                <div className="flex justify-end gap-4 mb-1">
+                <div className="flex justify-start gap-4 mb-1 sm:justify-end">
                   <span className="text-sm text-gray-600">Date Issued:</span>
-                  <span className="w-24 text-sm font-bold text-right text-gray-900">{new Date(quote.updatedAt).toLocaleDateString()}</span>
+                  <span className="w-24 text-sm font-bold text-left text-gray-900 sm:text-right">{new Date(quote.updatedAt).toLocaleDateString()}</span>
                 </div>
-                <div className="flex justify-end gap-4">
+                <div className="flex justify-start gap-4 sm:justify-end">
                   <span className="text-sm text-gray-600">Valid Until:</span>
-                  <span className="w-24 text-sm font-bold text-right text-gray-900">
+                  <span className="w-24 text-sm font-bold text-left text-gray-900 sm:text-right">
                     {quote.validUntil ? new Date(quote.validUntil).toLocaleDateString() : "N/A"}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* 🛒 Items Table with Percentage */}
-            <div className="mb-8 border border-gray-300">
-              <table className="w-full text-left border-collapse">
+            {/* 🛒 Items Table with Percentage - WRAPPED for Mobile Scrolling */}
+            <div className="mb-8 overflow-x-auto border border-gray-300 rounded-lg">
+              <table className="w-full min-w-[650px] text-left border-collapse">
                 <thead className="print:table-header-group">
                   <tr className="text-sm tracking-wide text-gray-900 uppercase bg-gray-100">
                     <th className="p-3 font-bold border-b border-gray-300">Item</th>
@@ -392,7 +392,7 @@ const QuoteViewer = () => {
                               <div className="flex flex-wrap gap-2 mt-2 text-[11px] print:hidden">
                                 <Link
                                   to={itemDetailPath}
-                                  className="inline-flex items-center gap-1 px-2 py-1 font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded-md hover:bg-blue-100"
+                                  className="inline-flex items-center gap-1 px-2 py-1 font-semibold text-blue-700 border border-blue-100 rounded-md bg-blue-50 hover:bg-blue-100"
                                 >
                                   <FaExternalLinkAlt /> Open full page
                                 </Link>
@@ -406,10 +406,10 @@ const QuoteViewer = () => {
                               </div>
                               {isExpanded && (
                                 <div className="mt-2 space-y-1 text-[12px] text-gray-600">
-                                  <div>Base Price: â‚¹{Number(item.basePrice || basePrice).toLocaleString('en-IN')}</div>
-                                  <div>Option Adjustment: â‚¹{Number(optionAdjustment || 0).toLocaleString('en-IN')}</div>
-                                  <div>Offered Price: â‚¹{Number(item.offeredPrice || 0).toLocaleString('en-IN')}</div>
-                                  <div>Line Total: â‚¹{((item.offeredPrice || 0) * item.quantity).toLocaleString('en-IN')}</div>
+                                  <div>Base Price: ₹{Number(item.basePrice || basePrice).toLocaleString('en-IN')}</div>
+                                  <div>Option Adjustment: ₹{Number(optionAdjustment || 0).toLocaleString('en-IN')}</div>
+                                  <div>Offered Price: ₹{Number(item.offeredPrice || 0).toLocaleString('en-IN')}</div>
+                                  <div>Line Total: ₹{((item.offeredPrice || 0) * item.quantity).toLocaleString('en-IN')}</div>
                                   {renderSelectedOptions(item)}
                                 </div>
                               )}
@@ -458,9 +458,9 @@ const QuoteViewer = () => {
             </div>
 
             {/* 📝 Notes & Calculation Section */}
-            <div className="flex flex-col justify-between gap-8 mb-6 sm:flex-row print:break-inside-avoid">
+            <div className="flex flex-col justify-between gap-8 mb-6 md:flex-row print:break-inside-avoid">
               
-              <div className="w-full sm:w-1/2">
+              <div className="w-full md:w-1/2">
                 {quote.adminNotes && (
                   <div>
                     <h4 className="pb-1 mb-2 text-sm font-bold text-gray-900 uppercase border-b">Terms & Conditions</h4>
@@ -470,7 +470,7 @@ const QuoteViewer = () => {
               </div>
 
               {/* Totals Box */}
-              <div className="w-full text-sm sm:w-1/3">
+              <div className="w-full text-sm md:w-1/2 lg:w-1/3">
                 <div className="flex justify-between mb-2 text-gray-700">
                   <span>Subtotal:</span>
                   <span className="font-bold">₹ {offeredSubTotal.toLocaleString('en-IN')}</span>
@@ -497,11 +497,10 @@ const QuoteViewer = () => {
                   </div>
                 )}
 
-                {/* 👇 YAHAN PE CHANGE HUA HAI 👇 */}
                 {shippingCharge > 0 && (
                   <div className="flex justify-between mb-2 font-bold text-gray-700">
                     <span>Shipping Charge:</span>
-                    <span>+ Rs {shippingCharge.toLocaleString('en-IN')}</span>
+                    <span>+ ₹ {shippingCharge.toLocaleString('en-IN')}</span>
                   </div>
                 )}
 
@@ -522,26 +521,26 @@ const QuoteViewer = () => {
             </div>
 
             {/* 🚀 Action Buttons (Hidden in Print) */}
-            <div className="pt-8 mt-8 border-t border-gray-200 print:hidden">
+            <div className="pt-6 mt-6 border-t border-gray-200 sm:pt-8 sm:mt-8 print:hidden">
               {quote.status === "Accepted" ? (
-                <div className="flex items-center justify-center gap-3 px-8 py-5 text-xl font-bold text-green-700 bg-green-50 rounded-xl">
+                <div className="flex flex-col items-center justify-center gap-3 px-4 py-5 text-lg font-bold text-center text-green-700 sm:text-xl sm:px-8 bg-green-50 rounded-xl sm:flex-row">
                   <FaCheckCircle size={28} /> Quotation Accepted
                 </div>
               ) : quote.status === "Rejected" ? (
-                <div className="flex items-center justify-center gap-3 px-8 py-5 text-xl font-bold text-red-700 bg-red-50 rounded-xl">
+                <div className="flex flex-col items-center justify-center gap-3 px-4 py-5 text-lg font-bold text-center text-red-700 sm:text-xl sm:px-8 bg-red-50 rounded-xl sm:flex-row">
                   <FaTimesCircle size={28} /> Quotation Declined
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
                   {!isLatest && (
-                    <div className="w-full rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-center text-sm font-semibold text-amber-700">
+                    <div className="w-full px-4 py-2 text-sm font-semibold text-center border rounded-lg border-amber-200 bg-amber-50 text-amber-700">
                       This is an older version. Please open the latest version to accept or reject.
                     </div>
                   )}
                   <button 
                     onClick={() => handleStatusUpdate("Rejected")}
                     disabled={isUpdating || !isLatest}
-                    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white border-2 border-red-500 hover:bg-red-50 text-red-600 px-8 py-3.5 rounded-xl text-lg font-bold transition disabled:opacity-50"
+                    className="flex items-center justify-center w-full gap-2 px-8 py-3.5 text-lg font-bold text-red-600 transition bg-white border-2 border-red-500 hover:bg-red-50 rounded-xl disabled:opacity-50 sm:w-auto"
                   >
                     <FaTimesCircle /> Decline Quote
                   </button>
@@ -549,7 +548,7 @@ const QuoteViewer = () => {
                   <button 
                     onClick={() => handleStatusUpdate("Accepted")}
                     disabled={isUpdating || !isLatest}
-                    className="flex items-center justify-center w-full gap-2 px-10 py-4 text-lg font-bold text-white transition bg-green-600 shadow-lg sm:w-auto hover:bg-green-700 rounded-xl disabled:opacity-50"
+                    className="flex items-center justify-center w-full gap-2 px-8 py-4 text-lg font-bold text-white transition bg-green-600 shadow-lg hover:bg-green-700 rounded-xl disabled:opacity-50 sm:w-auto"
                   >
                     <FaCheckCircle /> Accept This Quote
                   </button>

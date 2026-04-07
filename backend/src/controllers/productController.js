@@ -1,1375 +1,471 @@
-import fs from "fs/promises";
 import Product from "../models/Product.js";
 import ProductImportJob from "../models/ProductImportJob.js";
-import Category from "../models/Category.js";
 
 const DEFAULT_PRODUCT_IMAGE = "https://placehold.co/600x600?text=Product";
-const LEGACY_IMPORT_JOB_ID = "legacy-untracked-products";
 
-const normalizeCsvKey = (key = "") =>
-  key.trim().toLowerCase().replace(/\s+/g, "_");
-
-const getFirstNonEmptyValue = (rowObj, keys = []) => {
-  for (const key of keys) {
-    const value = rowObj[key];
-    if (value !== undefined && value !== null && String(value).trim() !== "") {
-      return String(value).trim();
-    }
-  }
-  return "";
-};
-
-const parseCsvContent = (csvText = "") => {
-  const rows = [];
-  let row = [];
-  let cell = "";
+// ==========================
+// 🔥 ROBUST CSV PARSER (Excel jaisa smart)
+// ==========================
+function parseCSVLine(line) {
+  const result = [];
+  let currentVal = '';
   let inQuotes = false;
-
-  for (let i = 0; i < csvText.length; i += 1) {
-    const char = csvText[i];
-    const nextChar = csvText[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        cell += '"';
-        i += 1;
+  
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+    if (inQuotes) {
+      if (char === '"') {
+        if (i < line.length - 1 && line[i + 1] === '"') {
+          currentVal += '"';
+          i++; 
+        } else {
+          inQuotes = false;
+        }
       } else {
-        inQuotes = !inQuotes;
+        currentVal += char;
       }
-      continue;
-    }
-
-    if (char === "," && !inQuotes) {
-      row.push(cell);
-      cell = "";
-      continue;
-    }
-
-    if ((char === "\n" || char === "\r") && !inQuotes) {
-      if (char === "\r" && nextChar === "\n") i += 1;
-      row.push(cell);
-      if (row.some((item) => String(item || "").trim() !== "")) {
-        rows.push(row.map((item) => String(item || "").trim()));
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ',') {
+        result.push(currentVal.trim());
+        currentVal = '';
+      } else {
+        currentVal += char;
       }
-      row = [];
-      cell = "";
-      continue;
-    }
-
-    cell += char;
-  }
-
-  if (cell.length > 0 || row.length > 0) {
-    row.push(cell);
-    if (row.some((item) => String(item || "").trim() !== "")) {
-      rows.push(row.map((item) => String(item || "").trim()));
     }
   }
+  result.push(currentVal.trim());
+  return result;
+}
 
-  return rows;
+// Safely convert formatted strings like "1,200.50" to numbers
+const sanitizeNum = (val) => {
+  if (!val) return 0;
+  const num = Number(String(val).replace(/[^0-9.-]+/g, ""));
+  return isNaN(num) ? 0 : num;
 };
 
-const csvEscape = (value) => {
-  const str = value === undefined || value === null ? "" : String(value);
-  if (/[",\n\r]/.test(str)) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-};
+// ==========================
+// BASIC CRUD
+// ==========================
 
-const escapeRegex = (text = "") => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const normalizeText = (value = "") => String(value || "").trim().replace(/\s+/g, " ");
-const stripHtml = (value = "") => normalizeText(String(value || "").replace(/<[^>]*>/g, " "));
-const toSlug = (value = "") =>
-  normalizeText(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)+/g, "");
-const cleanLabel = (raw = "", prefix = "") =>
-  normalizeText(
-    String(raw || "")
-      .replace(prefix, "")
-      .replace(/[{}]/g, "")
-      .replace(/_/g, " ")
-  ).toUpperCase();
-
-const splitOptionTokens = (rawValue = "") => {
-  const raw = String(rawValue || "").trim();
-  if (!raw) return [];
-  if (/[;\n]/.test(raw)) {
-    return raw
-      .split(/[;\n]+/)
-      .map((value) => normalizeText(value))
-      .filter(Boolean);
-  }
-  if (raw.includes("|")) {
-    const looksLikeAdjustment = /^.+\|\s*-?\d+(\.\d+)?$/.test(raw);
-    if (looksLikeAdjustment) return [normalizeText(raw)];
-    return raw
-      .split("|")
-      .map((value) => normalizeText(value))
-      .filter(Boolean);
-  }
-  return [normalizeText(raw)];
-};
-
-const parseOptionLine = (rawOption = "") => {
-  const [rawLabel, rawAdjustment] = String(rawOption || "").split("|");
-  const label = normalizeText(rawLabel);
-  if (!label) return null;
-  const adjustment = Number(rawAdjustment);
-  return {
-    label,
-    priceAdjustment: Number.isFinite(adjustment) ? adjustment : 0,
-  };
-};
-
-const ALLOWED_CUSTOM_FIELD_TYPES = new Set(["radio", "checkbox", "text"]);
-const toSafeNumber = (value, fallback = 0) => {
-  const parsed = Number(String(value ?? "").replace(/,/g, ""));
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const toOptionalNumber = (value) => {
-  if (value === undefined || value === null) return null;
-  const raw = String(value).replace(/,/g, "").trim();
-  if (!raw) return null;
-  const parsed = Number(raw);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
-const hasMeaningfulValue = (value) => {
-  if (value === undefined || value === null) return false;
-  const raw = String(value).trim();
-  if (!raw) return false;
-  const parsed = Number(raw);
-  if (Number.isFinite(parsed) && parsed === 0) return false;
-  return true;
-};
-
-const parseSearchTags = (rawValue = "") => {
-  const raw = String(rawValue || "").trim();
-  if (!raw) return [];
-  return raw
-    .split(",")
-    .map((tag) => normalizeText(tag.replace(/[()]/g, "")))
-    .filter(Boolean);
-};
-
-const normalizeStatus = (rawValue = "") => {
-  const raw = normalizeText(rawValue).toLowerCase();
-  if (!raw) return "Active";
-  if (raw.includes("hidden") || raw.includes("inactive")) return "Hidden";
-  return "Active";
-};
-
-const buildCategoryPath = (categories = []) =>
-  categories.map((item) => normalizeText(item)).filter(Boolean).join(" / ");
-
-const buildSearchIndex = (name = "", sku = "", tags = []) =>
-  normalizeText([name, sku, ...(Array.isArray(tags) ? tags : [])].join(" ")).toLowerCase();
-
-const buildCatalogCustomFields = (variation) => {
-  const fields = [];
-  const buildOption = (label, adjustment) => {
-    if (adjustment === null || adjustment === undefined) return null;
-    const safeLabel = normalizeText(label);
-    if (!safeLabel) return null;
-    return { label: safeLabel, priceAdjustment: toSafeNumber(adjustment, 0) };
-  };
-
-  const colorOptions = [
-    buildOption("Red", variation.colorRedAdd),
-    buildOption("Green", variation.colorGreenAdd),
-    buildOption("Blue", variation.colorBlueAdd),
-  ].filter(Boolean);
-  if (colorOptions.length > 0) {
-    fields.push({ label: "Color", type: "radio", required: true, options: colorOptions });
-  }
-
-  const holeOptions = [
-    buildOption("9mm", variation.hole9mmAdd),
-    buildOption("12mm", variation.hole12mmAdd),
-  ].filter(Boolean);
-  if (holeOptions.length > 0) {
-    fields.push({ label: "Hole Size", type: "radio", required: true, options: holeOptions });
-  }
-
-  const materialOptions = [
-    buildOption("TezTech", variation.materialTezTechAdd),
-    buildOption("Sunrise", variation.materialSunriseAdd),
-  ].filter(Boolean);
-  if (materialOptions.length > 0) {
-    fields.push({ label: "Material Brand", type: "radio", required: true, options: materialOptions });
-  }
-
-  const powerOptions = [
-    buildOption("12W", variation.power12WAdd),
-    buildOption("24W", variation.power24WAdd),
-  ].filter(Boolean);
-  if (powerOptions.length > 0) {
-    fields.push({ label: "Power", type: "radio", required: true, options: powerOptions });
-  }
-
-  const addonOptions = [
-    buildOption("Remote", variation.remoteAdd),
-    buildOption("Waterproof", variation.waterproofAdd),
-  ].filter(Boolean);
-  if (addonOptions.length > 0) {
-    fields.push({ label: "Add-ons", type: "checkbox", required: false, options: addonOptions });
-  }
-
-  return fields;
-};
-
-const buildCatalogDetails = (specs = {}) => {
-  const specRows = [
-    { key: "Height (ft)", value: specs.heightFt },
-    { key: "Width (ft)", value: specs.widthFt },
-    { key: "Total Holes", value: specs.totalHoles },
-    { key: "Hole Size", value: specs.holeSize },
-    { key: "Material Type", value: specs.materialType },
-    { key: "Sheet Thickness", value: specs.sheetThickness },
-    { key: "LED Compatible", value: specs.ledCompatible },
-    { key: "Input Voltage", value: specs.inputVoltage },
-    { key: "Output Voltage", value: specs.outputVoltage },
-    { key: "Power (Watt)", value: specs.powerWatt },
-    { key: "Connectivity", value: specs.connectivity },
-    { key: "IC Number", value: specs.icNumber },
-    { key: "LED Per Meter", value: specs.ledPerMeter },
-    { key: "Controller Type", value: specs.controllerType },
-    { key: "Warranty", value: specs.warranty },
-  ];
-
-  return specRows
-    .map((item) => ({
-      key: normalizeText(item.key),
-      value: normalizeText(item.value),
-    }))
-    .filter((item) => item.key && hasMeaningfulValue(item.value));
-};
-
-const cleanupUploadedCsv = async (file) => {
-  if (!file?.path) return;
-  try {
-    await fs.unlink(file.path);
-  } catch {
-    // Ignore cleanup errors (file may already be removed).
-  }
-};
-
-const parseCustomFields = (rawValue) => {
-  if (rawValue === undefined) return undefined;
-
-  let parsed = rawValue;
-  if (typeof rawValue === "string") {
-    try {
-      parsed = JSON.parse(rawValue);
-    } catch {
-      return [];
-    }
-  }
-
-  if (!Array.isArray(parsed)) return [];
-
-  const normalized = parsed
-    .map((item) => {
-      const label = String(item?.label || "").trim();
-      if (!label) return null;
-
-      const typeCandidate = String(item?.type || "radio").trim().toLowerCase();
-      const type = ALLOWED_CUSTOM_FIELD_TYPES.has(typeCandidate) ? typeCandidate : "radio";
-      const required = Boolean(item?.required);
-
-      const rawOptions = Array.isArray(item?.options) ? item.options : [];
-      const options = rawOptions
-        .map((option) => {
-          if (option && typeof option === "object" && !Array.isArray(option)) {
-            const label = String(option.label || "").trim();
-            if (!label) return null;
-            return {
-              label,
-              priceAdjustment: toSafeNumber(option.priceAdjustment, 0),
-            };
-          }
-
-          const label = String(option || "").trim();
-          if (!label) return null;
-          return {
-            label,
-            priceAdjustment: 0,
-          };
-        })
-        .filter(Boolean);
-
-      if ((type === "radio" || type === "checkbox") && options.length === 0) {
-        return null;
-      }
-
-      return {
-        label,
-        type,
-        required,
-        options,
-      };
-    })
-    .filter(Boolean);
-
-  return normalized;
-};
-
-const parseDetails = (rawValue) => {
-  if (rawValue === undefined) return undefined;
-
-  let parsed = rawValue;
-  if (typeof rawValue === "string") {
-    try {
-      parsed = JSON.parse(rawValue);
-    } catch {
-      return [];
-    }
-  }
-
-  if (!Array.isArray(parsed)) return [];
-
-  return parsed
-    .map((item) => ({
-      key: normalizeText(item?.key || ""),
-      value: normalizeText(item?.value || ""),
-    }))
-    .filter((item) => item.key && item.value);
-};
-
-const getFirstNonEmptyFromRows = (rows = [], keys = []) => {
-  for (const row of rows) {
-    const value = getFirstNonEmptyValue(row, keys);
-    if (value) return value;
-  }
-  return "";
-};
-
-const buildDetailsFromRows = (rows = []) => {
-  const headers = Object.keys(rows[0] || {});
-  return headers
-    .filter((header) => header.startsWith("product_attribute_"))
-    .map((header) => {
-      const value = getFirstNonEmptyFromRows(rows, [header]);
-      return {
-        key: cleanLabel(header, "product_attribute_"),
-        value: normalizeText(value),
-      };
-    })
-    .filter((item) => item.key && item.value);
-};
-
-const buildCustomFieldsFromRows = (rows = []) => {
-  const headers = Object.keys(rows[0] || {});
-  const variationFields = headers
-    .filter((header) => header.startsWith("product_variation_option_"))
-    .map((header) => {
-      const uniqueMap = new Map();
-      rows.forEach((row) => {
-        splitOptionTokens(row[header]).forEach((rawOption) => {
-          const parsed = parseOptionLine(rawOption);
-          if (!parsed) return;
-          const key = parsed.label.toLowerCase();
-          if (!uniqueMap.has(key)) {
-            uniqueMap.set(key, parsed);
-            return;
-          }
-          const existing = uniqueMap.get(key);
-          if (existing.priceAdjustment === 0 && parsed.priceAdjustment !== 0) {
-            uniqueMap.set(key, parsed);
-          }
-        });
-      });
-
-      const options = Array.from(uniqueMap.values()).map((option) => ({
-        label: option.label,
-        priceAdjustment: toSafeNumber(option.priceAdjustment, 0),
-      }));
-
-      return {
-        label: cleanLabel(header, "product_variation_option_"),
-        type: "radio",
-        required: true,
-        options,
-      };
-    })
-    .filter((field) => field.label && field.options.length > 0);
-
-  const optionNameKey = headers.find((header) => header === "product_option_name");
-  const optionValueKey = headers.find((header) => header === "product_option_value");
-  const genericOptionFields = [];
-
-  if (optionNameKey && optionValueKey) {
-    const grouped = new Map();
-    rows.forEach((row) => {
-      const label = normalizeText(row[optionNameKey]);
-      if (!label) return;
-      const mapKey = label.toLowerCase();
-      if (!grouped.has(mapKey)) grouped.set(mapKey, { label: label.toUpperCase(), options: new Map() });
-      splitOptionTokens(row[optionValueKey]).forEach((rawValue) => {
-        const parsed = parseOptionLine(rawValue);
-        if (!parsed) return;
-        const optionKey = parsed.label.toLowerCase();
-        if (!grouped.get(mapKey).options.has(optionKey)) {
-          grouped.get(mapKey).options.set(optionKey, parsed);
-          return;
-        }
-        const existing = grouped.get(mapKey).options.get(optionKey);
-        if (existing.priceAdjustment === 0 && parsed.priceAdjustment !== 0) {
-          grouped.get(mapKey).options.set(optionKey, parsed);
-        }
-      });
-    });
-
-    grouped.forEach((item) => {
-      const options = Array.from(item.options.values()).map((opt) => ({
-        label: opt.label,
-        priceAdjustment: toSafeNumber(opt.priceAdjustment, 0),
-      }));
-      if (options.length > 0) {
-        genericOptionFields.push({
-          label: item.label,
-          type: "radio",
-          required: true,
-          options,
-        });
-      }
-    });
-  }
-
-  const merged = new Map();
-  [...variationFields, ...genericOptionFields].forEach((field) => {
-    const key = normalizeText(field.label).toLowerCase();
-    if (!key) return;
-    if (!merged.has(key)) {
-      merged.set(key, {
-        ...field,
-        options: [...field.options],
-      });
-      return;
-    }
-    const existing = merged.get(key);
-    const optionMap = new Map(existing.options.map((opt) => [normalizeText(opt.label).toLowerCase(), opt]));
-    field.options.forEach((option) => {
-      const optionKey = normalizeText(option.label).toLowerCase();
-      if (!optionMap.has(optionKey)) optionMap.set(optionKey, option);
-    });
-    existing.options = Array.from(optionMap.values());
-  });
-
-  return Array.from(merged.values()).filter((field) => field.options.length > 0);
-};
-
-const ensureCategoriesExist = async (categoryNames = [], userId) => {
-  const normalizedNames = Array.from(
-    new Set(categoryNames.map((name) => normalizeText(name)).filter(Boolean))
-  );
-  if (normalizedNames.length === 0) return;
-
-  for (const name of normalizedNames) {
-    const exists = await Category.findOne({
-      name: { $regex: `^${escapeRegex(name)}$`, $options: "i" },
-    }).select("_id");
-
-    if (exists) continue;
-
-    const baseSlug = toSlug(name) || "category";
-    let slug = baseSlug;
-    let idx = 1;
-    while (await Category.exists({ slug })) {
-      slug = `${baseSlug}-${idx}`;
-      idx += 1;
-    }
-
-    await Category.create({
-      name,
-      slug,
-      createdBy: userId,
-    });
-  }
-};
-
-const cleanupUnusedCategoriesByNames = async (categoryNames = []) => {
-  const normalizedNames = Array.from(
-    new Set(categoryNames.map((name) => normalizeText(name)).filter(Boolean))
-  );
-  if (normalizedNames.length === 0) return 0;
-
-  const activeProductCategories = await Product.distinct("category");
-  const activeCategorySet = new Set(
-    activeProductCategories.map((name) => normalizeText(name).toLowerCase())
-  );
-
-  const removableNames = normalizedNames.filter(
-    (name) => !activeCategorySet.has(name.toLowerCase())
-  );
-
-  if (removableNames.length === 0) return 0;
-
-  const results = await Promise.all(
-    removableNames.map((name) =>
-      Category.deleteMany({
-        name: { $regex: `^${escapeRegex(name)}$`, $options: "i" },
-      })
-    )
-  );
-
-  return results.reduce((sum, result) => sum + (result?.deletedCount || 0), 0);
-};
-
-const cleanupAllUnusedCategories = async () => {
-  const allCategoryNames = await Category.distinct("name");
-  return cleanupUnusedCategoriesByNames(allCategoryNames);
-};
-
-const buildProductFilters = ({ keyword, category, minPriceRaw, maxPriceRaw, includeHidden }) => {
-  const filters = {};
-  const andConditions = [];
-
-  const searchTerm = normalizeText(keyword);
-  if (searchTerm) {
-    const regex = { $regex: searchTerm, $options: "i" };
-    andConditions.push({
-      $or: [
-        { name: regex },
-        { searchIndex: regex },
-        { searchTags: regex },
-        { sku: regex },
-      ],
-    });
-  }
-
-  const categoryTerm = normalizeText(category);
-  if (categoryTerm) {
-    const regex = { $regex: `^${escapeRegex(categoryTerm)}$`, $options: "i" };
-    andConditions.push({ $or: [{ category: regex }, { categoryPath: regex }] });
-  }
-
-  const minPrice = Number(minPriceRaw);
-  const maxPrice = Number(maxPriceRaw);
-  if (Number.isFinite(minPrice) || Number.isFinite(maxPrice)) {
-    const priceFilter = {};
-    if (Number.isFinite(minPrice)) priceFilter.$gte = minPrice;
-    if (Number.isFinite(maxPrice)) priceFilter.$lte = maxPrice;
-    andConditions.push({ price: priceFilter });
-  }
-
-  if (!includeHidden) {
-    filters.status = { $regex: "^active$", $options: "i" };
-  }
-
-  if (andConditions.length) {
-    filters.$and = andConditions;
-  }
-
-  return filters;
-};
-
-// @desc    Fetch all products from DB (With Search & Pagination)
 export const getProducts = async (req, res) => {
   try {
-    const keyword = String(req.query.keyword || req.query.q || "").trim();
-    const category = String(req.query.category || "").trim();
-    const filters = buildProductFilters({
-      keyword,
-      category,
-      minPriceRaw: req.query.minPrice,
-      maxPriceRaw: req.query.maxPrice,
-      includeHidden: false,
-    });
-
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 8;
-    const skip = (page - 1) * limit;
-    const randomize = ["1", "true", "yes"].includes(String(req.query.random || "").toLowerCase());
-
-    const count = await Product.countDocuments(filters);
-    let products = [];
-
-    if (randomize) {
-      products = await Product.aggregate([
-        { $match: filters },
-        { $addFields: { __rand: { $rand: {} } } },
-        { $sort: { __rand: 1 } },
-        { $skip: skip },
-        { $limit: limit },
-        { $project: { __rand: 0 } },
-      ]);
-    } else {
-      products = await Product.find(filters)
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit);
-    }
-
-    res.status(200).json({
-      success: true,
-      products,
-      page,
-      totalPages: Math.ceil(count / limit) || 1,
-      totalProducts: count,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    const products = await Product.find({ status: "Active" }).lean();
+    res.json({ success: true, products });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Fetch all products for Admin (includes hidden)
 export const getProductsAdmin = async (req, res) => {
   try {
-    const keyword = String(req.query.keyword || req.query.q || "").trim();
-    const category = String(req.query.category || "").trim();
-    const filters = buildProductFilters({
-      keyword,
-      category,
-      minPriceRaw: req.query.minPrice,
-      maxPriceRaw: req.query.maxPrice,
-      includeHidden: true,
-    });
-
-    const page = Number(req.query.page) || 1;
-    const limit = Number(req.query.limit) || 50;
-    const skip = (page - 1) * limit;
-
-    const count = await Product.countDocuments(filters);
-    const products = await Product.find(filters)
-      .sort({ updatedAt: -1 })
-      .skip(skip)
-      .limit(limit);
-
-    res.status(200).json({
-      success: true,
-      products,
-      page,
-      totalPages: Math.ceil(count / limit) || 1,
-      totalProducts: count,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    const products = await Product.find().lean();
+    res.json({ success: true, products });
+  } catch (err) {
+    console.error("ADMIN ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Get single product by ID
 export const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
-    if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
-    }
-    res.status(200).json({ success: true, product });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    if (!product) return res.status(404).json({ success: false, message: "Product not found" });
+    res.json({ success: true, product });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Create Product (Admin Only)
+export const getProductBySlug = async (req, res) => {
+  try {
+    const product = await Product.findOne({ slug: req.params.slug });
+    if (!product) return res.status(404).json({ success: false, message: "Not found" });
+    res.json({ success: true, product });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 export const createProduct = async (req, res) => {
   try {
-    const { name, description, price, gstRate, shippingCharge, category, stock, brand, sku } = req.body;
-    const image = req.file ? req.file.path : "";
-    const customFields = parseCustomFields(req.body.customFields) || [];
-    const details = parseDetails(req.body.details) || [];
-
-    if (!name) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Please provide product name" 
-      });
-    }
-
     const product = await Product.create({
-      name,
-      description: description || name,
-      price: Number(price) || 0,
-      sellingPrice: Number(price) || 0,
-      category: category || "Uncategorized",
-      stock: Number(stock) || 0,
-      gstRate: Math.max(0, Math.min(100, toSafeNumber(gstRate, 0))),
-      shippingCharge: Math.max(0, toSafeNumber(shippingCharge, 0)),
-      brand: brand || "",
-      sku: normalizeText(sku) || undefined,
-      image: image || DEFAULT_PRODUCT_IMAGE,
-      user: req.user._id,
-      customFields,
-      details,
-      searchIndex: buildSearchIndex(name, normalizeText(sku) || "", []),
+      ...req.body,
+      user: req.user?._id || null,
+      image: req.file?.path || DEFAULT_PRODUCT_IMAGE,
     });
-
     res.status(201).json({ success: true, product });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Update Product
-// @route   PUT /api/products/:id
 export const updateProduct = async (req, res) => {
   try {
-    const { name, description, price, gstRate, shippingCharge, category, stock, brand, sku } = req.body;
-    const parsedCustomFields = parseCustomFields(req.body.customFields);
-    const parsedDetails = parseDetails(req.body.details);
-    
-    // 1. Check if product exists
-    let product = await Product.findById(req.params.id);
-    if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
-    }
-
-    // 2. Handle Image update
-    const image = req.file ? req.file.path : product.image;
-
-    // 3. Prepare Update Object with strict Number conversion
-    const nextName = name || product.name;
-    const nextSku = sku !== undefined ? normalizeText(sku) || undefined : product.sku;
-
-    const updatedData = {
-      name: nextName,
-      description: description || product.description,
-      price: price ? Number(price) : product.price,
-      sellingPrice: price ? Number(price) : product.sellingPrice ?? product.price,
-      category: category || product.category,
-      brand: brand || product.brand,
-      sku: nextSku,
-      stock: stock !== undefined ? Math.max(0, Number(stock)) : product.stock,
-      gstRate:
-        gstRate !== undefined
-          ? Math.max(0, Math.min(100, toSafeNumber(gstRate, product.gstRate || 0)))
-          : product.gstRate || 0,
-      shippingCharge:
-        shippingCharge !== undefined
-          ? Math.max(0, toSafeNumber(shippingCharge, product.shippingCharge || 0))
-          : product.shippingCharge || 0,
-      image: image,
-      customFields: parsedCustomFields !== undefined ? parsedCustomFields : product.customFields,
-      details: parsedDetails !== undefined ? parsedDetails : product.details,
-      searchIndex: buildSearchIndex(nextName, nextSku || "", product.searchTags || []),
-    };
-
-    // 4. Update in Database
-    const updatedProduct = await Product.findByIdAndUpdate(
+    const updated = await Product.findByIdAndUpdate(
       req.params.id,
-      { $set: updatedData }, 
-      { new: true, runValidators: true }
-    );
-
-    res.status(200).json({ success: true, product: updatedProduct });
-  } catch (error) {
-    console.error("Update Error:", error.message);
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// @desc    Update Product Status (Admin Only)
-export const updateProductStatus = async (req, res) => {
-  try {
-    const statusInput = req.body?.status;
-    const isActive = req.body?.isActive;
-    let nextStatus = "";
-
-    if (typeof isActive === "boolean") {
-      nextStatus = isActive ? "Active" : "Hidden";
-    } else if (statusInput !== undefined) {
-      nextStatus = normalizeStatus(statusInput);
-    }
-
-    if (!nextStatus) {
-      return res.status(400).json({ success: false, message: "Status or isActive is required" });
-    }
-
-    const product = await Product.findByIdAndUpdate(
-      req.params.id,
-      { status: nextStatus },
+      {
+        ...req.body,
+        ...(req.file && { image: req.file.path }),
+      },
       { new: true }
     );
-
-    if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
-    }
-
-    res.status(200).json({ success: true, product });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({ success: true, product: updated });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Delete Product
 export const deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
-    if (!product) {
-      return res.status(404).json({ success: false, message: "Product not found" });
-    }
-    await product.deleteOne();
-    res.status(200).json({ success: true, message: "Product deleted successfully" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    await Product.findByIdAndDelete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Fetch distinct product categories for filters
+export const updateProductStatus = async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    product.status = req.body.status;
+    await product.save();
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 export const getProductCategories = async (req, res) => {
   try {
-    const categories = await Category.find({ isActive: true })
-      .sort({ sortOrder: 1, name: 1 })
-      .select("name");
-    const cleaned = categories.map((item) => item.name);
-    res.status(200).json({ success: true, categories: cleaned });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    const categories = await Product.distinct("category");
+    res.json({ success: true, categories });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Export products as CSV (Admin Only)
-export const exportProductsCsv = async (req, res) => {
-  try {
-    const products = await Product.find({})
-      .sort({ createdAt: -1 })
-      .select(
-        "productId sku name categories categoryPath mrp sellingPrice stock status searchTags images heightFt widthFt totalHoles holeSize materialType sheetThickness ledCompatible inputVoltage outputVoltage powerWatt connectivity icNumber ledPerMeter controllerType warranty colorRedAdd colorGreenAdd colorBlueAdd hole9mmAdd hole12mmAdd materialTezTechAdd materialSunriseAdd power12WAdd power24WAdd remoteAdd waterproofAdd"
-      );
+// ==========================
+// 🔥 ULTIMATE DYNAMIC IMPORT (Zero Hardcoding + Bug Fixes)
+// ==========================
 
-    const header = [
-      "Product_ID",
-      "SKU",
-      "Product_Name",
-      "Category_1",
-      "Category_2",
-      "Category_3",
-      "Category_4",
-      "Category_5",
-      "MRP",
-      "Selling_Price",
-      "Stock",
-      "Status",
-      "Search_Tags",
-      "Image_1",
-      "Image_2",
-      "Image_3",
-      "Image_4",
-      "Image_5",
-      "Image_6",
-      "Height_ft",
-      "Width_ft",
-      "Total_Holes",
-      "Hole_Size",
-      "Material_Type",
-      "Sheet_Thickness",
-      "LED_Compatible",
-      "Input_Voltage",
-      "Output_Voltage",
-      "Power_Watt",
-      "Connectivity",
-      "IC_Number",
-      "LED_Per_Meter",
-      "Controller_Type",
-      "Warranty",
-      "Color_Red_Add",
-      "Color_Green_Add",
-      "Color_Blue_Add",
-      "Hole_9mm_Add",
-      "Hole_12mm_Add",
-      "Material_TezTech_Add",
-      "Material_Sunrise_Add",
-      "Power_12W_Add",
-      "Power_24W_Add",
-      "Remote_Add",
-      "Waterproof_Add",
-    ];
-
-    const rows = products.map((product) => {
-      const categories = Array.isArray(product.categories) ? product.categories : [];
-      const images = Array.isArray(product.images) ? product.images : [];
-      const searchTags = Array.isArray(product.searchTags) ? product.searchTags.join(",") : "";
-
-      const base = [
-        product.productId || "",
-        product.sku || "",
-        product.name || "",
-        categories[0] || "",
-        categories[1] || "",
-        categories[2] || "",
-        categories[3] || "",
-        categories[4] || "",
-        product.mrp ?? 0,
-        product.sellingPrice ?? product.price ?? 0,
-        product.stock ?? 0,
-        product.status || "Active",
-        searchTags,
-        images[0] || "",
-        images[1] || "",
-        images[2] || "",
-        images[3] || "",
-        images[4] || "",
-        images[5] || "",
-        product.heightFt || "",
-        product.widthFt || "",
-        product.totalHoles || "",
-        product.holeSize || "",
-        product.materialType || "",
-        product.sheetThickness || "",
-        product.ledCompatible || "",
-        product.inputVoltage || "",
-        product.outputVoltage || "",
-        product.powerWatt || "",
-        product.connectivity || "",
-        product.icNumber || "",
-        product.ledPerMeter || "",
-        product.controllerType || "",
-        product.warranty || "",
-        product.colorRedAdd ?? "",
-        product.colorGreenAdd ?? "",
-        product.colorBlueAdd ?? "",
-        product.hole9mmAdd ?? "",
-        product.hole12mmAdd ?? "",
-        product.materialTezTechAdd ?? "",
-        product.materialSunriseAdd ?? "",
-        product.power12WAdd ?? "",
-        product.power24WAdd ?? "",
-        product.remoteAdd ?? "",
-        product.waterproofAdd ?? "",
-      ];
-
-      return base.map(csvEscape).join(",");
-    });
-
-    const csv = [header.join(","), ...rows].join("\n");
-
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="products-export.csv"`);
-    res.status(200).send(csv);
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// @desc    Import products from CSV (Admin Only)
 export const importProductsCsv = async (req, res) => {
   try {
-    if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ success: false, message: "CSV file is required" });
-    }
+    const startTime = new Date(); 
+    
+    // 🔥 BOM FIX: Excel ke hidden characters ko hamesha ke liye hata diya
+    const rawBuffer = req.file.buffer.toString("utf8");
+    const csv = rawBuffer.replace(/^\uFEFF/, ''); 
+    
+    const rawLines = csv.split(/\r?\n/).filter(r => r.trim() !== "");
+    const rows = rawLines.map(line => parseCSVLine(line));
+    const rawHeaders = rows[0]; 
+    
+    const ops = [];
+    const baseSkusImported = []; 
+    let failed = 0;
+    const errorLogs = []; 
 
-    const csvText = req.file.buffer.toString("utf8").replace(/^\uFEFF/, "").trim();
-    if (!csvText) {
-      return res.status(400).json({ success: false, message: "CSV file is empty" });
-    }
+    // Core fields jinhe Details me nahi daalna hai
+    const coreFields = [
+      "sku", "product_id", "code", "name", "product_name", "title", "selling_price", 
+      "price", "mrp", "stock", "qty", "status", "search_tags", "tags",
+      "gst", "gst_rate", "gst_percent", "tax", "shipping", "shipping_charge", 
+      "delivery", "delivery_charge", "description", "desc", "detail", "brand", "brand_name"
+    ];
 
-    const rows = parseCsvContent(csvText);
-    if (rows.length < 2) {
-      return res.status(400).json({ success: false, message: "CSV must include header and at least one row" });
-    }
+    for (let i = 1; i < rows.length; i++) {
+      try {
+        const row = rows[i];
+        if (!row || row.length < 2) continue; 
 
-    const headers = rows[0].map(normalizeCsvKey);
-    if (!headers.includes("sku")) {
-      return res.status(400).json({ success: false, message: "CSV must include SKU column" });
-    }
-    if (!headers.includes("product_name")) {
-      return res.status(400).json({ success: false, message: "CSV must include Product_Name column" });
-    }
+        // Row ko Object me convert karna
+        const obj = {};
+        rawHeaders.forEach((h, idx) => {
+          if (h) obj[h.trim()] = row[idx];
+        });
 
-    const rowErrors = [];
-    let skippedRows = 0;
-    const preparedProducts = [];
-    const touchedCategoryNames = new Set();
+        // Smart Key Finder
+        const getValIgnoreCase = (possibleKeys) => {
+            const foundKey = Object.keys(obj).find(k => k && possibleKeys.includes(k.toLowerCase()));
+            return foundKey ? obj[foundKey] : "";
+        };
 
-    for (let i = 1; i < rows.length; i += 1) {
-      const rowNumber = i + 1;
-      const cells = rows[i];
-      const rowObj = {};
+        const skuRaw = getValIgnoreCase(["sku", "product_id", "code"]) || obj["SKU"];
+        const nameRaw = getValIgnoreCase(["name", "product_name", "title"]) || obj["Product_Name"];
+        
+        if (!skuRaw || !nameRaw) {
+          throw new Error("Is row mein SKU ya Name missing hai!"); 
+        }
 
-      headers.forEach((header, index) => {
-        rowObj[header] = (cells[index] || "").trim();
-      });
+        const sku = String(skuRaw).trim();
+        const name = String(nameRaw).trim();
 
-      const hasAnyValue = Object.values(rowObj).some((value) => String(value || "").trim() !== "");
-      if (!hasAnyValue) {
-        skippedRows += 1;
-        continue;
-      }
+        if (!baseSkusImported.includes(sku)) {
+          baseSkusImported.push(sku);
+        }
 
-      const sku = normalizeText(rowObj.sku);
-      if (!sku) {
-        rowErrors.push({ row: rowNumber, message: "Missing SKU" });
-        continue;
-      }
+        const price = sanitizeNum(getValIgnoreCase(["selling_price", "price", "mrp"]));
+        const stock = sanitizeNum(getValIgnoreCase(["stock", "qty"]));
+        const gstRate = sanitizeNum(getValIgnoreCase(["gst", "gst_rate", "gst_percent", "tax"]));
+        const shippingCharge = sanitizeNum(getValIgnoreCase(["shipping", "shipping_charge", "delivery", "delivery_charge"]));
+        
+        const description = String(getValIgnoreCase(["description", "desc", "detail"]) || "").trim();
+        const brand = String(getValIgnoreCase(["brand", "brand_name"]) || "").trim();
 
-      const name = normalizeText(rowObj.product_name) || sku;
-      const categories = [
-        rowObj.category_1,
-        rowObj.category_2,
-        rowObj.category_3,
-        rowObj.category_4,
-        rowObj.category_5,
-      ]
-        .map((value) => normalizeText(value))
-        .filter(Boolean);
-      const categoryPath = buildCategoryPath(categories);
-      const category = categories[0] || "Uncategorized";
-      touchedCategoryNames.add(category);
+        let status = String(getValIgnoreCase(["status"]) || "Active").trim();
+        if (status.toLowerCase() === "active") status = "Active";
+        else if (status.toLowerCase() === "inactive") status = "Inactive";
+        else status = "Active"; 
 
-      const searchTags = parseSearchTags(rowObj.search_tags);
-      const searchIndex = buildSearchIndex(name, sku, searchTags);
+        const slugBase = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        const slug = `${slugBase}-${sku.toLowerCase()}`;
 
-      const mrp = Math.max(0, toSafeNumber(rowObj.mrp, 0));
-      const sellingPrice = Math.max(0, toSafeNumber(rowObj.selling_price, 0));
-      const stock = Math.max(0, Math.floor(toSafeNumber(rowObj.stock, 0)));
+        let searchTags = [];
+        const searchTagsRaw = getValIgnoreCase(["search_tags", "tags"]);
+        if (searchTagsRaw) {
+           searchTags = String(searchTagsRaw).split(",").map(t => t.trim()).filter(t => t !== "");
+        }
 
-      const images = [
-        rowObj.image_1,
-        rowObj.image_2,
-        rowObj.image_3,
-        rowObj.image_4,
-        rowObj.image_5,
-        rowObj.image_6,
-      ]
-        .map((value) => String(value || "").trim())
-        .filter(Boolean);
+        // 🔥 NO HARDCODING: Dynamic loop for Categories, Images, Variations, and Details!
+        const categories = [];
+        const images = [];
+        const attributesMap = {};
+        const detailsArray = [];
 
-      const specs = {
-        heightFt: rowObj.height_ft,
-        widthFt: rowObj.width_ft,
-        totalHoles: rowObj.total_holes,
-        holeSize: rowObj.hole_size,
-        materialType: rowObj.material_type,
-        sheetThickness: rowObj.sheet_thickness,
-        ledCompatible: rowObj.led_compatible,
-        inputVoltage: rowObj.input_voltage,
-        outputVoltage: rowObj.output_voltage,
-        powerWatt: rowObj.power_watt,
-        connectivity: rowObj.connectivity,
-        icNumber: rowObj.ic_number,
-        ledPerMeter: rowObj.led_per_meter,
-        controllerType: rowObj.controller_type,
-        warranty: rowObj.warranty,
-      };
+        Object.keys(obj).forEach(key => {
+            if (!key) return;
+            const lowerKey = key.toLowerCase();
+            const val = obj[key];
 
-      const variation = {
-        colorRedAdd: toOptionalNumber(rowObj.color_red_add),
-        colorGreenAdd: toOptionalNumber(rowObj.color_green_add),
-        colorBlueAdd: toOptionalNumber(rowObj.color_blue_add),
-        hole9mmAdd: toOptionalNumber(rowObj.hole_9mm_add),
-        hole12mmAdd: toOptionalNumber(rowObj.hole_12mm_add),
-        materialTezTechAdd: toOptionalNumber(rowObj.material_teztech_add),
-        materialSunriseAdd: toOptionalNumber(rowObj.material_sunrise_add),
-        power12WAdd: toOptionalNumber(rowObj.power_12w_add),
-        power24WAdd: toOptionalNumber(rowObj.power_24w_add),
-        remoteAdd: toOptionalNumber(rowObj.remote_add),
-        waterproofAdd: toOptionalNumber(rowObj.waterproof_add),
-      };
+            if (val === undefined || val === null || val === "") return; // Skip empty fields
 
-      const customFields = buildCatalogCustomFields(variation);
-      const details = buildCatalogDetails(specs);
+            // 1. Dynamic Categories
+            if (lowerKey.startsWith("category")) {
+                categories.push(String(val).trim());
+            }
+            // 2. Dynamic Images
+            else if (lowerKey.startsWith("image")) {
+                images.push(String(val).trim());
+            }
+            // 3. Dynamic Variations (_Add)
+            else if (key.endsWith("_Add")) {
+                const numVal = sanitizeNum(val);
+                if (!isNaN(numVal)) {
+                    const parts = key.replace("_Add", "").split("_");
+                    const groupName = parts[0]; 
+                    const optionName = parts.slice(1).join(" "); 
+                    
+                    if (!attributesMap[groupName]) attributesMap[groupName] = [];
+                    attributesMap[groupName].push({
+                        value: optionName,
+                        priceAdjustment: numVal
+                    });
+                }
+            }
+            // 4. Dynamic Details (Everything else!)
+            else if (!coreFields.includes(lowerKey) && !lowerKey.startsWith("unnamed")) {
+                detailsArray.push({ key: String(key).trim(), value: String(val).trim() });
+            }
+        });
 
-      preparedProducts.push({
-        user: req.user._id,
-        productId: normalizeText(rowObj.product_id),
-        sku,
-        name,
-        description: name,
-        brand: "",
-        category,
-        categoryPath,
-        categories,
-        mrp,
-        sellingPrice,
-        price: sellingPrice,
-        stock,
-        status: normalizeStatus(rowObj.status),
-        searchTags,
-        searchIndex,
-        images,
-        image: images[0] || DEFAULT_PRODUCT_IMAGE,
-        heightFt: normalizeText(specs.heightFt),
-        widthFt: normalizeText(specs.widthFt),
-        totalHoles: normalizeText(specs.totalHoles),
-        holeSize: normalizeText(specs.holeSize),
-        materialType: normalizeText(specs.materialType),
-        sheetThickness: normalizeText(specs.sheetThickness),
-        ledCompatible: normalizeText(specs.ledCompatible),
-        inputVoltage: normalizeText(specs.inputVoltage),
-        outputVoltage: normalizeText(specs.outputVoltage),
-        powerWatt: normalizeText(specs.powerWatt),
-        connectivity: normalizeText(specs.connectivity),
-        icNumber: normalizeText(specs.icNumber),
-        ledPerMeter: normalizeText(specs.ledPerMeter),
-        controllerType: normalizeText(specs.controllerType),
-        warranty: normalizeText(specs.warranty),
-        colorRedAdd: variation.colorRedAdd,
-        colorGreenAdd: variation.colorGreenAdd,
-        colorBlueAdd: variation.colorBlueAdd,
-        hole9mmAdd: variation.hole9mmAdd,
-        hole12mmAdd: variation.hole12mmAdd,
-        materialTezTechAdd: variation.materialTezTechAdd,
-        materialSunriseAdd: variation.materialSunriseAdd,
-        power12WAdd: variation.power12WAdd,
-        power24WAdd: variation.power24WAdd,
-        remoteAdd: variation.remoteAdd,
-        waterproofAdd: variation.waterproofAdd,
-        customFields,
-        details,
-        gstRate: 0,
-        shippingCharge: 0,
-      });
-    }
+        const mainCategory = categories.length > 0 ? categories[0] : "Uncategorized";
+        const mainImage = images.length > 0 ? images[0] : DEFAULT_PRODUCT_IMAGE;
 
-    await ensureCategoriesExist(Array.from(touchedCategoryNames), req.user._id);
+        const attributesArray = Object.keys(attributesMap).map(group => ({
+          name: group,
+          type: "select",
+          options: attributesMap[group]
+        }));
 
-    let insertedCount = 0;
-    let updatedCount = 0;
-    let insertedProductIds = [];
+        const updatePayload = {
+            baseSku: sku,         
+            name: name,
+            description: description,
+            brand: brand,
+            slug: slug,           
+            price: price,
+            stock: stock,
+            status: status,       
+            gstRate: gstRate,
+            shippingCharge: shippingCharge, 
+            category: mainCategory,
+            categories: categories,
+            image: mainImage,
+            images: images,
+            searchTags: searchTags,
+            attributes: attributesArray, 
+            hasVariants: attributesArray.length > 0,
+            details: detailsArray
+        };
 
-    if (preparedProducts.length > 0) {
-      const now = new Date();
-      const bulkOps = preparedProducts.map((product) => {
-        const { user, ...payload } = product;
-        return {
+        if (req.user && req.user._id) {
+            updatePayload.user = req.user._id;
+        }
+
+        ops.push({
           updateOne: {
-            filter: { sku: product.sku },
-            update: {
-              $set: { ...payload, updatedAt: now },
-              $setOnInsert: { user, createdAt: now },
-            },
+            filter: { baseSku: sku },
+            update: { $set: updatePayload },
             upsert: true,
           },
-        };
-      });
-
-      const bulkResult = await Product.bulkWrite(bulkOps, { ordered: false });
-      insertedCount = bulkResult?.upsertedCount || 0;
-      updatedCount = bulkResult?.modifiedCount || 0;
-
-      const rawUpserted = bulkResult?.upsertedIds || [];
-      if (Array.isArray(rawUpserted)) {
-        insertedProductIds = rawUpserted.map((item) => item?._id).filter(Boolean);
-      } else {
-        insertedProductIds = Object.values(rawUpserted).map((item) => item?._id).filter(Boolean);
-      }
-    }
-
-    const summaryParts = [
-      `Processed ${preparedProducts.length} products`,
-      insertedCount ? `${insertedCount} new` : null,
-      updatedCount ? `${updatedCount} updated` : null,
-      rowErrors.length ? `${rowErrors.length} row errors` : null,
-      skippedRows ? `${skippedRows} rows skipped` : null,
-    ].filter(Boolean);
-    const message = summaryParts.join(", ");
-
-    const importJob = await ProductImportJob.create({
-      createdBy: req.user._id,
-      fileName: req.file.originalname || "catalog-import.csv",
-      totalRows: rows.length - 1,
-      importedCount: insertedCount,
-      failedCount: rowErrors.length,
-      createdProductIds: insertedProductIds,
-      touchedCategoryNames: Array.from(touchedCategoryNames),
-      errors: rowErrors.slice(0, 200),
-    });
-
-    return res.status(200).json({
-      success: true,
-      message,
-      importJobId: importJob._id,
-      importedCount: insertedCount,
-      updatedCount,
-      failedCount: rowErrors.length,
-      errors: rowErrors.slice(0, 50),
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message || "CSV import failed" });
-  } finally {
-    await cleanupUploadedCsv(req.file);
-  }
-};
-
-// @desc    List product CSV import jobs (Admin Only)
-export const getProductImportHistory = async (req, res) => {
-  try {
-    const status = String(req.query.status || "all").trim().toLowerCase();
-    const search = String(req.query.search || "").trim();
-    const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 200);
-
-    const query = {};
-    if (status === "active" || status === "rolled_back") {
-      query.status = status;
-    }
-    if (search) {
-      query.fileName = { $regex: search, $options: "i" };
-    }
-
-    const jobs = await ProductImportJob.find(query)
-      .populate("createdBy", "name email")
-      .sort({ createdAt: -1 })
-      .limit(limit);
-
-    const trackedProductIds = await ProductImportJob.distinct("createdProductIds");
-    const untrackedCount = await Product.countDocuments({
-      _id: { $nin: trackedProductIds },
-    });
-
-    if (untrackedCount > 0) {
-      const matchesStatus = status === "all" || status === "active";
-      const matchesSearch = !search || "legacy/untracked-products".includes(search.toLowerCase());
-      if (matchesStatus && matchesSearch) {
-        jobs.unshift({
-          _id: LEGACY_IMPORT_JOB_ID,
-          fileName: "Legacy/Untracked Products",
-          totalRows: untrackedCount,
-          importedCount: untrackedCount,
-          failedCount: 0,
-          status: "active",
-          createdAt: new Date(0),
-          createdBy: null,
-          errors: [],
         });
+      } catch (e) {
+        failed++;
+        errorLogs.push({ row: i + 1, message: e.message, rawData: rows[i] });
       }
     }
 
-    res.status(200).json({ success: true, jobs });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message || "Failed to fetch import history" });
+    let importedCount = 0;
+    let updatedCount = 0;
+    let matchedCount = 0;
+    let uiDisplayCount = 0;
+
+    if (ops.length > 0) {
+      const bulkResult = await Product.bulkWrite(ops, { ordered: false });
+      importedCount = bulkResult.upsertedCount || 0; 
+      updatedCount = bulkResult.modifiedCount || 0; 
+      matchedCount = bulkResult.matchedCount || 0;
+      uiDisplayCount = importedCount + updatedCount + matchedCount; 
+    }
+
+    let createdProductIds = [];
+    if (baseSkusImported.length > 0) {
+        const importedProducts = await Product.find({ baseSku: { $in: baseSkusImported } }, '_id');
+        createdProductIds = importedProducts.map(p => p._id);
+    }
+
+    await ProductImportJob.create({
+      fileName: req.file?.originalname || "upload.csv",
+      originalName: req.file?.originalname || "upload.csv",
+      fileSize: req.file?.size || 0,
+      totalRows: rows.length - 1,
+      processed: ops.length,
+      importedCount: uiDisplayCount, 
+      updatedCount: updatedCount,
+      failedCount: failed,
+      status: ops.length === 0 ? "failed" : "completed",
+      createdBy: req.user?._id || null,
+      createdProductIds: createdProductIds, 
+      errorLogs: errorLogs,
+      startedAt: startTime,
+      completedAt: new Date()
+    });
+
+    res.json({
+      success: true,
+      message: `Success! Checked ${uiDisplayCount} items. (New: ${importedCount}, Updated: ${updatedCount})`,
+      stats: { processed: ops.length, new: importedCount, updated: updatedCount, matched: matchedCount, failed },
+      errors: errorLogs.length > 0 ? errorLogs.slice(0, 5) : undefined // Agar fail hua, toh frontend pe reason dikhayega
+    });
+
+  } catch (err) {
+    console.error("IMPORT ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// @desc    CSV import management overview stats (Admin Only)
-export const getProductImportOverview = async (req, res) => {
+// ==========================
+// CSV EXPORT
+// ==========================
+
+export const exportProductsCsv = async (req, res) => {
   try {
-    const [totalJobs, activeJobs, rolledBackJobs, aggregate, trackedProductIds] = await Promise.all([
-      ProductImportJob.countDocuments({}),
-      ProductImportJob.countDocuments({ status: "active" }),
-      ProductImportJob.countDocuments({ status: "rolled_back" }),
-      ProductImportJob.aggregate([
-        {
-          $group: {
-            _id: null,
-            totalRows: { $sum: "$totalRows" },
-            totalImported: { $sum: "$importedCount" },
-            totalFailed: { $sum: "$failedCount" },
-          },
-        },
-      ]),
-      ProductImportJob.distinct("createdProductIds"),
-    ]);
+    const products = await Product.find().lean();
+    const rows = [];
 
-    const stats = aggregate[0] || { totalRows: 0, totalImported: 0, totalFailed: 0 };
-    const untrackedProducts = await Product.countDocuments({ _id: { $nin: trackedProductIds } });
+    products.forEach(p => {
+      rows.push([
+        p.baseSku || "", 
+        p.name || "", 
+        p.category || "", 
+        p.price || 0, 
+        p.gstRate || 0,            
+        p.shippingCharge || 0,     
+        p.stock || 0,
+        p.hasVariants ? "Yes" : "No"
+      ]);
+    });
 
-    res.status(200).json({
+    const headers = ["SKU", "Name", "Category", "Base Price", "GST (%)", "Shipping Charge", "Stock", "Has Variations"];
+    const csv = [
+      headers.join(","),
+      ...rows.map(r => r.join(",")),
+    ].join("\n");
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader("Content-Disposition", "attachment; filename=products_export.csv");
+    res.send(csv);
+
+  } catch (err) {
+    console.error("EXPORT ERROR:", err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+// ==========================
+// IMPORT HISTORY & ROLLBACK
+// ==========================
+
+export const getImportOverview = async (req, res) => {
+  try {
+    const jobs = await ProductImportJob.find();
+    res.json({
       success: true,
       overview: {
-        totalJobs,
-        activeJobs,
-        rolledBackJobs,
-        totalRows: stats.totalRows || 0,
-        totalImported: stats.totalImported || 0,
-        totalFailed: stats.totalFailed || 0,
-        untrackedProducts,
+        totalJobs: jobs.length,
+        totalImported: jobs.reduce((sum, job) => sum + (job.importedCount || 0), 0),
+        totalFailed: jobs.reduce((sum, job) => sum + (job.failedCount || 0), 0),
       },
     });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message || "Failed to fetch import overview" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
-// @desc    Rollback a CSV import job (Admin Only)
-export const rollbackProductImport = async (req, res) => {
+export const getImportHistory = async (req, res) => {
   try {
-    const { jobId } = req.params;
+    const jobs = await ProductImportJob.find().sort({ createdAt: -1 });
+    res.json({ success: true, jobs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
 
-    if (jobId === LEGACY_IMPORT_JOB_ID) {
-      const trackedProductIds = await ProductImportJob.distinct("createdProductIds");
-      const deleteResult = await Product.deleteMany({ _id: { $nin: trackedProductIds } });
-      const removedCategories = await cleanupAllUnusedCategories();
-      return res.status(200).json({
-        success: true,
-        message: "Legacy/untracked products deleted successfully",
-        deletedCount: deleteResult.deletedCount || 0,
-        removedCategories,
-      });
-    }
-
+export const rollbackImport = async (req, res) => {
+  try {
+    const jobId = req.params.id;
     const job = await ProductImportJob.findById(jobId);
-
-    if (!job) {
-      return res.status(404).json({ success: false, message: "Import job not found" });
-    }
+    if (!job) return res.status(404).json({ success: false, message: "Import record not found!" });
 
     if (job.status === "rolled_back") {
-      return res.status(400).json({ success: false, message: "This import has already been rolled back" });
+      return res.status(400).json({ success: false, message: "This file has already been rolled back!" });
     }
 
-    if (!job.createdProductIds || job.createdProductIds.length === 0) {
-      job.status = "rolled_back";
-      job.rolledBackAt = new Date();
-      await job.save();
-      const removedCategories =
-        Array.isArray(job.touchedCategoryNames) && job.touchedCategoryNames.length > 0
-          ? await cleanupUnusedCategoriesByNames(job.touchedCategoryNames)
-          : await cleanupAllUnusedCategories();
-      return res.status(200).json({
-        success: true,
-        message: "Import marked as rolled back (no products were created in this job)",
-        deletedCount: 0,
-        removedCategories,
-      });
+    if (job.createdProductIds && job.createdProductIds.length > 0) {
+      await Product.deleteMany({ _id: { $in: job.createdProductIds } });
     }
 
-    const deleteResult = await Product.deleteMany({ _id: { $in: job.createdProductIds } });
     job.status = "rolled_back";
-    job.rolledBackAt = new Date();
+    job.rollbackAt = new Date(); 
     await job.save();
-    const removedCategories =
-      Array.isArray(job.touchedCategoryNames) && job.touchedCategoryNames.length > 0
-        ? await cleanupUnusedCategoriesByNames(job.touchedCategoryNames)
-        : await cleanupAllUnusedCategories();
 
-    return res.status(200).json({
-      success: true,
-      message: "Imported products deleted successfully",
-      deletedCount: deleteResult.deletedCount || 0,
-      removedCategories,
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message || "Rollback failed" });
+    res.json({ success: true, message: "Rollback Successful! Products have been deleted." });
+
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Rollback failed." });
   }
 };
 
-// @desc    Delete import history record (Admin Only)
-export const deleteProductImportRecord = async (req, res) => {
+export const deleteImportHistory = async (req, res) => {
   try {
-    const { jobId } = req.params;
-
-    if (jobId === LEGACY_IMPORT_JOB_ID) {
-      return res.status(400).json({
-        success: false,
-        message: "Legacy/untracked entry cannot be removed as a record",
-      });
-    }
-
-    const job = await ProductImportJob.findById(jobId);
-
-    if (!job) {
-      return res.status(404).json({ success: false, message: "Import job not found" });
-    }
-
-    if (job.status !== "rolled_back" && job.importedCount > 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Rollback this import before deleting history record",
-      });
-    }
-
-    if (Array.isArray(job.touchedCategoryNames) && job.touchedCategoryNames.length > 0) {
-      await cleanupUnusedCategoriesByNames(job.touchedCategoryNames);
-    } else {
-      await cleanupAllUnusedCategories();
-    }
-    await ProductImportJob.deleteOne({ _id: jobId });
-    return res.status(200).json({ success: true, message: "Import history record removed" });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message || "Failed to remove import record" });
+    const jobId = req.params.id;
+    await ProductImportJob.findByIdAndDelete(jobId);
+    res.json({ success: true, message: "CSV History record deleted!" });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "History deletion failed." });
   }
 };

@@ -10,12 +10,21 @@ const cartItemSchema = new mongoose.Schema(
     quantity: {
       type: Number,
       required: true,
+      min: 1,
       default: 1,
-      min: [1, "Quantity cannot be less than 1"],
     },
     selectedCustomFields: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
+    },
+    // 🔥 YAHAN FIX KIYA HAI: Variations ko save karne ke liye nayi fields allow kar di hain 🔥
+    variant: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    attributes: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
     },
     pricing: {
       basePrice: { type: Number, default: 0 },
@@ -27,6 +36,11 @@ const cartItemSchema = new mongoose.Schema(
   },
   { _id: true }
 );
+
+// Agar future mein koi logic likhna ho, toh async hook aise likhein (bina next ke):
+// cartItemSchema.pre("save", async function () {
+//   // Custom logic here
+// });
 
 const cartSchema = new mongoose.Schema(
   {
@@ -41,4 +55,5 @@ const cartSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model("Cart", cartSchema);
+const Cart = mongoose.models.Cart || mongoose.model("Cart", cartSchema);
+export default Cart;

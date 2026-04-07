@@ -1,4 +1,5 @@
 import Cart from "../models/Cart.js";
+import mongoose from "mongoose";
 
 const toSafeNumber = (value, fallback = 0) => {
   const parsed = Number(value);
@@ -63,28 +64,35 @@ export const getMyCart = async (req, res) => {
     const originalLength = cart.items.length;
     cart.items = cart.items.filter((item) => item.productId !== null);
 
-    // Merge duplicate product entries (keeps latest selections, sums quantity)
+    // Merge duplicate product entries
     const mergedMap = new Map();
     cart.items.forEach((item) => {
       const productKey = String(item.productId?._id || item.productId || "");
       if (!productKey) return;
+      
       if (!mergedMap.has(productKey)) {
         mergedMap.set(productKey, item);
         return;
       }
+      
       const existing = mergedMap.get(productKey);
       existing.quantity += item.quantity || 0;
+      
       if (item.selectedCustomFields && Object.keys(item.selectedCustomFields).length > 0) {
         existing.selectedCustomFields = item.selectedCustomFields;
       }
       if (item.pricing) {
         existing.pricing = item.pricing;
       }
+      // 🔥 FIX: Keep variations during get cart merge
+      if (item.variant) existing.variant = item.variant;
+      if (item.attributes) existing.attributes = item.attributes;
     });
 
     const mergedItems = Array.from(mergedMap.values());
     if (mergedItems.length !== cart.items.length || mergedItems.length !== originalLength) {
       cart.items = mergedItems;
+      cart.markModified("items");
       await cart.save();
     }
 
@@ -97,7 +105,8 @@ export const getMyCart = async (req, res) => {
 
 export const addToCart = async (req, res) => {
   try {
-    const { productId, quantity, selectedCustomFields, pricingSnapshot } = req.body;
+    // 🔥 FIX: Extract variant and attributes from req.body
+    const { productId, quantity, selectedCustomFields, pricingSnapshot, variant, attributes } = req.body;
     const userId = req.user._id;
 
     if (!productId) {
@@ -118,18 +127,27 @@ export const addToCart = async (req, res) => {
     );
 
     if (itemIndex > -1) {
+      // Update existing item
       cart.items[itemIndex].quantity += safeQuantity;
       cart.items[itemIndex].selectedCustomFields = normalizedSelections;
       cart.items[itemIndex].pricing = safePricing;
+      // 🔥 FIX: Update variations for existing item
+      if (variant) cart.items[itemIndex].variant = variant;
+      if (attributes) cart.items[itemIndex].attributes = attributes;
     } else {
+      // Add new item
       cart.items.push({
         productId,
         quantity: safeQuantity,
         selectedCustomFields: normalizedSelections,
         pricing: safePricing,
+        // 🔥 FIX: Save variations for new item
+        variant: variant || null,
+        attributes: attributes || null
       });
     }
 
+    cart.markModified("items");
     await cart.save();
 
     const updatedCart = await Cart.findById(cart._id).populate(
@@ -159,6 +177,7 @@ export const removeFromCart = async (req, res) => {
       const byProductId = item.productId ? item.productId.toString() === String(itemId) : false;
       return !(byItemId || byProductId);
     });
+    
     await cart.save();
 
     const updatedCart = await Cart.findById(cart._id).populate(
@@ -263,6 +282,12 @@ export const mergeCart = async (req, res) => {
 
       const quantity = Math.max(1, Math.floor(toSafeNumber(localItem.quantity, 1)));
       const normalizedSelections = normalizeSelectedCustomFields(localItem.selectedCustomFields);
+      const safePricing = sanitizePricing(localItem.pricingSnapshot || localItem.pricing);
+      
+      // 🔥 FIX: Extract variations from local item
+      const variant = localItem.variant || localItem.selectedVariant || null;
+      const attributes = localItem.attributes || localItem.selectedAttributes || null;
+
       const itemIndex = cart.items.findIndex(
         (dbItem) => dbItem.productId.toString() === String(productId)
       );
@@ -270,17 +295,24 @@ export const mergeCart = async (req, res) => {
       if (itemIndex > -1) {
         cart.items[itemIndex].quantity += quantity;
         cart.items[itemIndex].selectedCustomFields = normalizedSelections;
-        cart.items[itemIndex].pricing = sanitizePricing(localItem.pricingSnapshot || localItem.pricing);
+        cart.items[itemIndex].pricing = safePricing;
+        // 🔥 FIX: Update merged variations
+        if (variant) cart.items[itemIndex].variant = variant;
+        if (attributes) cart.items[itemIndex].attributes = attributes;
       } else {
         cart.items.push({
           productId,
           quantity,
           selectedCustomFields: normalizedSelections,
-          pricing: sanitizePricing(localItem.pricingSnapshot || localItem.pricing),
+          pricing: safePricing,
+          // 🔥 FIX: Save merged variations
+          variant,
+          attributes
         });
       }
     }
 
+    cart.markModified("items");
     await cart.save();
 
     const updatedCart = await Cart.findById(cart._id).populate(

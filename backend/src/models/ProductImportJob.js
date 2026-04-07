@@ -1,67 +1,97 @@
 import mongoose from "mongoose";
 
-const importErrorSchema = new mongoose.Schema(
+const importJobSchema = new mongoose.Schema(
   {
-    row: { type: Number, required: true },
-    message: { type: String, required: true },
-  },
-  { _id: false }
-);
+    // ==========================
+    // 📁 FILE INFO
+    // ==========================
+    fileName: { type: String, trim: true },
+    originalName: { type: String, trim: true },
+    fileSize: { type: Number, default: 0 },
 
-const productImportJobSchema = new mongoose.Schema(
-  {
+    // ==========================
+    // 📊 IMPORT STATS
+    // ==========================
+    totalRows: { type: Number, default: 0 },
+    processed: { type: Number, default: 0 }, 
+    importedCount: { type: Number, default: 0 },
+    updatedCount: { type: Number, default: 0 },
+    failedCount: { type: Number, default: 0 },
+
+    // ==========================
+    // 📌 STATUS TRACKING
+    // ==========================
+    status: {
+      type: String,
+      enum: ["processing", "completed", "failed", "rolled_back"],
+      default: "processing",
+      index: true,
+    },
+
+    // ==========================
+    // 👤 USER
+    // ==========================
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      index: true,
+      default: null,
     },
-    fileName: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    totalRows: {
-      type: Number,
-      default: 0,
-    },
-    importedCount: {
-      type: Number,
-      default: 0,
-    },
-    failedCount: {
-      type: Number,
-      default: 0,
-    },
-    status: {
-      type: String,
-      enum: ["active", "rolled_back"],
-      default: "active",
-    },
+
+    // ==========================
+    // 🔄 ROLLBACK SUPPORT
+    // ==========================
     createdProductIds: [
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Product",
       },
     ],
-    touchedCategoryNames: [
+
+    rollbackAt: Date,
+
+    // ==========================
+    // ⚠️ ERROR LOG
+    // ==========================
+    errorLogs: [
       {
-        type: String,
-        trim: true,
+        row: Number,
+        message: String,
+        rawData: mongoose.Schema.Types.Mixed,
       },
     ],
-    errors: [importErrorSchema],
-    rolledBackAt: {
+
+    // ==========================
+    // ⏱️ PERFORMANCE TRACKING
+    // ==========================
+    startedAt: {
       type: Date,
-      default: null,
+      default: Date.now,
     },
+
+    completedAt: Date,
+
+    durationMs: Number,
   },
   {
     timestamps: true,
-    suppressReservedKeysWarning: true,
   }
 );
 
-productImportJobSchema.index({ createdAt: -1 });
-productImportJobSchema.index({ status: 1 });
+// ==========================
+// 🔥 INDEXES (PERFORMANCE)
+// ==========================
+importJobSchema.index({ createdAt: -1 });
+importJobSchema.index({ status: 1, createdAt: -1 });
+importJobSchema.index({ createdBy: 1, createdAt: -1 });
 
-export default mongoose.model("ProductImportJob", productImportJobSchema);
+// ==========================
+// 🔥 AUTO DURATION CALC
+// ==========================
+importJobSchema.pre("save", function () {
+  if (this.startedAt && this.completedAt) {
+    this.durationMs = new Date(this.completedAt).getTime() - new Date(this.startedAt).getTime();
+  }
+});
+
+export default mongoose.model("ProductImportJob", importJobSchema);

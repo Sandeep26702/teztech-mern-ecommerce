@@ -4,24 +4,27 @@ import axios from "axios";
 import { getProducts } from "../services/productService";
 import ProductCard from "../components/common/ProductCard";
 
+// Cache ko bahar rakha hai taaki performance achhi rahe
 const productsListCache = new Map();
 
 const Products = () => {
   const { slug } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  // ✅ FIX 1: State ko sirf ek baar URL params se initialize kiya hai
+  const [keyword, setKeyword] = useState(searchParams.get("q") || "");
+  const [appliedKeyword, setAppliedKeyword] = useState(searchParams.get("q") || "");
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "");
+  const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "");
+  const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "");
+  const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
+  
   const [products, setProducts] = useState([]);
-  const [keyword, setKeyword] = useState("");
-  const [appliedKeyword, setAppliedKeyword] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
   const [categories, setCategories] = useState([]);
-
-  const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
 
+  // 1. Load Categories on Mount
   useEffect(() => {
     const loadCategories = async () => {
       try {
@@ -36,25 +39,18 @@ const Products = () => {
     loadCategories();
   }, []);
 
+  // 2. Handle Route Category (Agar URL me /category/:slug hai)
   useEffect(() => {
-    const routeCategory = slug
-      ? categories.find((item) => item.slug === slug)?.name || ""
-      : "";
+    if (slug && categories.length > 0) {
+      const routeCategoryName = categories.find((item) => item.slug === slug)?.name;
+      if (routeCategoryName && routeCategoryName !== selectedCategory) {
+        setSelectedCategory(routeCategoryName);
+        setPage(1);
+      }
+    }
+  }, [slug, categories]);
 
-    const queryKeyword = searchParams.get("q") || "";
-    const queryCategory = searchParams.get("category") || "";
-    const queryMin = searchParams.get("minPrice") || "";
-    const queryMax = searchParams.get("maxPrice") || "";
-    const queryPage = Number(searchParams.get("page") || 1);
-
-    setKeyword(queryKeyword);
-    setAppliedKeyword(queryKeyword);
-    setSelectedCategory(routeCategory || queryCategory);
-    setMinPrice(queryMin);
-    setMaxPrice(queryMax);
-    setPage(Number.isFinite(queryPage) && queryPage > 0 ? queryPage : 1);
-  }, [slug, searchParams, categories]);
-
+  // 3. Debounce Search Keyword (Typing ke 500ms baad apply hoga)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (appliedKeyword !== keyword) {
@@ -65,6 +61,7 @@ const Products = () => {
     return () => clearTimeout(timer);
   }, [keyword, appliedKeyword]);
 
+  // 4. Sync State TO URL (Jab bhi filter change ho, URL update karo)
   useEffect(() => {
     const params = {};
     if (appliedKeyword) params.q = appliedKeyword;
@@ -72,9 +69,11 @@ const Products = () => {
     if (minPrice) params.minPrice = minPrice;
     if (maxPrice) params.maxPrice = maxPrice;
     if (page > 1) params.page = String(page);
+    
     setSearchParams(params, { replace: true });
   }, [appliedKeyword, selectedCategory, minPrice, maxPrice, page, setSearchParams]);
 
+  // 5. Fetch Products Function
   const loadProducts = async () => {
     const cacheKey = JSON.stringify({
       keyword: appliedKeyword || "",
@@ -105,19 +104,24 @@ const Products = () => {
         limit: 8,
         random: true,
       });
+      
       setProducts(data.products || []);
       setTotalPages(data.totalPages || 1);
+      
+      // Save to cache
       productsListCache.set(cacheKey, {
         products: data.products || [],
         totalPages: data.totalPages || 1,
       });
     } catch (error) {
       console.error("Failed to fetch products", error);
+      setProducts([]); // Error aane par purana data clear karein
     } finally {
       setLoading(false);
     }
   };
 
+  // 6. Trigger API Call when filters change
   useEffect(() => {
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -125,6 +129,7 @@ const Products = () => {
 
   const categoryOptions = useMemo(() => categories.map((item) => item.name), [categories]);
 
+  // ✅ FIX 2: Clear Filters properly
   const clearFilters = () => {
     setKeyword("");
     setAppliedKeyword("");
@@ -134,7 +139,7 @@ const Products = () => {
     setPage(1);
   };
 
-  const activeCategoryLabel = slug ? categories.find((item) => item.slug === slug)?.name : "";
+  const activeCategoryLabel = slug ? categories.find((item) => item.slug === slug)?.name : selectedCategory;
 
   return (
     <div className="min-h-screen px-4 py-12 font-sans bg-gray-50 sm:px-6 lg:px-8">
@@ -183,7 +188,7 @@ const Products = () => {
                 setSelectedCategory(e.target.value);
                 setPage(1);
               }}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg"
+              className="px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             >
               <option value="">All Categories</option>
               {categoryOptions.map((name) => (
@@ -202,7 +207,7 @@ const Products = () => {
                 setMinPrice(e.target.value);
                 setPage(1);
               }}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg"
+              className="px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
 
             <input
@@ -214,13 +219,13 @@ const Products = () => {
                 setMaxPrice(e.target.value);
                 setPage(1);
               }}
-              className="px-3 py-2 text-sm border border-gray-200 rounded-lg"
+              className="px-3 py-2 text-sm border border-gray-200 rounded-lg outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
             />
 
             <button
               type="button"
               onClick={clearFilters}
-              className="px-3 py-2 text-sm font-semibold text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className="px-3 py-2 text-sm font-semibold text-gray-700 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200 active:bg-gray-300"
             >
               Clear Filters
             </button>
@@ -245,7 +250,7 @@ const Products = () => {
           </div>
         ) : (
           <div className="py-20 text-center bg-white border border-gray-100 shadow-sm rounded-2xl">
-            <span className="block mb-4 text-5xl">??</span>
+            <span className="block mb-4 text-5xl">📦</span>
             <h3 className="text-lg font-bold text-gray-900">No products found</h3>
             <p className="mt-2 text-gray-500">Try changing category or price filters.</p>
             <button onClick={clearFilters} className="mt-6 font-medium text-blue-600 hover:underline">
@@ -259,7 +264,7 @@ const Products = () => {
             <button
               disabled={page === 1}
               onClick={() => setPage(page - 1)}
-              className="px-5 py-2.5 rounded-full border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-full border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
               Previous
             </button>
@@ -271,7 +276,7 @@ const Products = () => {
             <button
               disabled={page === totalPages}
               onClick={() => setPage(page + 1)}
-              className="px-5 py-2.5 rounded-full border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+              className="px-5 py-2.5 rounded-full border border-gray-300 text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
               Next
             </button>

@@ -1,40 +1,45 @@
-import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
-import { FaTimes, FaTrash, FaDownload, FaSearch } from 'react-icons/fa';
-import api from '../../utils/api';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { FaTimes, FaTrash, FaSearch, FaCheckCircle, FaArrowRight, FaArrowLeft, FaCopy, FaShoppingCart, FaEdit } from 'react-icons/fa';
+import api from '../../utils/api'; 
 
 const CreateManualQuotationModal = ({ isOpen, onClose }) => {
-  const [formData, setFormData] = useState({
-    userDetails: { name: '', phone: '', email: '', company: '' },
-    items: [],
+  const [step, setStep] = useState(1);
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [activeProduct, setActiveProduct] = useState(null); 
+  const [cartItems, setCartItems] = useState([]);
+  
+  // UPDATED: Kept only name, phone, and optional message
+  const [quoteData, setQuoteData] = useState({
+    userDetails: { name: '', phone: '', message: '' },
     shippingCharge: 0,
     additionalChargeName: '',
     additionalChargeAmount: 0,
     gstPercentage: 0,
+    discountPercentage: 0, 
   });
+
   const [_shareLink, setShareLink] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  
   const searchRef = useRef();
   const debounceRef = useRef();
-  const printRef = useRef(null);
 
-  // Debounced search
+  useEffect(() => {
+    if (!isOpen) return;
+    document.body.style.overflow = 'hidden';
+    return () => document.body.style.overflow = 'unset';
+  }, [isOpen]);
+
   const debouncedSearch = useCallback((query) => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
-      if (query.length < 2) {
-        setSearchResults([]);
-        return;
-      }
+      if (query.length < 2) return setSearchResults([]);
       try {
         const res = await api.get(`/products?q=${encodeURIComponent(query)}&limit=10`);
         setSearchResults(res.data.products || []);
-      } catch (err) {
-        console.error('Search error:', err);
-      }
+      } catch (err) { console.error('Search error:', err); }
     }, 300);
   }, []);
 
@@ -43,209 +48,158 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
     return () => clearTimeout(debounceRef.current);
   }, [searchQuery, debouncedSearch]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    document.body.style.overflow = 'hidden';
-    return () => document.body.style.overflow = 'unset';
-  }, [isOpen]);
-
-  const updateTotal = useCallback(() => {
-    const { items, shippingCharge, additionalChargeAmount, gstPercentage } = formData;
-    const safeShipping = Number.isFinite(Number(shippingCharge)) ? Number(shippingCharge) : 0;
-    const safeAdditional = Number.isFinite(Number(additionalChargeAmount)) ? Number(additionalChargeAmount) : 0;
-    const safeGst = Number.isFinite(Number(gstPercentage)) ? Number(gstPercentage) : 0;
-    const subtotal = items.reduce((sum, item) => sum + (Number(item.offeredPrice) * Number(item.quantity)), 0);
-    const gstAmount = Math.round(subtotal * (safeGst / 100) * 100) / 100;
-    const total = subtotal + gstAmount + safeShipping + safeAdditional;
-    return { subtotal, gstAmount, total };
-  }, [formData]);
-
-  const { subtotal, gstAmount, total } = updateTotal();
-
   const getFieldKey = (field) => String(field?._id || field?.label || "");
+  const getFieldLabel = (field, key) => field?.label ? String(field.label) : String(key || "");
 
-  const getFieldLabel = (field, key) => {
-    if (field?.label) return String(field.label);
-    return String(key || "");
-  };
+  // Helper to extract combinations just like ProductDetail.jsx
+  const variantOptions = useMemo(() => {
+    if (!activeProduct?.variants) return {};
+    const opt = {};
+    activeProduct.variants.forEach((v) => {
+      Object.entries(v.combination || {}).forEach(([k, val]) => {
+        if (!opt[k]) opt[k] = new Set();
+        opt[k].add(val);
+      });
+    });
+    return opt;
+  }, [activeProduct]);
 
-  const getSelectedValue = (item, field, fieldKey) => {
-    const key = fieldKey || getFieldKey(field);
-    return item?.selectedCustomFields?.[key] ?? item?.selectedCustomFields?.[field?.label];
-  };
+  // FIX: Accurate Price Calculation using Object values
+  const calculatePrice = (item) => {
+    let finalPrice = Number(item.price || item.sellingPrice || 0);
 
-  const updateItemSelection = (index, field, value, mode = "set") => {
-    const key = getFieldKey(field);
-    if (!key) return;
-    setFormData((prev) => ({
-      ...prev,
-      items: prev.items.map((item, i) => {
-        if (i !== index) return item;
-        const current = { ...(item.selectedCustomFields || {}) };
-        if (mode === "toggle") {
-          const existing = Array.isArray(current[key]) ? current[key] : [];
-          const safeValue = String(value || "").trim();
-          if (!safeValue) return item;
-          current[key] = existing.includes(safeValue)
-            ? existing.filter((v) => v !== safeValue)
-            : [...existing, safeValue];
-        } else {
-          current[key] = value;
-        }
-        return { ...item, selectedCustomFields: current };
-      }),
-    }));
-  };
+    if (item.selectedVariant) {
+      const vPrice = item.selectedVariant.sellingPrice || item.selectedVariant.price;
+      if (vPrice !== undefined && vPrice !== null) finalPrice = Number(vPrice);
+    }
 
-  const getSelectedOptionsLines = (item) => {
-    const selections = item?.selectedCustomFields || {};
-    const fields = Array.isArray(item?.customFields) ? item.customFields : [];
-    const lines = [];
+    Object.values(item.selectedAttributes || {}).forEach((opt) => {
+      if (opt && opt.priceAdjustment) finalPrice += Number(opt.priceAdjustment);
+    });
 
-    Object.entries(selections).forEach(([key, rawValue]) => {
-      const field = fields.find(
-        (f) => String(f?._id || "") === String(key) || String(f?.label || "") === String(key)
-      );
-      const label = getFieldLabel(field, key);
-      const values = Array.isArray(rawValue) ? rawValue : [rawValue];
-
-      values.forEach((value) => {
-        const safeValue = String(value || "").trim();
-        if (!safeValue) return;
-        const options = Array.isArray(field?.options) ? field.options : [];
-        const matched = options.find((opt) => String(opt?.label || "").trim() === safeValue);
-        const adj = Number(matched?.priceAdjustment || 0);
-        const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}Rs ${Math.abs(adj)})` : "";
-        lines.push(`${label}: ${safeValue}${adjText}`);
+    Object.entries(item.selectedCustomFields || {}).forEach(([key, val]) => {
+      const field = item.customFields?.find(f => f._id === key || f.label === key);
+      const values = Array.isArray(val) ? val : [val];
+      values.forEach(v => {
+        const opt = field?.options?.find(o => o.label === v || o.value === v);
+        if (opt?.priceAdjustment) finalPrice += Number(opt.priceAdjustment);
       });
     });
 
-    return lines;
+    return finalPrice > 0 ? finalPrice : 0;
   };
 
-  const addItem = (product) => {
-    const newItem = {
-      productId: product._id,
-      name: product.name,
-      sku: product.sku || '',
-      image: product.image || product.images?.[0],
-      customFields: Array.isArray(product.customFields) ? product.customFields : [],
-      selectedCustomFields: {},
-      price: product.sellingPrice || product.price || 0,
-      offeredPrice: product.sellingPrice || product.price || 0,
-      quantity: 1,
-    };
-    setFormData(prev => ({ ...prev, items: [...prev.items, newItem] }));
+  const handleActiveProductChange = (type, fieldOrName, value, mode = "set") => {
+    setActiveProduct(prev => {
+      let updated = { ...prev };
+      
+      if (type === 'variant') {
+        updated.selectedVariant = value;
+      } else if (type === 'attribute') {
+        // Here value is the full option object {value: '...', priceAdjustment: ...}
+        updated.selectedAttributes = { ...updated.selectedAttributes, [fieldOrName]: value };
+      } else if (type === 'customField') {
+        const key = getFieldKey(fieldOrName);
+        const currentSelections = { ...(updated.selectedCustomFields || {}) };
+        
+        if (mode === "toggle") {
+          const existing = Array.isArray(currentSelections[key]) ? currentSelections[key] : [];
+          const safeValue = String(value || "").trim();
+          if (safeValue) {
+            currentSelections[key] = existing.includes(safeValue) ? existing.filter((v) => v !== safeValue) : [...existing, safeValue];
+          }
+        } else {
+          currentSelections[key] = value;
+        }
+        updated.selectedCustomFields = currentSelections;
+      }
+
+      updated.basePrice = calculatePrice(updated);
+      updated.offeredPrice = updated.basePrice; 
+      return updated;
+    });
+  };
+
+  const addToQuoteCart = () => {
+    if (!activeProduct) return;
+    
+    setCartItems(prev => {
+      const existingIndex = prev.findIndex(item => item.cartId === activeProduct.cartId);
+      if (existingIndex >= 0) {
+        const newCart = [...prev];
+        newCart[existingIndex] = { ...activeProduct };
+        return newCart;
+      } else {
+        return [...prev, { ...activeProduct, cartId: Date.now(), quantity: 1 }];
+      }
+    });
+    
+    setActiveProduct(null); 
     setSearchQuery('');
     setSearchResults([]);
   };
 
-  const updateItemField = (index, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      items: prev.items.map((item, i) => i === index ? { ...item, [field]: value } : item)
-    }));
+  const handleEditItem = (item) => {
+    // FIX: Editing now restores all selections perfectly
+    setActiveProduct({ ...item }); 
   };
 
-  const removeItem = (index) => {
-    setFormData(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
+  const calculateTotals = () => {
+    const subtotal = cartItems.reduce((sum, item) => sum + (Number(item.offeredPrice) * Number(item.quantity)), 0);
+    const discountAmount = subtotal * (Number(quoteData.discountPercentage) / 100);
+    const afterDiscount = subtotal - discountAmount;
+    const gstAmount = afterDiscount * (Number(quoteData.gstPercentage) / 100);
+    const total = afterDiscount + gstAmount + Number(quoteData.shippingCharge) + Number(quoteData.additionalChargeAmount);
+    
+    return { subtotal, discountAmount, afterDiscount, gstAmount, total };
   };
 
-  const updateField = (field, value) => {
-    const path = field.split('.');
-    setFormData(prev => {
-      const newData = { ...prev };
-      let obj = newData;
-      for (let i = 0; i < path.length - 1; i++) obj = obj[path[i]];
-      obj[path[path.length - 1]] = value;
-      return newData;
-    });
-  };
-
-  const generatePDF = async () => {
-    const element = printRef.current;
-    if (!element) return;
-
-    const waitForImages = async (container) => {
-      const images = Array.from(container.querySelectorAll('img'));
-      await Promise.all(
-        images.map((img) => {
-          if (img.complete) return Promise.resolve();
-          return new Promise((resolve) => {
-            img.onload = () => resolve();
-            img.onerror = () => resolve();
-          });
-        })
-      );
-    };
-
-    await waitForImages(element);
-    const canvas = await html2canvas(element, {
-      useCORS: true,
-      allowTaint: true,
-      scale: 2,
-      backgroundColor: "#ffffff",
-    });
-
-    let imgData = "";
-    try {
-      imgData = canvas.toDataURL('image/png');
-    } catch (err) {
-      const fallbackCanvas = await html2canvas(element, {
-        useCORS: true,
-        allowTaint: true,
-        scale: 2,
-        backgroundColor: "#ffffff",
-        ignoreElements: (el) => el.tagName === "IMG",
-      });
-      imgData = fallbackCanvas.toDataURL('image/png');
-    }
-    const pdf = new jsPDF('p', 'pt', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const pdfHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pdfWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    let heightLeft = imgHeight;
-    let position = 0;
-
-    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-    heightLeft -= pdfHeight;
-
-    while (heightLeft > 0) {
-      position -= pdfHeight;
-      pdf.addPage();
-      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-    }
-
-    pdf.save('quotation.pdf');
-  };
+  const totals = calculateTotals();
 
   const submitQuote = async () => {
-    if (formData.items.length === 0) return alert('Add at least one item');
+    if (cartItems.length === 0) return alert('Please add items first');
+    // UPDATED VALIDATION: Sirf name aur phone chahiye
+    if (!quoteData.userDetails.name || !quoteData.userDetails.phone) return alert('Client Name & Phone Number are required');
+    
     setSubmitting(true);
     try {
       const payload = {
-        userDetails: formData.userDetails,
-        requestedItems: formData.items.map((item) => ({
-          productId: item.productId,
+        userDetails: quoteData.userDetails,
+        requestedItems: cartItems.map(item => ({
+          productId: item._id,
           name: item.name,
           quantity: item.quantity,
+          basePrice: item.basePrice,
           offeredPrice: item.offeredPrice,
-          selectedCustomFields: item.selectedCustomFields || {},
+          selectedVariant: item.selectedVariant || null,
+          selectedAttributes: item.selectedAttributes || {},
+          selectedCustomFields: item.selectedCustomFields || {}
         })),
-        shippingCharge: formData.shippingCharge,
-        additionalChargeName: formData.additionalChargeName,
-        additionalChargeAmount: formData.additionalChargeAmount,
-        gstPercentage: formData.gstPercentage,
+        shippingCharge: quoteData.shippingCharge,
+        additionalChargeName: quoteData.additionalChargeName,
+        additionalChargeAmount: quoteData.additionalChargeAmount,
+        gstPercentage: Math.min(Number(quoteData.gstPercentage) || 0, 100), 
+        discountPercentage: Math.min(Number(quoteData.discountPercentage) || 0, 100),
+        isManualAdminQuote: true
       };
+      
       const res = await api.post('/quote/manual', payload);
-      if (res.data.success) {
-        setShareLink(res.data.shareLink);
-        alert('Manual quote created! Share link copied.');
-        navigator.clipboard.writeText(res.data.shareLink);
-        onClose();
+
+      // 👇 BAS YEH EK LINE ADD KARO 👇
+      console.log("Backend ka Response:", res.data);
+      
+      if (res.data) {
+        // API se token ya ID nikal rahe hain
+        const tokenOrId = res.data.token || res.data.quote?.token || res.data.quote?._id || res.data.quoteId || res.data.shareLink;
+        
+        // Base URL ke sath complete shareable link bana rahe hain
+        let finalLink = res.data.shareLink;
+        if (!finalLink || !finalLink.startsWith('http')) {
+           finalLink = `${window.location.origin}/quote/${tokenOrId}`;
+        }
+
+        setShareLink(finalLink);
+        setStep(3); 
       }
     } catch (err) {
       alert('Failed to create quote: ' + (err.response?.data?.message || err.message));
@@ -253,324 +207,563 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
       setSubmitting(false);
     }
   };
-
+  
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-4xl max-h-[90vh] w-full flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between p-6 border-b">
-          <h2 className="text-2xl font-bold">Create Manual Quotation</h2>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100">
-            <FaTimes />
-          </button>
-        </div>
-        <div className="flex-1 p-6 overflow-y-auto">
-          {/* Client Details */}
-          <div className="grid grid-cols-1 gap-4 p-4 mb-6 md:grid-cols-2 bg-gray-50 rounded-xl">
-            <input placeholder="Client Name *" value={formData.userDetails.name} onChange={(e) => updateField('userDetails.name', e.target.value)} className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
-            <input placeholder="Phone *" value={formData.userDetails.phone} onChange={(e) => updateField('userDetails.phone', e.target.value)} className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
-            <input placeholder="Email" value={formData.userDetails.email} onChange={(e) => updateField('userDetails.email', e.target.value)} className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
-            <input placeholder="Company" value={formData.userDetails.company} onChange={(e) => updateField('userDetails.company', e.target.value)} className="p-3 border rounded-lg focus:ring-2 focus:ring-blue-500" />
-          </div>
-
-          {/* Product Search & Items */}
-          <div className="mb-6">
-            <div className="relative mb-4">
-              <FaSearch className="absolute text-gray-400 -translate-y-1/2 left-3 top-1/2" />
-              <input ref={searchRef} placeholder="Search SKU or Product Name" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full p-3 pl-10 border rounded-lg focus:ring-2 focus:ring-blue-500" />
+  const renderStep1Selection = () => (
+    <div className="grid h-full grid-cols-1 gap-6 overflow-hidden lg:grid-cols-3">
+      
+      {/* LEFT PANEL: Search & Product Details */}
+      <div className="flex flex-col h-full pr-2 overflow-y-auto lg:col-span-2">
+        
+        {!activeProduct && (
+          <div className="p-5 bg-white border border-gray-200 shadow-sm rounded-xl">
+            <h2 className="mb-4 text-lg font-bold text-gray-800">Search & Select Products</h2>
+            <div className="relative">
+              <FaSearch className="absolute text-gray-400 -translate-y-1/2 left-4 top-1/2" />
+              <input 
+                ref={searchRef}
+                placeholder="Type product name or SKU..." 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                className="w-full p-3 pl-12 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" 
+              />
             </div>
+            
             {searchResults.length > 0 && (
-              <div className="grid grid-cols-1 gap-3 overflow-auto bg-white border rounded-lg shadow-lg md:grid-cols-2 lg:grid-cols-3 max-h-60">
-                {searchResults.map((product) => (
-                  <div key={product._id} className="flex items-center gap-3 p-3 border-b cursor-pointer hover:bg-gray-50" onClick={() => addItem(product)}>
-                    <img src={product.image} alt={product.name} className="object-cover w-12 h-12 rounded" />
+              <div className="mt-2 overflow-y-auto bg-white border rounded-lg shadow-sm max-h-96">
+                {searchResults.map(product => (
+                  <div 
+                    key={product._id} 
+                    className="flex items-center gap-4 p-4 transition-colors border-b cursor-pointer hover:bg-gray-50"
+                    onClick={() => {
+                      // FIX: Auto-Select Defaults on Initial Click
+                      let defaultVariant = null;
+                      if (product.variants?.length > 0) defaultVariant = product.variants[0];
+
+                      const defaultAttrs = {};
+                      if (product.attributes?.length > 0) {
+                        product.attributes.forEach(attr => {
+                          if (attr.options?.length > 0) defaultAttrs[attr.name] = attr.options[0];
+                        });
+                      }
+
+                      const initProduct = { 
+                        ...product, 
+                        selectedVariant: defaultVariant, 
+                        selectedAttributes: defaultAttrs, 
+                        selectedCustomFields: {}
+                      };
+                      
+                      const defaultPrice = calculatePrice(initProduct);
+                      initProduct.basePrice = defaultPrice;
+                      initProduct.offeredPrice = defaultPrice;
+
+                      setActiveProduct(initProduct);
+                      searchResults([]);
+                      setSearchQuery('');
+                    }}
+                  >
+                    <img src={product.image || product.images?.[0]} alt={product.name} className="object-cover w-16 h-16 bg-gray-100 border rounded" />
                     <div>
-                      <div className="font-semibold">{product.name}</div>
-                      <div className="text-sm text-gray-500">{product.sku}</div>
-                      <div className="text-lg font-bold text-green-600">Rs. {(product.sellingPrice || product.price || 0).toFixed(0)}</div>
+                      <div className="text-lg font-semibold text-gray-800">{product.name}</div>
+                      <div className="text-sm text-gray-500">SKU: {product.sku || 'N/A'} | ₹{product.sellingPrice || product.price}</div>
                     </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
+        )}
 
-          {/* Items Table */}
-          {formData.items.length > 0 && (
-            <div className="mb-6">
-              <h3 className="mb-3 font-bold">Items ({formData.items.length})</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full bg-white border rounded-lg shadow-sm">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="p-3 text-left">Item</th>
-                      <th className="w-20 p-3 text-right">Qty</th>
-                      <th className="w-32 p-3 text-right">Price</th>
-                      <th className="w-32 p-3 text-right">Total</th>
-                      <th className="w-12 p-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                  {formData.items.map((item, index) => {
-                    const fields = Array.isArray(item.customFields) ? item.customFields : [];
-                    const optionLines = getSelectedOptionsLines(item);
+        {/* DETAILS PAGE REPLICA */}
+        {activeProduct && (
+          <div className="relative flex flex-col min-h-full mb-6 bg-white border border-gray-200 shadow-sm rounded-xl">
+            <button 
+              onClick={() => setActiveProduct(null)} 
+              className="absolute top-4 right-4 text-gray-500 hover:text-red-600 bg-gray-100 hover:bg-red-50 p-2.5 rounded-full transition-colors z-10"
+              title="Close and go back to search"
+            >
+              <FaTimes size={16}/>
+            </button>
+            
+            <div className="grid flex-1 grid-cols-1 gap-8 p-8 md:grid-cols-2">
+              
+              {/* Product Image & Details Panel */}
+              <div className="w-full">
+                <div className="flex items-center justify-center w-full overflow-hidden bg-gray-200 rounded-lg aspect-square">
+                   <img 
+                     src={activeProduct.image || activeProduct.images?.[0]} 
+                     alt={activeProduct.name} 
+                     className="object-contain w-full h-full p-4 mix-blend-multiply" 
+                   />
+                </div>
+
+                {/* FIX: Product Details List Appended Below Image */}
+                {activeProduct.details?.length > 0 && (
+                  <div className="p-6 mt-8 border border-gray-200 rounded-lg bg-gray-50">
+                    <h3 className="mb-4 text-base font-medium text-gray-900">Product Details</h3>
+                    <div className="flex flex-col gap-2">
+                      {activeProduct.details.map((detail, idx) => (
+                        <div key={idx} className="text-[14px] text-gray-800 uppercase flex gap-2">
+                          <span className="font-bold">{detail.key.replace(/_/g, ' ')}:</span>
+                          <span>{detail.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Product Pricing & Radio Buttons Panel */}
+              <div className="flex flex-col">
+                <h2 className="text-2xl font-normal tracking-wide text-gray-800 uppercase">{activeProduct.name}</h2>
+                <div className="flex gap-2 mt-2 text-xs tracking-widest text-gray-500 uppercase">
+                  STORE {activeProduct.category && `/ ${activeProduct.category.name || activeProduct.category}`}
+                </div>
+                <div className="mt-1 mb-4 text-xs text-gray-500">
+                  SKU {activeProduct.sku || activeProduct.baseSku || 'N/A'}
+                </div>
+
+                <div className="mb-6">
+                  <div className="text-3xl font-light text-gray-800">
+                    ₹{activeProduct.basePrice.toFixed(2)}
+                  </div>
+                  <div className="mt-1 text-sm text-gray-500">Price incl. GST (18%)</div>
+                </div>
+
+                <hr className="mb-6 border-gray-200" />
+
+                <div className="flex-1 space-y-6">
+                  
+                  {/* FIX: Advanced Variants Mapping with Combination Checking */}
+                  {Object.entries(variantOptions).length > 0 && Object.entries(variantOptions).map(([key, values]) => (
+                    <div key={key}>
+                      <label className="block mb-3 text-xs font-bold text-gray-800 uppercase">{key}</label>
+                      <div className="flex flex-col gap-3">
+                        {[...values].map((v) => {
+                          const isSelected = activeProduct.selectedVariant?.combination?.[key] === v;
+                          return (
+                            <label key={v} className="flex items-center gap-3 cursor-pointer group">
+                              <input
+                                type="radio"
+                                name={`variant-${key}`}
+                                checked={isSelected}
+                                onChange={() => {
+                                  const found = activeProduct.variants.find((variant) => variant.combination?.[key] === v);
+                                  if (found) handleActiveProductChange('variant', null, found);
+                                }}
+                                className="w-4 h-4 text-blue-600 border-gray-300 cursor-pointer focus:ring-blue-500"
+                              />
+                              <span className="text-[14.5px] text-gray-800 group-hover:text-black">
+                                {v}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Fallback for Simple Variants (No Combinations) */}
+                  {!activeProduct.variants?.[0]?.combination && activeProduct.variants?.length > 0 && (
+                    <div>
+                      <label className="block mb-3 text-xs font-bold text-gray-800 uppercase">VARIANT</label>
+                      <div className="flex flex-col gap-3">
+                        {activeProduct.variants.map(v => {
+                          const isSelected = activeProduct.selectedVariant?._id === v._id;
+                          return (
+                            <label key={v._id} className="flex items-center gap-3 cursor-pointer group">
+                              <input 
+                                type="radio" 
+                                name="variant-selection"
+                                checked={isSelected} 
+                                onChange={() => handleActiveProductChange('variant', null, v)}
+                                className="w-4 h-4 text-blue-600 border-gray-300 cursor-pointer focus:ring-blue-500" 
+                              />
+                              <span className="text-[14.5px] text-gray-800 group-hover:text-black">
+                                {v.name || v.title} (+ ₹{(v.sellingPrice || v.price).toFixed(2)})
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* FIX: Attributes Mapping mapped to Option Objects instead of Strings */}
+                  {activeProduct.attributes?.length > 0 && activeProduct.attributes.map((attr, i) => (
+                    <div key={i}>
+                      <label className="block mb-3 text-xs font-bold text-gray-800 uppercase">{attr.name}</label>
+                      <div className="flex flex-col gap-3">
+                        {attr.options?.map(opt => {
+                          const optVal = opt.value || opt.label;
+                          const selectedOpt = activeProduct.selectedAttributes?.[attr.name];
+                          const isSelected = selectedOpt && (selectedOpt.value === optVal || selectedOpt.label === optVal);
+                          const adjText = opt.priceAdjustment ? ` (+ ₹${Number(opt.priceAdjustment).toFixed(2)})` : '';
+                          
+                          return (
+                            <label key={optVal} className="flex items-center gap-3 cursor-pointer group">
+                              <input 
+                                type="radio" 
+                                name={`attr-${attr.name}`}
+                                checked={isSelected} 
+                                onChange={() => handleActiveProductChange('attribute', attr.name, opt)}
+                                className="w-4 h-4 text-blue-600 border-gray-300 cursor-pointer focus:ring-blue-500" 
+                              />
+                              <span className="text-[14.5px] text-gray-800 group-hover:text-black leading-tight">
+                                {optVal}{adjText}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Custom Fields */}
+                  {activeProduct.customFields?.length > 0 && activeProduct.customFields.map((field) => {
+                    const fieldKey = getFieldKey(field);
+                    const selectedValue = activeProduct.selectedCustomFields?.[fieldKey] || "";
+                    
                     return (
-                      <Fragment key={`${item.productId || index}-block`}>
-                        <tr className="border-t">
-                          <td className="p-3">
-                            <div className="flex items-center gap-2">
-                              <img src={item.image} alt={item.name} className="object-cover w-8 h-8 rounded" />
-                              <div>
-                                <div className="font-medium">{item.name}</div>
-                                <div className="text-xs text-gray-500">{item.sku}</div>
-                                {optionLines.length > 0 && (
-                                  <div className="mt-1 space-y-0.5">
-                                    {optionLines.map((line, idx) => (
-                                      <div key={`${item.productId || index}-sel-${idx}`} className="text-[11px] text-gray-500">
-                                        {line}
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="p-3 text-right">
-                            <input type="number" min="1" value={item.quantity} onChange={(e) => updateItemField(index, 'quantity', Number(e.target.value))} className="w-16 p-1 text-right border rounded" />
-                          </td>
-                          <td className="p-3 text-right">
-                            <input type="number" min="0" step="0.01" value={item.offeredPrice} onChange={(e) => updateItemField(index, 'offeredPrice', Number(e.target.value))} className="w-24 p-1 text-right border rounded" />
-                          </td>
-                          <td className="p-3 font-semibold text-right text-green-600">Rs. {(item.offeredPrice * item.quantity).toFixed(2)}</td>
-                          <td className="p-3">
-                            <button onClick={() => removeItem(index)} className="p-1 text-red-500 hover:text-red-700">
-                              <FaTrash />
-                            </button>
-                          </td>
-                        </tr>
-                        <tr className="border-b bg-gray-50/70">
-                          <td colSpan={5} className="p-3">
-                            <div className="text-xs font-semibold text-gray-600 uppercase">Options</div>
-                            {fields.length === 0 ? (
-                              <div className="mt-1 text-xs text-gray-500">No options for this product.</div>
-                            ) : (
-                              <div className="grid grid-cols-1 gap-3 mt-2 md:grid-cols-2">
-                                {fields.map((field) => {
-                                  const fieldKey = getFieldKey(field);
-                                  const selectedValue = getSelectedValue(item, field, fieldKey);
-                                  const options = Array.isArray(field.options) ? field.options : [];
-
-                                  return (
-                                    <div key={`${item.productId || index}-${fieldKey}`} className="p-3 bg-white border rounded-lg">
-                                      <div className="text-xs font-semibold text-gray-700 uppercase">{getFieldLabel(field, fieldKey)}</div>
-                                      {field.type === "text" ? (
-                                        <input
-                                          type="text"
-                                          value={selectedValue || ""}
-                                          onChange={(e) => updateItemSelection(index, field, e.target.value, "set")}
-                                          className="w-full p-2 mt-2 text-sm border rounded"
-                                          placeholder="Enter value"
-                                        />
-                                      ) : field.type === "checkbox" ? (
-                                        <div className="grid grid-cols-1 gap-2 mt-2">
-                                          {options.map((opt) => {
-                                            const optLabel = String(opt.label || "").trim();
-                                            const selectedValues = Array.isArray(selectedValue) ? selectedValue : [];
-                                            const isChecked = selectedValues.includes(optLabel);
-                                            const adj = Number(opt.priceAdjustment || 0);
-                                            const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}Rs ${Math.abs(adj)})` : "";
-
-                                            return (
-                                              <label key={optLabel} className="flex items-center gap-2 text-sm text-gray-700">
-                                                <input
-                                                  type="checkbox"
-                                                  checked={isChecked}
-                                                  onChange={() => updateItemSelection(index, field, optLabel, "toggle")}
-                                                />
-                                                <span>{optLabel}{adjText}</span>
-                                              </label>
-                                            );
-                                          })}
-                                        </div>
-                                      ) : (
-                                        <div className="grid grid-cols-1 gap-2 mt-2">
-                                          {options.map((opt) => {
-                                            const optLabel = String(opt.label || "").trim();
-                                            const adj = Number(opt.priceAdjustment || 0);
-                                            const adjText = adj ? ` (${adj >= 0 ? "+" : "-"}Rs ${Math.abs(adj)})` : "";
-                                            return (
-                                              <label key={optLabel} className="flex items-center gap-2 text-sm text-gray-700">
-                                                <input
-                                                  type="radio"
-                                                  name={`item-${index}-${fieldKey}`}
-                                                  checked={selectedValue === optLabel}
-                                                  onChange={() => updateItemSelection(index, field, optLabel, "set")}
-                                                />
-                                                <span>{optLabel}{adjText}</span>
-                                              </label>
-                                            );
-                                          })}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      </Fragment>
+                      <div key={fieldKey}>
+                        <label className="block mb-3 text-xs font-bold text-gray-800 uppercase">{getFieldLabel(field, fieldKey)}</label>
+                        {field.type === "text" ? (
+                          <input
+                            type="text" value={selectedValue} onChange={(e) => handleActiveProductChange('customField', field, e.target.value, "set")}
+                            className="w-full p-2 bg-transparent border-b border-gray-300 outline-none focus:border-blue-500" 
+                            placeholder="Enter value..."
+                          />
+                        ) : field.type === "checkbox" ? (
+                          <div className="flex flex-col gap-3">
+                            {(field.options || []).map((opt) => {
+                              const optLabel = String(opt.label || opt.value).trim();
+                              const isChecked = (Array.isArray(selectedValue) ? selectedValue : []).includes(optLabel);
+                              const adjText = opt.priceAdjustment ? ` (+ ₹${Number(opt.priceAdjustment).toFixed(2)})` : '';
+                              return (
+                                <label key={optLabel} className="flex items-center gap-3 cursor-pointer group">
+                                  <input 
+                                    type="checkbox" 
+                                    checked={isChecked} 
+                                    onChange={() => handleActiveProductChange('customField', field, optLabel, "toggle")}
+                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500"
+                                  />
+                                  <span className="text-sm text-gray-700 group-hover:text-black">{optLabel}{adjText}</span>
+                                </label>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-3">
+                            {(field.options || []).map((opt) => {
+                              const optLabel = String(opt.label || opt.value);
+                              const isSelected = selectedValue === optLabel;
+                              const adjText = opt.priceAdjustment ? ` (+ ₹${Number(opt.priceAdjustment).toFixed(2)})` : '';
+                              return (
+                                <label key={optLabel} className="flex items-center gap-3 cursor-pointer group">
+                                  <input 
+                                    type="radio" 
+                                    name={`cf-${fieldKey}`}
+                                    checked={isSelected} 
+                                    onChange={() => handleActiveProductChange('customField', field, optLabel, "set")}
+                                    className="w-4 h-4 text-blue-600 border-gray-300 cursor-pointer focus:ring-blue-500" 
+                                  />
+                                  <span className="text-sm text-gray-700 group-hover:text-black">
+                                    {optLabel}{adjText}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                     );
                   })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* Charges */}
-          <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-2 bg-gray-50 rounded-xl">
-            <div>
-              <label>GST (%)</label>
-              <input type="number" min="0" max="100" step="0.01" value={formData.gstPercentage} onChange={(e) => updateField('gstPercentage', Number(e.target.value))} className="w-full p-3 mt-1 border rounded-lg" />
-            </div>
-            <div>
-              <label>Shipping Charge</label>
-              <input type="number" min="0" step="0.01" value={formData.shippingCharge} onChange={(e) => updateField('shippingCharge', Number(e.target.value))} className="w-full p-3 mt-1 border rounded-lg" />
-            </div>
-            <div>
-              <label>Additional Charge Name</label>
-              <input type="text" value={formData.additionalChargeName} onChange={(e) => updateField('additionalChargeName', e.target.value)} className="w-full p-3 mt-1 placeholder-gray-500 border rounded-lg" placeholder="e.g. Installation" />
-            </div>
-            <div>
-              <label>Additional Charge Amount</label>
-              <input type="number" min="0" step="0.01" value={formData.additionalChargeAmount} onChange={(e) => updateField('additionalChargeAmount', Number(e.target.value))} className="w-full p-3 mt-1 border rounded-lg" />
-            </div>
-          </div>
-
-          {/* Totals */}
-          <div className="p-4 mt-6 border bg-emerald-50 rounded-xl">
-            <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2 lg:grid-cols-4">
-              <div>Subtotal: <strong>Rs. {subtotal.toFixed(2)}</strong></div>
-              <div>GST ({formData.gstPercentage.toFixed(2)}%): <strong>Rs. {gstAmount.toFixed(2)}</strong></div>
-              {formData.additionalChargeName && <div>{formData.additionalChargeName}: <strong>Rs. {formData.additionalChargeAmount.toFixed(2)}</strong></div>}
-              <div>Shipping: <strong>Rs. {formData.shippingCharge.toFixed(2)}</strong></div>
-              <div className="text-right md:col-span-2 lg:col-span-1">
-                <div className="text-2xl font-bold text-emerald-700">Grand Total: Rs. {total.toFixed(2)}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="absolute pointer-events-none opacity-0 -left-[9999px] top-0">
-          <div ref={printRef} className="w-[794px] p-8 text-gray-900 bg-white">
-            <div className="flex items-center justify-between pb-4 mb-4 border-b">
-              <div>
-                <h1 className="text-2xl font-bold">Tez Tech Quotation</h1>
-                <p className="text-sm text-gray-600">Date: {new Date().toLocaleDateString()}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-semibold">Client: {formData.userDetails.name || "-"}</p>
-                <p className="text-sm text-gray-600">Phone: {formData.userDetails.phone || "-"}</p>
-              </div>
-            </div>
-
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="text-sm uppercase border-b">
-                  <th className="p-2">Thumbnail</th>
-                  <th className="p-2">Item Name</th>
-                  <th className="p-2 text-right">Qty</th>
-                  <th className="p-2 text-right">Price</th>
-                  <th className="p-2 text-right">Total</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm">
-                {formData.items.map((item, index) => (
-                  <tr key={`pdf-${item.productId || index}`} className="border-b">
-                    <td className="p-2">
-                      {item.image ? (
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          crossOrigin="anonymous"
-                          className="object-cover w-12 h-12 rounded"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gray-200 rounded" />
-                      )}
-                    </td>
-                    <td className="p-2">
-                      <div className="font-medium">{item.name}</div>
-                      {item.sku && <div className="text-xs text-gray-500">{item.sku}</div>}
-                      {getSelectedOptionsLines(item).length > 0 && (
-                        <div className="mt-1 space-y-0.5">
-                          {getSelectedOptionsLines(item).map((line, idx) => (
-                            <div key={`pdf-opt-${index}-${idx}`} className="text-[11px] text-gray-500">
-                              {line}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </td>
-                    <td className="p-2 text-right">{item.quantity}</td>
-                    <td className="p-2 text-right">Rs. {Number(item.offeredPrice || 0).toFixed(2)}</td>
-                    <td className="p-2 text-right">Rs. {(Number(item.offeredPrice || 0) * Number(item.quantity || 0)).toFixed(2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-
-            <div className="grid grid-cols-1 gap-2 mt-4 text-sm">
-              <div className="flex justify-between">
-                <span>Sub-Total:</span>
-                <span className="font-semibold">Rs. {subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>GST ({formData.gstPercentage}%):</span>
-                <span className="font-semibold">Rs. {gstAmount.toFixed(2)}</span>
-              </div>
-              {formData.additionalChargeName && (
-                <div className="flex justify-between">
-                  <span>{formData.additionalChargeName}:</span>
-                  <span className="font-semibold">Rs. {Number(formData.additionalChargeAmount || 0).toFixed(2)}</span>
+                  
+                  <div className="mt-6">
+                    <span className="text-[15px] font-medium text-gray-900">In stock</span>
+                  </div>
                 </div>
-              )}
-              <div className="flex justify-between">
-                <span>Shipping:</span>
-                <span className="font-semibold">Rs. {Number(formData.shippingCharge || 0).toFixed(2)}</span>
-              </div>
-              <div className="flex items-center justify-between pt-2 mt-2 border-t">
-                <span className="text-base font-bold">Grand Total:</span>
-                <span className="text-base font-bold">Rs. {total.toFixed(2)}</span>
+                
+                {/* Action Button */}
+                <div className="pt-6 mt-4 border-t border-gray-100">
+                  <button 
+                    onClick={addToQuoteCart} 
+                    className="w-full md:w-auto bg-[#333333] text-white px-8 py-3.5 rounded-sm font-medium hover:bg-black shadow-sm flex items-center justify-center gap-2 transition-colors"
+                  >
+                    {activeProduct.cartId ? 'Update Configured Item' : 'Add to Quotation'}
+                  </button>
+                </div>
               </div>
             </div>
+          </div>
+        )}
+      </div>
 
-            <div className="flex items-center justify-between pt-4 mt-6 border-t">
-              <div className="text-sm">
-                <p className="font-semibold">Bank Details</p>
-                <p>Bank: Tez Tech</p>
-                <p>A/C: XXXXXXXXXXXX</p>
-                <p>IFSC: XXXXXXXX</p>
-                <p>UPI: teztech@upi</p>
+      {/* RIGHT PANEL: Cart Summary */}
+      <div className="flex flex-col h-full p-5 border border-gray-200 shadow-inner bg-gray-50 rounded-xl">
+        <h3 className="pb-2 mb-4 text-lg font-bold text-gray-800 border-b border-gray-300">Quotation Items ({cartItems.length})</h3>
+        
+        <div className="flex-1 pr-2 space-y-3 overflow-y-auto">
+          {cartItems.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-gray-400">
+              <FaShoppingCart className="mb-3 text-5xl opacity-20" />
+              <p className="text-sm font-medium">No items selected yet.</p>
+            </div>
+          ) : (
+            cartItems.map((item) => (
+              <div 
+                key={item.cartId} 
+                className={`relative flex justify-between items-start text-sm bg-white p-3.5 rounded-xl shadow-sm border transition-all cursor-pointer group hover:border-blue-400 hover:shadow-md ${activeProduct?.cartId === item.cartId ? 'border-blue-500 ring-1 ring-blue-500 bg-blue-50/30' : 'border-gray-200'}`}
+                onClick={() => handleEditItem(item)}
+              >
+                <div className="flex items-center w-full gap-4">
+                  <div className="p-1 bg-gray-100 border rounded-md">
+                    <img src={item.image || item.images?.[0]} alt={item.name} className="object-contain w-12 h-12 rounded mix-blend-multiply" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-bold text-gray-800 line-clamp-1">{item.name}</div>
+                    
+                    {/* Selected Options Summary Text */}
+                    <div className="mt-1 text-xs text-gray-500 line-clamp-2">
+                      {item.selectedVariant && <span className="mr-2">Var: {item.selectedVariant.name || Object.values(item.selectedVariant.combination || {}).join('/')}</span>}
+                      {Object.entries(item.selectedAttributes || {}).map(([k,v]) => <span key={k} className="mr-2">{v.value || v.label || v}</span>)}
+                      {Object.entries(item.selectedCustomFields || {}).map(([k,v]) => <span key={k} className="mr-2">{Array.isArray(v) ? v.join(', ') : v}</span>)}
+                    </div>
+                    
+                    <div className="text-sm text-green-600 font-bold mt-1.5">₹{item.basePrice.toFixed(2)}</div>
+                  </div>
+                </div>
+
+                <div className="absolute flex flex-col gap-2 transition-opacity opacity-0 top-2 right-2 group-hover:opacity-100">
+                   <button 
+                     onClick={(e) => { e.stopPropagation(); setCartItems(prev => prev.filter(i => i.cartId !== item.cartId)); if(activeProduct?.cartId === item.cartId) setActiveProduct(null); }} 
+                     className="text-red-400 hover:text-red-600 p-1.5 bg-red-50 rounded-md hover:bg-red-100 transition-colors"
+                     title="Remove Item"
+                   >
+                     <FaTrash size={12}/>
+                   </button>
+                </div>
+                
+                <div className="absolute text-blue-400 transition-opacity -translate-y-1/2 opacity-0 top-1/2 right-3 group-hover:opacity-100">
+                  <FaEdit size={16}/>
+                </div>
               </div>
-              <img
-                src={`${window.location.origin}/upi-qr-placeholder.svg`}
-                alt="UPI QR"
-                crossOrigin="anonymous"
-                className="w-28 h-28"
+            ))
+          )}
+        </div>
+        
+        <div className="pt-4 mt-4 border-t border-gray-300">
+          <button 
+            onClick={() => setStep(2)} 
+            disabled={cartItems.length === 0 || activeProduct}
+            className="flex items-center justify-center w-full gap-2 py-4 text-lg font-bold text-white transition-colors bg-gray-800 shadow-md rounded-xl hover:bg-black disabled:bg-gray-300"
+          >
+            {activeProduct ? 'Save Item Before Proceeding' : 'Next: Setup Pricing'} <FaArrowRight />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderStep2Pricing = () => (
+    <div className="h-full pr-2 space-y-6 overflow-y-auto">
+      <div className="flex items-center justify-between mb-4">
+        <button onClick={() => setStep(1)} className="flex items-center gap-2 px-4 py-2 font-bold text-blue-600 transition-colors rounded-lg hover:underline bg-blue-50 hover:bg-blue-100">
+          <FaArrowLeft /> Back to Selection
+        </button>
+        <h2 className="text-xl font-bold text-gray-800">2. Setup Pricing & Client Details</h2>
+      </div>
+
+      <div className="overflow-hidden bg-white border border-gray-200 shadow-sm rounded-xl">
+        <div className="p-4 text-white bg-gray-800"><h3 className="text-sm font-bold tracking-wider uppercase">Adjust Item Prices</h3></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="text-gray-600 border-b border-gray-200 bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 font-semibold">Product Info</th>
+                <th className="w-24 px-4 py-3 font-semibold text-center">Qty</th>
+                <th className="px-4 py-3 font-semibold text-right">Base Price</th>
+                <th className="px-4 py-3 font-semibold text-right">Offered Price (Edit)</th>
+                <th className="px-4 py-3 font-semibold text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cartItems.map((item, index) => (
+                <tr key={item.cartId} className="border-b hover:bg-gray-50">
+                  <td className="px-4 py-4">
+                    <div className="text-base font-bold text-gray-800">{item.name}</div>
+                    <div className="flex flex-wrap gap-1 mt-1 text-xs text-gray-500">
+                      {item.selectedVariant && <span>Var: {item.selectedVariant.name || Object.values(item.selectedVariant.combination || {}).join('/')}</span>}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <input 
+                      type="number" min="1" value={item.quantity} 
+                      onChange={(e) => {
+                        const newCart = [...cartItems];
+                        newCart[index].quantity = Number(e.target.value);
+                        setCartItems(newCart);
+                      }}
+                      className="w-16 p-2 font-bold text-center border border-gray-300 rounded-md outline-none focus:ring-2 focus:ring-blue-500" 
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-right text-gray-500 line-through">₹{item.basePrice.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right">
+                    <input 
+                      type="number" min="0" value={item.offeredPrice} 
+                      onChange={(e) => {
+                        const newCart = [...cartItems];
+                        newCart[index].offeredPrice = Number(e.target.value);
+                        setCartItems(newCart);
+                      }}
+                      className="p-2 font-bold text-right text-blue-700 border-2 border-blue-300 rounded-md outline-none w-28 focus:border-blue-600 bg-blue-50" 
+                    />
+                  </td>
+                  <td className="px-4 py-3 text-base font-black text-right text-green-600">₹{(item.offeredPrice * item.quantity).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 pb-6 md:grid-cols-2">
+        <div className="p-6 bg-white border border-gray-200 shadow-sm rounded-xl">
+          <h3 className="pb-2 mb-4 text-lg font-bold text-gray-800 border-b">Client Details</h3>
+          <div className="space-y-4">
+            
+            {/* UPDATED: Only Name, Phone, and Optional Message */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block mb-1 text-xs font-bold text-gray-500 uppercase">Client Name *</label>
+                <input 
+                  value={quoteData.userDetails.name} 
+                  onChange={(e) => setQuoteData({...quoteData, userDetails: {...quoteData.userDetails, name: e.target.value}})} 
+                  className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" 
+                  placeholder="John Doe" 
+                />
+              </div>
+              <div>
+                <label className="block mb-1 text-xs font-bold text-gray-500 uppercase">Phone Number *</label>
+                <input 
+                  value={quoteData.userDetails.phone} 
+                  onChange={(e) => setQuoteData({...quoteData, userDetails: {...quoteData.userDetails, phone: e.target.value}})} 
+                  className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" 
+                  placeholder="+91..." 
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block mb-1 text-xs font-bold text-gray-500 uppercase">Additional Message (Optional)</label>
+              <textarea 
+                value={quoteData.userDetails.message || ''} 
+                onChange={(e) => setQuoteData({...quoteData, userDetails: {...quoteData.userDetails, message: e.target.value}})} 
+                className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 resize-none h-24" 
+                placeholder="Any specific requests or notes for the client..." 
               />
             </div>
+
           </div>
         </div>
-        <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
-          <button onClick={generatePDF} className="flex items-center gap-2 px-6 py-3 font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700">
-            <FaDownload /> Download PDF
-          </button>
-          <button onClick={submitQuote} disabled={submitting || formData.items.length === 0} className="flex items-center gap-2 px-8 py-3 font-bold text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 disabled:opacity-50">
-            {submitting ? 'Creating...' : 'Save & Share'}
+
+        <div className="flex flex-col justify-between p-6 bg-white border border-gray-200 shadow-sm rounded-xl">
+          <div>
+            <h3 className="pb-2 mb-4 text-lg font-bold text-gray-800 border-b">Additional Costs</h3>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-semibold text-gray-600">Total Discount (%)</label>
+                <input type="number" value={quoteData.discountPercentage} onChange={(e) => setQuoteData({...quoteData, discountPercentage: e.target.value})} className="w-24 p-2 text-right border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-semibold text-gray-600">GST Tax (%)</label>
+                <input type="number" value={quoteData.gstPercentage} onChange={(e) => setQuoteData({...quoteData, gstPercentage: e.target.value})} className="w-24 p-2 text-right border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-semibold text-gray-600">Shipping (₹)</label>
+                <input type="number" value={quoteData.shippingCharge} onChange={(e) => setQuoteData({...quoteData, shippingCharge: e.target.value})} className="w-24 p-2 text-right border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                 <input type="text" placeholder="Extra Charge Reason" value={quoteData.additionalChargeName} onChange={(e) => setQuoteData({...quoteData, additionalChargeName: e.target.value})} className="flex-1 p-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+                 <input type="number" placeholder="Amt" value={quoteData.additionalChargeAmount} onChange={(e) => setQuoteData({...quoteData, additionalChargeAmount: e.target.value})} className="w-24 p-2 text-right border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+            </div>
+          </div>
+          
+          <div className="pt-4 mt-6 border-t-2 border-gray-200 border-dashed">
+            <div className="flex items-center justify-between p-4 border border-green-100 bg-green-50 rounded-xl">
+              <span className="font-black text-gray-700 uppercase">Grand Total</span>
+              <span className="text-2xl font-black text-green-700">₹{totals.total.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="sticky bottom-0 flex justify-end pt-4 pb-4 border-t bg-gray-50/90">
+        <button onClick={submitQuote} disabled={submitting} className="bg-green-600 text-white px-8 py-4 rounded-xl font-bold hover:bg-green-700 shadow-lg flex items-center gap-3 text-lg transition-transform transform hover:scale-[1.02]">
+          {submitting ? 'Saving to Database...' : <><FaCheckCircle /> Generate & Save Link</>}
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderStep3Success = () => (
+    <div className="flex flex-col items-center justify-center h-full text-center">
+      <div className="p-6 mb-6 rounded-full bg-green-50">
+        <FaCheckCircle className="text-green-500 text-7xl" />
+      </div>
+      <h3 className="mb-2 text-3xl font-black text-gray-800">Quotation Saved!</h3>
+      <p className="max-w-md mb-8 text-gray-500">This quote is now stored securely in the database. Share the link below with your client.</p>
+      
+      <div className="flex items-center w-full max-w-xl gap-2 p-2 bg-white border-2 border-green-200 shadow-sm rounded-xl">
+        <input type="text" readOnly value={_shareLink} className="w-full p-4 font-bold text-gray-700 bg-transparent outline-none" />
+        <button onClick={() => { navigator.clipboard.writeText(_shareLink); alert("Copied to clipboard!"); }} className="flex items-center gap-2 px-6 py-4 font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 whitespace-nowrap">
+          <FaCopy /> Copy 
+        </button>
+      </div>
+
+      <div className="flex gap-4 mt-12">
+        <button onClick={() => {
+          setStep(1); setCartItems([]); setShareLink(''); setActiveProduct(null);
+          // UPDATED RESET STATE
+          setQuoteData({ userDetails: {name:'', phone:'', message:''}, shippingCharge: 0, additionalChargeName: '', additionalChargeAmount: 0, gstPercentage: 0, discountPercentage: 0 });
+        }} className="px-8 py-3 font-bold text-blue-600 transition-colors border-2 border-blue-200 hover:bg-blue-50 rounded-xl">
+          Create Another Quote
+        </button>
+        <button onClick={onClose} className="px-8 py-3 font-bold text-white transition-colors bg-gray-800 hover:bg-black rounded-xl">
+          Close Window
+        </button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm">
+      <div className="bg-gray-50 rounded-2xl shadow-2xl w-full max-w-7xl h-[92vh] flex flex-col overflow-hidden relative border border-gray-200">
+        
+        <div className="z-10 flex items-center justify-between px-6 py-4 bg-white border-b shadow-sm">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-black text-gray-800">Create Custom Quote</h1>
+            {step !== 3 && (
+              <div className="hidden md:flex items-center gap-3 ml-6 px-4 py-1.5 bg-gray-100 rounded-full text-sm font-bold">
+                <span className={`${step === 1 ? 'text-blue-600' : 'text-gray-400'}`}>1. Details</span>
+                <FaArrowRight className="text-xs text-gray-300" />
+                <span className={`${step === 2 ? 'text-blue-600' : 'text-gray-400'}`}>2. Pricing</span>
+              </div>
+            )}
+          </div>
+          <button onClick={onClose} className="p-2 text-gray-400 transition-colors bg-gray-100 rounded-full hover:bg-red-50 hover:text-red-500">
+            <FaTimes size={20} />
           </button>
         </div>
+
+        <div className="flex-1 p-6 overflow-hidden">
+          {step === 1 && renderStep1Selection()}
+          {step === 2 && renderStep2Pricing()}
+          {step === 3 && renderStep3Success()}
+        </div>
+
       </div>
     </div>
   );

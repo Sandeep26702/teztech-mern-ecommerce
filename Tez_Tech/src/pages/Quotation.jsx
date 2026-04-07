@@ -5,11 +5,9 @@ import { FaTrashAlt, FaMinus, FaPlus, FaBoxOpen, FaPaperPlane } from "react-icon
 import api from "../utils/api"; 
 
 const Quotation = () => {
-  // Context se functions aur items nikalna
   const { quoteItems, removeFromQuote, updateQuoteQuantity, clearQuote } = useQuote();
   const navigate = useNavigate();
 
-  // User details ke liye state
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -20,39 +18,40 @@ const Quotation = () => {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const renderSelectedOptions = (item) => {
-    const selected = item?.selectedCustomFields;
-    if (!selected || typeof selected !== "object") return [];
+  // Requirements render karne ka logic
+  const renderRequirements = (item) => {
+    const reqs = [];
+    
+    // 1. CSV Attributes
+    if (item?.selectedAttributes && typeof item.selectedAttributes === 'object') {
+       Object.entries(item.selectedAttributes).forEach(([key, opt]) => {
+          let text = `${key}: ${opt.value}`;
+          if (opt.priceAdjustment) text += ` (+₹${opt.priceAdjustment})`;
+          reqs.push(text);
+       });
+    }
 
-    const fields = Array.isArray(item?.productId?.customFields) ? item.productId.customFields : [];
-    const getLabel = (key) => {
-      const match = fields.find(
-        (field) =>
-          String(field?._id || "") === String(key) ||
-          String(field?.label || "").toLowerCase() === String(key || "").toLowerCase()
-      );
-      return String(match?.label || key || "").trim();
-    };
+    // 2. Standard Variants
+    if (item?.selectedVariant?.combination && typeof item.selectedVariant.combination === 'object') {
+       Object.entries(item.selectedVariant.combination).forEach(([k, v]) => {
+          reqs.push(`${k}: ${v}`);
+       });
+    }
 
-    return Object.entries(selected)
-      .map(([key, value]) => {
-        const label = getLabel(key);
-        if (Array.isArray(value)) {
-          if (!value.length) return null;
-          return `${label}: ${value.join(", ")}`;
-        }
-        if (!String(value || "").trim()) return null;
-        return `${label}: ${value}`;
-      })
-      .filter(Boolean);
+    // 3. Custom Fields
+    if (item?.selectedCustomFields && typeof item.selectedCustomFields === 'object') {
+       Object.entries(item.selectedCustomFields).forEach(([k, v]) => {
+          if (v && String(v).trim() !== "") reqs.push(`${k}: ${v}`);
+       });
+    }
+
+    return reqs;
   };
 
-  // Form input change handler
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // ✅ 100% WORKING SUBMIT LOGIC
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -74,7 +73,9 @@ const Quotation = () => {
           productId,
           name: item?.productId?.name || item?.name || "Product",
           quantity: Number(item?.quantity || 1),
-          selectedCustomFields: item?.selectedCustomFields || {},
+          selectedVariant: item?.selectedVariant || null,
+          selectedAttributes: item?.selectedAttributes || {},
+          selectedCustomFields: item?.selectedCustomFields || {}, 
         };
       })
       .filter((item) => item.productId && item.quantity > 0);
@@ -85,19 +86,16 @@ const Quotation = () => {
       return;
     }
 
-    // Data packing as per backend requirement
     const requestData = {
       userDetails: formData,
       requestedItems: normalizedItems
     };
 
     try {
-      // POST Request to Backend
-      await api.post("/quote/create", requestData); // Note: server.js me /api/quote define kiya tha humne
+      await api.post("/quote/create", requestData); 
 
       alert("🎉 Quotation request submitted successfully!");
       
-      // Cleanup
       setFormData({ name: "", email: "", company: "", phone: "", message: "" });
       clearQuote(); 
 
@@ -109,11 +107,31 @@ const Quotation = () => {
     }
   };
 
+  // 🔥 NAYA LOGIC: URL parameters generate karne ke liye
+  const handleProductClick = (item, productId) => {
+    if (!productId) return;
+
+    const params = new URLSearchParams();
+
+    // Agar variant selected hai, toh URL param me daalo
+    if (item?.selectedVariant?._id) {
+      params.set("variant", item.selectedVariant._id);
+    }
+
+    // Agar attributes selected hain, toh unko stringify karke URL me daalo
+    if (item?.selectedAttributes && Object.keys(item.selectedAttributes).length > 0) {
+      params.set("attrs", encodeURIComponent(JSON.stringify(item.selectedAttributes)));
+    }
+
+    const queryString = params.toString();
+    // Navigate with standard Real-World URL
+    navigate(`/products/${productId}${queryString ? `?${queryString}` : ""}`);
+  };
+
   return (
     <div className="min-h-screen px-4 py-10 font-sans bg-gray-50 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         
-        {/* 🌟 Header Section */}
         <div className="mb-10 text-center">
           <h1 className="mb-4 text-4xl font-extrabold tracking-tight text-transparent sm:text-5xl bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">
             Request a Quote
@@ -145,7 +163,6 @@ const Quotation = () => {
             ) : (
               <div className="space-y-4">
                 {quoteItems.map((item) => {
-                  // Unique ID calculation for keys
                   const itemId = item.productId?._id || item._id || item.id;
                   const productId =
                     item?.productId?._id ||
@@ -160,29 +177,17 @@ const Quotation = () => {
                     item.image ||
                     "https://placehold.co/100x100/f3f4f6/a1a1aa?text=No+Image";
                   const productName = item.productId?.name || item.name;
-                  const selectedOptions = renderSelectedOptions(item);
+                  
+                  const requirementsList = renderRequirements(item);
 
                   return (
                     <div
                       key={itemId}
                       className="flex items-center gap-4 p-4 bg-white border border-gray-100 shadow-sm rounded-2xl cursor-pointer"
-                      onClick={() =>
-                        productId &&
-                        navigate(`/products/${productId}`, {
-                          state: { selectedCustomFields: item.selectedCustomFields || {} },
-                        })
-                      }
+                      // 🔥 YAHAN NAYA FUNCTION CALL HOGA URL PARAMS WALA
+                      onClick={() => handleProductClick(item, productId)}
                       role="button"
                       tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (!productId) return;
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          navigate(`/products/${productId}`, {
-                            state: { selectedCustomFields: item.selectedCustomFields || {} },
-                          });
-                        }
-                      }}
                     >
                       <div className="flex-shrink-0 w-16 h-16 overflow-hidden border bg-gray-50 rounded-xl">
                         <img src={imageUrl} alt={productName} className="object-contain w-full h-full" />
@@ -190,10 +195,11 @@ const Quotation = () => {
 
                       <div className="flex-1 min-w-0">
                         <h3 className="text-base font-bold text-gray-900 truncate">{productName}</h3>
-                        {selectedOptions.length > 0 && (
+                        
+                        {requirementsList.length > 0 && (
                           <div className="mt-1 space-y-1">
-                            {selectedOptions.map((line) => (
-                              <p key={`${itemId}-${line}`} className="text-xs text-gray-500">
+                            {requirementsList.map((line, idx) => (
+                              <p key={`${itemId}-${idx}`} className="text-xs text-gray-500">
                                 {line}
                               </p>
                             ))}
@@ -201,8 +207,7 @@ const Quotation = () => {
                         )}
                       </div>
 
-                      {/* Qty Controls */}
-                      <div className="flex items-center p-1 border rounded-lg bg-gray-50">
+                      <div className="flex items-center p-1 border rounded-lg bg-gray-50" onClick={(e) => e.stopPropagation()}>
                         <button 
                           onClick={(e) => {
                             e.stopPropagation();

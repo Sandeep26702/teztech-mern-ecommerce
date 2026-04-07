@@ -8,18 +8,17 @@ export const QuoteProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   // 🔄 1. Fetch Quote Items from Backend Database
-  // Using useCallback so we can safely use it inside useEffect without infinite loops
   const fetchQuote = useCallback(async () => {
     try {
       setLoading(true);
-      const { data } = await api.get("/quote"); // Make sure this route exists in your backend
+      const { data } = await api.get("/quote"); 
       
       if (data.success && data.quote) {
-        setQuoteItems(data.quote.items || []);
+        setQuoteItems(data.quote.items || data.quote.requestedItems || []);
       }
     } catch (error) {
       console.error("Quote fetch error:", error);
-      setQuoteItems([]); // Clear state if fetching fails (e.g., token expired)
+      setQuoteItems([]); 
     } finally {
       setLoading(false);
     }
@@ -31,22 +30,29 @@ export const QuoteProvider = ({ children }) => {
     if (token) {
       fetchQuote();
     } else {
-      setLoading(false); // Stop loading if guest user
+      setLoading(false); 
     }
   }, [fetchQuote]);
 
   // 📝 2. Add to Quote (Save to Database)
-  const addToQuote = async (product) => {
+  const addToQuote = async (product, quantity = 1, selectedVariant = null, selectedAttributes = {}) => {
     try {
-      const { data } = await api.post("/quote/add", {
-        productId: product._id,
-        quantity: 1, // Default quantity
+      const payload = {
+        productId: product._id || product.id, 
+        quantity: quantity,
+        selectedVariant: selectedVariant,       
+        selectedAttributes: selectedAttributes, 
         selectedCustomFields: product.selectedCustomFields || {},
-      });
+      };
+
+      console.log("Sending Quote Payload:", payload);
+
+      const { data } = await api.post("/quote/add", payload);
 
       if (data.success) {
-        setQuoteItems(data.quote.items); // Sync state with backend response
-        alert("✅ Added to Quotation!");
+        // 🛠️ FIX: Added || [] to prevent undefined crash
+        setQuoteItems(data.quote.items || data.quote.requestedItems || []); 
+        alert("✅ Added to Quotation with your requirements!");
       }
     } catch (error) {
       console.error("Add to quote error:", error);
@@ -58,68 +64,64 @@ export const QuoteProvider = ({ children }) => {
     }
   };
 
-  // ❌ 3. Remove from Quote (With Optimistic UI Update)
+  // ❌ 3. Remove from Quote
   const removeFromQuote = async (productId) => {
-    // Snapshot previous state for rollback
     const previousQuote = [...quoteItems];
-
-    // Optimistic Update: Instantly remove from screen
+    
+    // 🛠️ FIX: Used String() for bulletproof ID comparison
     setQuoteItems((prev) => 
-      prev.filter((item) => item.productId?._id !== productId && item.productId !== productId)
-    );
-
-    try {
-      // Background API call to delete from database
-      const { data } = await api.delete(`/quote/remove/${productId}`);
-      
-      if (data.success) {
-        setQuoteItems(data.quote.items); // Final sync with DB
-      }
-    } catch (error) {
-      console.error("Remove from quote error:", error);
-      setQuoteItems(previousQuote); // Rollback to original state if API fails
-      alert("Failed to remove item. Restoring data.");
-    }
-  };
-
-  // 🔢 4. Update Quote Quantity (With Optimistic UI Update)
-  const updateQuoteQuantity = async (productId, quantity) => {
-    if (quantity < 1) return;
-
-    // Snapshot previous state
-    const previousQuote = [...quoteItems];
-
-    // Optimistic Update: Instantly update quantity on screen
-    setQuoteItems((prev) =>
-      prev.map((item) => {
+      prev.filter((item) => {
         const currentId = item.productId?._id || item.productId;
-        return currentId === productId ? { ...item, quantity } : item;
+        return String(currentId) !== String(productId);
       })
     );
 
     try {
-      // API call to update database
+      const { data } = await api.delete(`/quote/remove/${productId}`);
+      if (data.success) {
+        // 🛠️ FIX: Added || []
+        setQuoteItems(data.quote.items || data.quote.requestedItems || []); 
+      }
+    } catch (error) {
+      console.error("Remove from quote error:", error);
+      setQuoteItems(previousQuote); 
+      alert("Failed to remove item. Restoring data.");
+    }
+  };
+
+  // 🔢 4. Update Quote Quantity
+  const updateQuoteQuantity = async (productId, quantity) => {
+    if (quantity < 1) return;
+    const previousQuote = [...quoteItems];
+
+    // 🛠️ FIX: Used String() for bulletproof ID comparison
+    setQuoteItems((prev) =>
+      prev.map((item) => {
+        const currentId = item.productId?._id || item.productId;
+        return String(currentId) === String(productId) ? { ...item, quantity } : item;
+      })
+    );
+
+    try {
       const { data } = await api.put("/quote/update", {
         productId,
         quantity,
       });
 
       if (data.success) {
-        setQuoteItems(data.quote.items); // Final sync
+        // 🛠️ FIX: Added || []
+        setQuoteItems(data.quote.items || data.quote.requestedItems || []); 
       }
     } catch (error) {
       console.error("Update quote quantity error:", error);
-      setQuoteItems(previousQuote); // Rollback on failure
+      setQuoteItems(previousQuote); 
       alert("Failed to update quantity. Restoring data.");
     }
   };
 
-  // 🧹 5. Clear Quote State (Used during Logout)
+  // 🧹 5. Clear Quote State
   const clearQuote = () => {
     setQuoteItems([]);
-    // Note: We DO NOT call a delete API here. 
-    // We only clear the frontend state so the next user doesn't see it.
-    // The data remains safely stored in the backend database for this user.
   };
 
   return (
@@ -131,7 +133,7 @@ export const QuoteProvider = ({ children }) => {
         removeFromQuote, 
         updateQuoteQuantity, 
         clearQuote,
-        fetchQuote // Exported so AuthContext can call it right after a successful Login
+        fetchQuote 
       }}
     >
       {children}
@@ -139,7 +141,6 @@ export const QuoteProvider = ({ children }) => {
   );
 };
 
-// 🛡️ Custom Hook with Safety Check
 export const useQuote = () => {
   const context = useContext(QuoteContext);
   if (!context) {

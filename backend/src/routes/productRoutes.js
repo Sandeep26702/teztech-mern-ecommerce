@@ -1,29 +1,90 @@
 import express from "express";
 import multer from "multer";
+
 import {
   getProducts,
-  getProductCategories,
+  getProductsAdmin,
   getProductById,
+  getProductBySlug,
   createProduct,
   updateProduct,
   deleteProduct,
+  updateProductStatus,
+  getProductCategories,
+  getImportOverview,
+  getImportHistory,
+  rollbackImport,
+  deleteImportHistory,
   importProductsCsv,
   exportProductsCsv,
-  getProductImportHistory,
-  getProductImportOverview,
-  rollbackProductImport,
-  deleteProductImportRecord,
-  getProductsAdmin,
-  updateProductStatus,
 } from "../controllers/productController.js";
+
 import { protect, authorize } from "../middleware/auth.Middleware.js";
 import { upload } from "../config/cloudinary.js";
 
 const router = express.Router();
-const csvUpload = multer({ storage: multer.memoryStorage() });
 
-router.get("/export/csv", protect, authorize("admin", "subadmin"), exportProductsCsv);
-router.get("/admin", protect, authorize("admin", "subadmin"), getProductsAdmin);
+// ===============================
+// 🔥 MULTER (CSV)
+// ===============================
+const csvUpload = multer({
+  storage: multer.memoryStorage(),
+});
+
+// ===============================
+// 🌐 PUBLIC ROUTES
+// ===============================
+router.get("/", getProducts);
+router.get("/slug/:slug", getProductBySlug);
+router.get("/meta/categories", getProductCategories);
+
+// ===============================
+// 🔐 ADMIN ROUTES (IMPORTANT: ABOVE :id)
+// ===============================
+router.get("/admin", getProductsAdmin);
+
+router.get("/import/csv/overview", protect, authorize("admin"), getImportOverview);
+router.get("/import/csv/history", protect, authorize("admin"), getImportHistory);
+
+router.delete("/import/csv/history/:id", protect, authorize("admin"), rollbackImport);
+router.delete("/import/csv/history/:id/record", protect, authorize("admin"), deleteImportHistory);
+
+// ===============================
+// 📦 PRODUCT CRUD
+// ===============================
+router.post(
+  "/admin",
+  protect,
+  authorize("admin", "subadmin"),
+  upload.single("image"),
+  createProduct
+);
+
+router.put(
+  "/admin/:id",
+  protect,
+  authorize("admin", "subadmin"),
+  upload.single("image"),
+  updateProduct
+);
+
+router.delete(
+  "/admin/:id",
+  protect,
+  authorize("admin", "subadmin"),
+  deleteProduct
+);
+
+router.patch(
+  "/admin/:id/status",
+  protect,
+  authorize("admin", "subadmin"),
+  updateProductStatus
+);
+
+// ===============================
+// 🔥 CSV ROUTES
+// ===============================
 router.post(
   "/import/csv",
   protect,
@@ -31,24 +92,17 @@ router.post(
   csvUpload.single("file"),
   importProductsCsv
 );
-router.get("/import/csv/history", protect, authorize("admin", "subadmin"), getProductImportHistory);
-router.get("/import/csv/overview", protect, authorize("admin", "subadmin"), getProductImportOverview);
-router.delete("/import/csv/history/:jobId", protect, authorize("admin", "subadmin"), rollbackProductImport);
-router.delete("/import/csv/history/:jobId/record", protect, authorize("admin", "subadmin"), deleteProductImportRecord);
 
-router
-  .route("/")
-  .get(getProducts)
-  .post(protect, authorize("admin", "subadmin"), upload.single("image"), createProduct);
+router.get(
+  "/export/csv",
+  protect,
+  authorize("admin", "subadmin"),
+  exportProductsCsv
+);
 
-router.get("/meta/categories", getProductCategories);
-
-router
-  .route("/:id")
-  .get(getProductById)
-  .put(protect, authorize("admin", "subadmin"), upload.single("image"), updateProduct)
-  .delete(protect, authorize("admin", "subadmin"), deleteProduct);
-
-router.patch("/:id/status", protect, authorize("admin", "subadmin"), updateProductStatus);
+// ===============================
+// ⚠️ ALWAYS LAST (VERY IMPORTANT)
+// ===============================
+router.get("/:id", getProductById);
 
 export default router;

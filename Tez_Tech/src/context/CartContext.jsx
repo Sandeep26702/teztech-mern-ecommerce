@@ -36,11 +36,11 @@ const getItemKey = (item) => item._id || item.localItemId || item.productId?._id
 
 const getItemUnitPrice = (item) => {
   const unitPrice =
-    item?.pricing?.unitPrice ??
-    item?.pricingSnapshot?.unitPrice ??
-    item?.unitPrice ??
-    item?.productId?.price ??
-    item?.price ??
+    item?.pricing?.unitPrice ||
+    item?.pricingSnapshot?.unitPrice ||
+    item?.unitPrice ||
+    item?.productId?.price ||
+    item?.price ||
     0;
   return Number(unitPrice) || 0;
 };
@@ -54,20 +54,29 @@ export const CartProvider = ({ children }) => {
     if (!Array.isArray(items)) return [];
     const merged = new Map();
     items.forEach((item) => {
+      // Yahan thoda advanced logic chahiye hota hai variations ke liye, 
+      // but abhi hum unhe safely store kar lenge.
       const productId = String(item?.productId?._id || item?.productId || item?._id || "").trim();
       if (!productId) return;
+      
+      // Basic grouping by productId
       if (!merged.has(productId)) {
         merged.set(productId, { ...item });
         return;
       }
+      
       const existing = merged.get(productId);
       existing.quantity = (existing.quantity || 0) + Number(item.quantity || 0);
+      
       if (item.selectedCustomFields && Object.keys(item.selectedCustomFields).length > 0) {
         existing.selectedCustomFields = item.selectedCustomFields;
       }
       if (item.pricingSnapshot) {
         existing.pricingSnapshot = item.pricingSnapshot;
       }
+      // Preserve variations during merge
+      if (item.variant) existing.variant = item.variant;
+      if (item.attributes) existing.attributes = item.attributes;
     });
     return Array.from(merged.values());
   };
@@ -113,17 +122,25 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = async (product) => {
     const token = localStorage.getItem("token");
+    
+    // Sab fields extract karo (Variations included)
     const selectedCustomFields = normalizeSelectedCustomFields(product?.selectedCustomFields);
     const pricingSnapshot = product?.pricingSnapshot || null;
+    const variant = product?.variant || product?.selectedVariant || null;
+    const attributes = product?.attributes || product?.selectedAttributes || null;
 
     if (token && user) {
       try {
+        // API ko ab variations bhi bhej rahe hain
         const { data } = await api.post("/cart/add", {
           productId: product._id,
           quantity: 1,
           selectedCustomFields,
           pricingSnapshot,
+          variant, 
+          attributes 
         });
+        
         if (data.success) {
           setCartItems(data.cart.items || []);
           alert(`${product.name} added to cart.`);
@@ -135,6 +152,7 @@ export const CartProvider = ({ children }) => {
       return;
     }
 
+    // Guest Cart Logic (Local Storage)
     const localCart = getLocalCart();
     const existingIndex = localCart.findIndex((item) => {
       const itemProductId = item.productId?._id || item.productId;
@@ -146,7 +164,11 @@ export const CartProvider = ({ children }) => {
       localCart[existingIndex].quantity += 1;
       localCart[existingIndex].selectedCustomFields = selectedCustomFields;
       localCart[existingIndex].pricingSnapshot = pricingSnapshot || localCart[existingIndex].pricingSnapshot;
+      // Variations ko existing item pe update kar rahe hain
+      localCart[existingIndex].variant = variant || localCart[existingIndex].variant;
+      localCart[existingIndex].attributes = attributes || localCart[existingIndex].attributes;
     } else {
+      // Naya item push karte waqt variations ko save kar rahe hain
       localCart.push({
         localItemId: createLocalId(),
         productId: {
@@ -163,6 +185,8 @@ export const CartProvider = ({ children }) => {
         quantity: 1,
         selectedCustomFields,
         pricingSnapshot,
+        variant, // 🔥 FIX: Ye pehle missing tha
+        attributes // 🔥 FIX: Ye pehle missing tha
       });
     }
 

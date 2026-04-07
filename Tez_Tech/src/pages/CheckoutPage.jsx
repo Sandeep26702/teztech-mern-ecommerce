@@ -5,11 +5,14 @@ import { useCart } from "../context/CartContext";
 import { placeNewOrder } from "../services/orderService";
 import api from "../utils/api";
 
+// Import your components
+import AddressForm from "./Checkout/AddressForm";
+import ShippingMethod from "./Checkout/ShippingMethod";
+import PaymentSection from "./Checkout/PaymentSection";
+import OrderSummary from "./Checkout/OrderSummary";
+
 const getItemKey = (item) => item._id || item.localItemId || item.productId?._id || item.productId;
-const getUnitPrice = (item) =>
-  Number(item?.pricing?.unitPrice ?? item?.pricingSnapshot?.unitPrice ?? item?.unitPrice ?? item?.productId?.price ?? item?.price ?? 0);
-const getItemShippingCharge = (item) =>
-  Number(item?.productId?.shippingCharge ?? item?.shippingCharge ?? 0);
+const getUnitPrice = (item) => Number(item?.pricing?.unitPrice ?? item?.unitPrice ?? item?.productId?.price ?? item?.price ?? 0);
 
 const CheckoutPage = () => {
   const { cartItems, getCartTotal, clearCart } = useCart();
@@ -22,28 +25,41 @@ const CheckoutPage = () => {
   const [useNewAddress, setUseNewAddress] = useState(true);
   const [selectedAddressId, setSelectedAddressId] = useState("");
   const [saveAddressForNext, setSaveAddressForNext] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState("COD");
+  
+  // Stepper State (1: Address, 2: Shipping, 3: Payment)
+  const [currentStep, setCurrentStep] = useState(1);
+
+  // 🚀 NAYA: Delivery Type State
+  const [deliveryType, setDeliveryType] = useState('ship'); // 'ship' or 'pickup'
+
+  const [paymentMethod, setPaymentMethod] = useState("ONLINE");
   const [shippingInfo, setShippingInfo] = useState({
     fullName: user?.name || "",
+    companyName: "",
     phone: user?.phone || "",
     address: "",
     city: "",
     state: "",
     pincode: "",
+    pickupDate: "", // 🚀 NAYA
+    pickupTime: "", // 🚀 NAYA
+  });
+
+  const [selectedCourier, setSelectedCourier] = useState({
+    name: "COURIER (Whatsapp Confirmation)",
+    price: 1350
   });
 
   const cartTotal = getCartTotal();
-  const shippingTotal = cartItems.reduce(
-    (sum, item) => sum + getItemShippingCharge(item) * Number(item.quantity || 0),
-    0
-  );
-  const grandTotal = Math.round((cartTotal + shippingTotal) * 100) / 100;
+  
+  // 🚀 NAYA: Logic to make shipping 0 if pickup is selected
+  const shippingTotal = deliveryType === 'pickup' ? 0 : selectedCourier.price; 
+  
+  const igstTotal = Math.round((cartTotal * 0.18) * 100) / 100;
+  const grandTotal = Math.round((cartTotal + shippingTotal + igstTotal) * 100) / 100;
 
   useEffect(() => {
-    if (!user) {
-      alert("Please login to continue");
-      navigate("/login");
-    }
+    if (!user) navigate("/login");
   }, [user, navigate]);
 
   useEffect(() => {
@@ -68,50 +84,51 @@ const CheckoutPage = () => {
     loadAddresses();
   }, [user]);
 
-  const summaryRows = useMemo(
-    () =>
-      cartItems.map((item) => ({
-        key: getItemKey(item),
-        name: item.productId?.name || item.name || "Product",
-        image:
-          item.productId?.image ||
-          item.productId?.images?.[0]?.url ||
-          item.productId?.images?.[0] ||
-          item.image ||
-          "https://placehold.co/100x100/f3f4f6/a1a1aa?text=No+Image",
-        qty: Number(item.quantity || 0),
-        unitPrice: getUnitPrice(item),
-      })),
-    [cartItems]
-  );
+  const summaryRows = useMemo(() => cartItems.map((item) => ({
+      key: getItemKey(item),
+      name: item.productId?.name || item.name || "Product",
+      image: item.productId?.image || item.productId?.images?.[0]?.url || item.image || "https://placehold.co/100x100",
+      qty: Number(item.quantity || 0),
+      unitPrice: getUnitPrice(item),
+  })), [cartItems]);
 
-  const addressSuggestions = useMemo(() => {
-    const q = shippingInfo.address.trim().toLowerCase();
-    if (!q) return [];
-    return savedAddresses
-      .map((addr) => [addr.address, addr.locality, addr.city, addr.state, addr.pincode].filter(Boolean).join(", "))
-      .filter((value) => value.toLowerCase().includes(q))
-      .slice(0, 4);
-  }, [savedAddresses, shippingInfo.address]);
+  // Step Validation & Navigation Logic
+  const handleNextStep = () => {
+    if (currentStep === 1) {
+      // 🚀 NAYA: Validation based on Delivery Type
+      if (deliveryType === 'ship') {
+        if (useNewAddress) {
+          const { fullName, phone, address, city, state, pincode } = shippingInfo;
+          if (!fullName || !phone || !address || !city || !state || !pincode) {
+            return alert("Please fill all required address fields to continue.");
+          }
+        } else if (!selectedAddressId) {
+          return alert("Please select a delivery address.");
+        }
+      } else if (deliveryType === 'pickup') {
+        const { fullName, phone, pickupDate, pickupTime } = shippingInfo;
+        if (!fullName || !phone || !pickupDate || !pickupTime) {
+          return alert("Please fill your contact details and select pickup date & time.");
+        }
+      }
+    }
+    
+    setCurrentStep((prev) => prev + 1);
+    window.scrollTo({ top: 0, behavior: 'smooth' }); 
+  };
 
-  const handleInputChange = (e) => {
-    setShippingInfo((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const handlePrevStep = () => {
+    setCurrentStep((prev) => prev - 1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
-    if (cartItems.length === 0) {
-      alert("Your cart is empty.");
-      navigate("/");
-      return;
-    }
-    if (useNewAddress && (!shippingInfo.fullName || !shippingInfo.phone || !shippingInfo.address || !shippingInfo.city || !shippingInfo.pincode)) {
-      alert("Please fill complete shipping details.");
-      return;
-    }
-    if (!useNewAddress && !selectedAddressId) {
-      alert("Please select a saved address or choose new address.");
-      return;
+    if (cartItems.length === 0) return alert("Your cart is empty.");
+    
+    if (paymentMethod === "ONLINE") {
+       alert("Razorpay/Cashfree Gateway Pop-up will open here!");
+       return; 
     }
 
     setLoading(true);
@@ -121,150 +138,200 @@ const CheckoutPage = () => {
           cartItemId: getItemKey(item),
           productId: item.productId?._id || item.productId || item._id,
           quantity: Number(item.quantity || 0),
-          selectedCustomFields: item.selectedCustomFields || {},
-          pricingSnapshot: item.pricing || item.pricingSnapshot || null,
         })),
-        shippingInfo: useNewAddress ? shippingInfo : null,
-        addressId: useNewAddress ? null : selectedAddressId,
-        saveNewAddress: useNewAddress ? saveAddressForNext : false,
+        shippingInfo: (deliveryType === 'ship' && useNewAddress) || deliveryType === 'pickup' ? shippingInfo : null,
+        addressId: deliveryType === 'ship' && !useNewAddress ? selectedAddressId : null,
+        saveNewAddress: deliveryType === 'ship' && useNewAddress ? saveAddressForNext : false,
         paymentMethod,
+        deliveryType, // 🚀 NAYA: Backend ko batane ke liye ki ship hai ya pickup
+        courierPartner: deliveryType === 'pickup' ? 'Self Pickup' : selectedCourier.name,
+        shippingCost: shippingTotal
       };
 
       const res = await placeNewOrder(orderData);
       if (res.success) {
-        alert(`Order success. Order ID: ${res.order.orderCode || res.order.orderNumber || res.order._id}`);
         clearCart();
-        navigate("/orders");
+        navigate("/order-success", { state: { orderId: res.orderId || 'TZ-SUCCESS' } });
       }
     } catch (error) {
-      const errorMsg = error?.response?.data?.message || error?.message || "Order failed. Please try again.";
-      alert(errorMsg);
+      alert("Order failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
+  // Stepper UI Configuration
+  const steps = [
+    { id: 1, name: "Address" },
+    { id: 2, name: "Shipping" },
+    { id: 3, name: "Payment" }
+  ];
+
   return (
-    <div className="min-h-screen px-4 pt-24 pb-12 bg-gray-50 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto">
-        <h1 className="mb-8 text-2xl font-extrabold text-gray-900 md:text-3xl">Secure Checkout</h1>
-        <div className="flex flex-col gap-8 lg:flex-row">
-          <div className="w-full p-6 bg-white border border-gray-100 shadow-sm lg:w-2/3 md:p-8 rounded-2xl">
-            <h2 className="mb-6 text-xl font-bold text-gray-800">Delivery Address</h2>
-            <form onSubmit={handlePlaceOrder} className="space-y-5">
-              {addressesLoading ? (
-                <p className="text-sm text-gray-500">Loading saved addresses...</p>
-              ) : savedAddresses.length > 0 ? (
-                <div className="space-y-2">
-                  {savedAddresses.map((addr) => (
-                    <label key={addr._id} className={`block p-3 border rounded-xl cursor-pointer ${!useNewAddress && selectedAddressId === addr._id ? "border-orange-500 bg-orange-50" : "border-gray-200"}`}>
-                      <div className="flex items-start gap-2">
-                        <input
-                          type="radio"
-                          checked={!useNewAddress && selectedAddressId === addr._id}
-                          onChange={() => {
-                            setUseNewAddress(false);
-                            setSelectedAddressId(addr._id);
-                          }}
-                          className="mt-1 accent-orange-600"
-                        />
-                        <div>
-                          <p className="font-semibold text-gray-800">{addr.fullName} - {addr.phone}</p>
-                          <p className="text-sm text-gray-600">{addr.address}, {addr.locality ? `${addr.locality}, ` : ""}{addr.city}, {addr.state} - {addr.pincode}</p>
-                        </div>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              ) : null}
+    <div className="min-h-screen px-4 pt-24 pb-12 font-sans bg-slate-50 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-7xl">
+        
+        {/* Header & Stepper */}
+        <div className="mb-10 text-center md:text-left">
+          <h1 className="mb-8 text-3xl font-black tracking-tight text-slate-900 sm:text-4xl">Secure Checkout</h1>
+          
+          <div className="relative max-w-2xl mx-auto md:mx-0">
+            <div className="absolute left-0 w-full h-1 -translate-y-1/2 rounded-full top-1/2 bg-slate-200"></div>
+            <div 
+              className="absolute left-0 h-1 transition-all duration-500 ease-in-out -translate-y-1/2 bg-blue-600 rounded-full top-1/2"
+              style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
+            ></div>
 
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 cursor-pointer">
-                <input type="radio" checked={useNewAddress} onChange={() => setUseNewAddress(true)} className="accent-orange-600" />
-                Use a New Address
-              </label>
+            <div className="relative flex justify-between">
+              {steps.map((step) => {
+                const isCompleted = currentStep > step.id;
+                const isActive = currentStep === step.id;
 
-              {useNewAddress && (
-                <>
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <input name="fullName" value={shippingInfo.fullName} onChange={handleInputChange} placeholder="Full Name" className="p-3 border rounded-xl" required />
-                    <input name="phone" value={shippingInfo.phone} onChange={handleInputChange} placeholder="Phone" className="p-3 border rounded-xl" required pattern="[0-9]{10}" />
-                  </div>
-                  <textarea name="address" value={shippingInfo.address} onChange={handleInputChange} placeholder="Street, House no, Landmark" className="w-full p-3 border rounded-xl" rows={3} required />
-                  {addressSuggestions.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {addressSuggestions.map((item) => (
-                        <button
-                          type="button"
-                          key={item}
-                          onClick={() => setShippingInfo((prev) => ({ ...prev, address: item }))}
-                          className="px-2 py-1 text-xs text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                        >
-                          {item}
-                        </button>
-                      ))}
+                return (
+                  <div key={step.id} className="flex flex-col items-center">
+                    <div className={`flex items-center justify-center w-10 h-10 transition-all duration-500 rounded-full border-4 ${
+                      isCompleted 
+                        ? 'bg-blue-600 border-blue-600 text-white shadow-md' 
+                        : isActive 
+                        ? 'bg-white border-blue-600 text-blue-600 shadow-md' 
+                        : 'bg-white border-slate-200 text-slate-400'
+                    }`}>
+                      {isCompleted ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+                      ) : (
+                        <span className="text-sm font-bold">{step.id}</span>
+                      )}
                     </div>
-                  )}
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                    <input name="city" value={shippingInfo.city} onChange={handleInputChange} placeholder="City" className="p-3 border rounded-xl" required />
-                    <input name="state" value={shippingInfo.state} onChange={handleInputChange} placeholder="State" className="p-3 border rounded-xl" />
-                    <input name="pincode" value={shippingInfo.pincode} onChange={handleInputChange} placeholder="Pincode" className="p-3 border rounded-xl" required pattern="[0-9]{6}" />
+                    <span className={`mt-2 text-xs font-bold tracking-widest uppercase transition-colors ${
+                      isActive ? 'text-blue-600' : isCompleted ? 'text-slate-700' : 'text-slate-400'
+                    }`}>
+                      {step.name}
+                    </span>
                   </div>
-                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                    <input type="checkbox" checked={saveAddressForNext} onChange={(e) => setSaveAddressForNext(e.target.checked)} className="accent-orange-600" />
-                    Save this address for next orders
-                  </label>
-                </>
-              )}
-
-              <h2 className="mt-6 text-xl font-bold text-gray-800">Payment Options</h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <label className={`flex items-center gap-2 p-3 border rounded-xl cursor-pointer ${paymentMethod === "COD" ? "border-orange-600 bg-orange-50" : "border-gray-200"}`}>
-                  <input type="radio" value="COD" checked={paymentMethod === "COD"} onChange={(e) => setPaymentMethod(e.target.value)} className="accent-orange-600" />
-                  Cash on Delivery
-                </label>
-                <label className={`flex items-center gap-2 p-3 border rounded-xl cursor-pointer ${paymentMethod === "ONLINE" ? "border-orange-600 bg-orange-50" : "border-gray-200"}`}>
-                  <input type="radio" value="ONLINE" checked={paymentMethod === "ONLINE"} onChange={(e) => setPaymentMethod(e.target.value)} className="accent-orange-600" />
-                  Pay Online
-                </label>
-              </div>
-              <button type="submit" disabled={loading || cartItems.length === 0} className="w-full py-3 font-black text-white uppercase bg-orange-600 rounded-xl disabled:bg-gray-400">
-                {loading ? "Processing..." : `Place Order - Rs ${grandTotal}`}
-              </button>
-            </form>
-          </div>
-
-          <div className="w-full lg:w-1/3">
-            <div className="sticky p-6 bg-white border border-gray-100 shadow-sm rounded-2xl top-28">
-              <h2 className="pb-3 mb-5 text-lg font-bold text-gray-800 border-b">Your Order Summary</h2>
-              <div className="max-h-[350px] overflow-y-auto space-y-4 mb-5 pr-2">
-                {summaryRows.map((item) => (
-                  <div key={item.key} className="flex items-center gap-4 p-2 rounded-lg bg-gray-50">
-                    <img src={item.image} alt="product" className="object-cover border rounded-md w-14 h-14" />
-                    <div className="flex-1">
-                      <p className="text-xs font-bold text-gray-800 uppercase line-clamp-1">{item.name}</p>
-                      <p className="text-[11px] text-gray-500">QTY: {item.qty} x Rs {item.unitPrice}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="pt-4 border-t">
-                <div className="flex justify-between mb-2 text-sm font-semibold text-gray-600">
-                  <span>Shipping</span>
-                  {shippingTotal > 0 ? (
-                    <span>Rs {shippingTotal}</span>
-                  ) : (
-                    <span className="text-green-600">FREE</span>
-                  )}
-                </div>
-                <div className="flex justify-between text-xl font-black text-orange-600">
-                  <span>Total</span>
-                  <span>Rs {grandTotal}</span>
-                </div>
-              </div>
+                );
+              })}
             </div>
           </div>
         </div>
+        
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
+          
+          {/* Left Column */}
+          <div className="lg:col-span-7 xl:col-span-8">
+            <div className="p-6 transition-all duration-500 bg-white border shadow-sm sm:p-8 border-slate-200/60 rounded-[2rem]">
+              
+              <form id="checkout-form" onSubmit={handlePlaceOrder}>
+                
+                {/* Step 1: Address */}
+                <div className={`${currentStep === 1 ? 'block animate-fade-in' : 'hidden'}`}>
+                  <h2 className="mb-6 text-xl font-bold text-slate-900">1. Delivery Details</h2>
+                  
+                  {/* 🚀 NAYA: Pass deliveryType props */}
+                  <AddressForm 
+                    shippingInfo={shippingInfo} 
+                    setShippingInfo={setShippingInfo}
+                    useNewAddress={useNewAddress}
+                    setUseNewAddress={setUseNewAddress}
+                    savedAddresses={savedAddresses}
+                    selectedAddressId={selectedAddressId}
+                    setSelectedAddressId={setSelectedAddressId}
+                    saveAddressForNext={saveAddressForNext}
+                    setSaveAddressForNext={setSaveAddressForNext}
+                    addressesLoading={addressesLoading}
+                    deliveryType={deliveryType} 
+                    setDeliveryType={setDeliveryType}
+                  />
+                  
+                  <div className="flex justify-end pt-6 mt-8 border-t border-slate-100">
+                    <button type="button" onClick={handleNextStep} className="px-8 py-3.5 font-bold text-white transition-all bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-blue-200 active:scale-95">
+                      Continue
+                    </button>
+                  </div>
+                </div>
+
+                {/* Step 2: Shipping */}
+                <div className={`${currentStep === 2 ? 'block animate-fade-in' : 'hidden'}`}>
+                  <h2 className="mb-6 text-xl font-bold text-slate-900">2. Shipping Method</h2>
+                  
+                  {/* 🚀 NAYA: If Pickup is selected, show message instead of couriers */}
+                  {deliveryType === 'ship' ? (
+                    <ShippingMethod 
+                      selectedCourier={selectedCourier} 
+                      setSelectedCourier={setSelectedCourier} 
+                    />
+                  ) : (
+                    <div className="p-8 text-center border border-blue-100 bg-blue-50/50 rounded-xl">
+                      <svg className="w-16 h-16 mx-auto mb-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                      <h3 className="text-xl font-bold text-blue-900">Store Pickup Selected</h3>
+                      <p className="mt-2 text-sm text-blue-700">No shipping charges apply. You can proceed directly to payment.</p>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between pt-6 mt-8 border-t border-slate-100">
+                    <button type="button" onClick={handlePrevStep} className="px-6 py-3.5 font-bold text-slate-600 transition-all bg-slate-100 rounded-xl hover:bg-slate-200 active:scale-95">
+                      Back
+                    </button>
+                    <button type="button" onClick={handleNextStep} className="px-8 py-3.5 font-bold text-white transition-all bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md hover:shadow-blue-200 active:scale-95">
+                      Continue to Payment
+                    </button>
+                  </div>
+                </div>
+
+                {/* Step 3: Payment */}
+                <div className={`${currentStep === 3 ? 'block animate-fade-in' : 'hidden'}`}>
+                  <h2 className="mb-6 text-xl font-bold text-slate-900">3. Payment Options</h2>
+                  <PaymentSection 
+                    paymentMethod={paymentMethod} 
+                    setPaymentMethod={setPaymentMethod} 
+                  />
+                  <div className="flex justify-between pt-6 mt-8 border-t border-slate-100">
+                    <button type="button" onClick={handlePrevStep} className="px-6 py-3.5 font-bold text-slate-600 transition-all bg-slate-100 rounded-xl hover:bg-slate-200 active:scale-95">
+                      Back
+                    </button>
+                    <button type="submit" disabled={loading} className="px-8 py-3.5 font-bold text-white transition-all bg-slate-900 rounded-xl hover:bg-blue-600 shadow-lg hover:shadow-blue-200 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {loading ? "Processing..." : "Place Order Now"}
+                    </button>
+                  </div>
+                </div>
+
+              </form>
+            </div>
+          </div>
+
+          {/* Right Column */}
+          <div className="lg:col-span-5 xl:col-span-4">
+            <div className="sticky top-28">
+              <div className="overflow-hidden bg-white border border-slate-200/60 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2rem]">
+                <OrderSummary 
+                  summaryRows={summaryRows} 
+                  cartTotal={cartTotal} 
+                  shippingTotal={shippingTotal} 
+                  igstTotal={igstTotal} 
+                  grandTotal={grandTotal}
+                  loading={loading}
+                  cartItems={cartItems}
+                />
+              </div>
+              
+              <div className="flex items-center justify-center gap-4 mt-6 text-xs font-semibold tracking-wide uppercase text-slate-400">
+                <span className="flex items-center gap-1.5"><svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg> SSL Secured</span>
+                <span className="flex items-center gap-1.5"><svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg> Verified</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
+      
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.4s ease-out forwards;
+        }
+      `}} />
     </div>
   );
 };

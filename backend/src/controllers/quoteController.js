@@ -165,6 +165,10 @@ const normalizeQuoteItems = (incomingItems, existingItems = []) => {
           ? fallback.selectedOptions
           : [];
 
+      // 🔥 FIX: Naye attributes aur variants yahan map honge
+      const selectedVariant = item.selectedVariant || fallback.selectedVariant || null;
+      const selectedAttributes = item.selectedAttributes || fallback.selectedAttributes || {};
+
       const basePrice = toSafeNumber(item.basePrice, toSafeNumber(fallback.basePrice, 0));
       const optionAdjustment = toSafeNumber(item.optionAdjustment, toSafeNumber(fallback.optionAdjustment, 0));
       const rawOriginal =
@@ -197,16 +201,16 @@ const normalizeQuoteItems = (incomingItems, existingItems = []) => {
         offeredPrice,
         selectedCustomFields,
         selectedOptions,
+        selectedVariant,       // 🔥 NEW
+        selectedAttributes,    // 🔥 NEW
       };
     })
     .filter(Boolean);
 };
 
 /* ============================================================
-   🛒 A. QUOTE DRAFT SYSTEM (For QuoteContext)
-   Logic: Acts exactly like a Cart, but specifically for quotations.
+   🛒 A. QUOTE DRAFT SYSTEM
 ============================================================ */
-
 export const getQuoteDraft = async (req, res) => {
   try {
     const draft = await QuoteDraft.findOne({ user: req.user._id }).populate(
@@ -215,7 +219,6 @@ export const getQuoteDraft = async (req, res) => {
     );
     if (!draft) return res.status(200).json({ success: true, quote: { items: [] } });
     
-    // Clean up orphaned items (If a product was deleted by admin)
     const originalLength = draft.items.length;
     draft.items = draft.items.filter(item => item.productId !== null);
     
@@ -232,7 +235,7 @@ export const getQuoteDraft = async (req, res) => {
 
 export const addToQuoteDraft = async (req, res) => {
   try {
-    const { productId, quantity, selectedCustomFields } = req.body;
+    const { productId, quantity, selectedCustomFields, selectedVariant, selectedAttributes } = req.body; // 🔥 Added new fields
     
     if (!productId) return res.status(400).json({ success: false, message: "Product ID is required" });
 
@@ -242,15 +245,29 @@ export const addToQuoteDraft = async (req, res) => {
     if (!draft) {
       draft = new QuoteDraft({
         user: req.user._id,
-        items: [{ productId, quantity: quantity || 1, selectedCustomFields: normalizedSelections }],
+        items: [{ 
+            productId, 
+            quantity: quantity || 1, 
+            selectedCustomFields: normalizedSelections,
+            selectedVariant: selectedVariant || null,
+            selectedAttributes: selectedAttributes || {}
+        }],
       });
     } else {
       const itemIndex = draft.items.findIndex(item => item.productId.toString() === productId);
       if (itemIndex > -1) {
         draft.items[itemIndex].quantity += (quantity || 1);
         draft.items[itemIndex].selectedCustomFields = normalizedSelections;
+        draft.items[itemIndex].selectedVariant = selectedVariant || null;
+        draft.items[itemIndex].selectedAttributes = selectedAttributes || {};
       } else {
-        draft.items.push({ productId, quantity: quantity || 1, selectedCustomFields: normalizedSelections });
+        draft.items.push({ 
+            productId, 
+            quantity: quantity || 1, 
+            selectedCustomFields: normalizedSelections,
+            selectedVariant: selectedVariant || null,
+            selectedAttributes: selectedAttributes || {}
+        });
       }
     }
 
@@ -270,7 +287,6 @@ export const updateQuoteDraft = async (req, res) => {
   try {
     const { productId, quantity } = req.body;
     
-    // Edge case: UI sends 0 or less
     if (quantity <= 0) {
       const draftToUpdate = await QuoteDraft.findOne({ user: req.user._id });
       if (draftToUpdate) {
@@ -324,7 +340,6 @@ export const removeFromQuoteDraft = async (req, res) => {
   }
 };
 
-// 🚀 NEW: MERGE QUOTE DRAFT (Guest LocalStorage to DB)
 export const mergeQuoteDraft = async (req, res) => {
   try {
     const { localItems } = req.body;
@@ -347,6 +362,8 @@ export const mergeQuoteDraft = async (req, res) => {
           productId: item._id || item.productId,
           quantity: item.quantity || 1,
           selectedCustomFields: normalizeSelectedCustomFields(item.selectedCustomFields),
+          selectedVariant: item.selectedVariant || null,
+          selectedAttributes: item.selectedAttributes || {}
         }))
       });
     } else {
@@ -360,8 +377,16 @@ export const mergeQuoteDraft = async (req, res) => {
         if (itemIndex > -1) {
           draft.items[itemIndex].quantity += qty;
           draft.items[itemIndex].selectedCustomFields = normalizedSelections;
+          draft.items[itemIndex].selectedVariant = localItem.selectedVariant || null;
+          draft.items[itemIndex].selectedAttributes = localItem.selectedAttributes || {};
         } else {
-          draft.items.push({ productId: prodId, quantity: qty, selectedCustomFields: normalizedSelections });
+          draft.items.push({ 
+              productId: prodId, 
+              quantity: qty, 
+              selectedCustomFields: normalizedSelections,
+              selectedVariant: localItem.selectedVariant || null,
+              selectedAttributes: localItem.selectedAttributes || {}
+          });
         }
       }
     }
@@ -394,6 +419,7 @@ export const createQuote = async (req, res) => {
       return res.status(400).json({ success: false, message: "Name, email and phone are required" });
     }
 
+    // 🔥 FIX: Extracting variant and attributes
     const normalizedItems = requestedItems.map((item) => {
       const prodId = item.productId?._id || item.productId;
       if (!prodId || !Number.isFinite(Number(item.quantity)) || Number(item.quantity) < 1) {
@@ -407,11 +433,13 @@ export const createQuote = async (req, res) => {
         quantity: Number(item.quantity),
         name: item.name || "Unknown Product",
         selectedCustomFields: normalizeSelectedCustomFields(item.selectedCustomFields),
+        selectedVariant: item.selectedVariant || null,         // 🔥 ADDED
+        selectedAttributes: item.selectedAttributes || {},     // 🔥 ADDED
       };
     });
 
     const productIds = [...new Set(normalizedItems.map((item) => item.productId))];
-    const products = await Product.find({ _id: { $in: productIds } }).select("_id name price customFields");
+    const products = await Product.find({ _id: { $in: productIds } }).select("_id name price customFields attributes variants");
     const productMap = new Map(products.map((p) => [p._id.toString(), p]));
 
     const missingProducts = productIds.filter((id) => !productMap.has(id));
@@ -424,12 +452,22 @@ export const createQuote = async (req, res) => {
 
     const itemsWithPrices = normalizedItems.map((item) => {
       const product = productMap.get(item.productId);
+      
+      // Calculate Extra price from selectedAttributes (CSV)
+      let attributeExtraPrice = 0;
+      if (item.selectedAttributes && typeof item.selectedAttributes === 'object') {
+          Object.values(item.selectedAttributes).forEach(attr => {
+              if (attr && attr.priceAdjustment) attributeExtraPrice += Number(attr.priceAdjustment);
+          });
+      }
+
       const basePrice = toSafeNumber(product?.price, 0);
       const { selectedCustomFields, selectedOptions, optionAdjustment } = resolveSelectedOptions(
         product,
         item.selectedCustomFields
       );
-      const originalPrice = toSafeNumber(basePrice + optionAdjustment, basePrice);
+      
+      const originalPrice = toSafeNumber(basePrice + optionAdjustment + attributeExtraPrice, basePrice);
 
       return {
         productId: item.productId,
@@ -441,6 +479,8 @@ export const createQuote = async (req, res) => {
         offeredPrice: originalPrice,
         selectedCustomFields,
         selectedOptions,
+        selectedVariant: item.selectedVariant,       // 🔥 ADDED
+        selectedAttributes: item.selectedAttributes, // 🔥 ADDED
       };
     });
 
@@ -459,7 +499,6 @@ export const createQuote = async (req, res) => {
 
     await newQuote.save();
 
-    // Clear the draft cart after successful submission
     await QuoteDraft.findOneAndUpdate({ user: req.user._id }, { items: [] });
     
     res.status(201).json({ success: true, message: "Quote submitted successfully!", quoteId: newQuote._id });
@@ -494,7 +533,7 @@ export const getQuoteById = async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id)
       .populate('user', 'name email')
-      .populate('requestedItems.productId', 'name price sellingPrice customFields image images sku details description category categoryPath gstRate heightFt widthFt totalHoles holeSize materialType sheetThickness ledCompatible inputVoltage outputVoltage powerWatt connectivity icNumber ledPerMeter controllerType warranty');
+      .populate('requestedItems.productId', 'name price sellingPrice customFields image images sku details description category categoryPath variants attributes');
     if (!quote) return res.status(404).json({ success: false, message: "Quote not found" });
     const parentId = getParentQuoteId(quote);
     const groupQuotes = await fetchQuoteGroup(parentId);
@@ -602,6 +641,8 @@ export const respondToQuote = async (req, res) => {
         offeredPrice,
         selectedCustomFields,
         selectedOptions,
+        selectedVariant: item.selectedVariant,       // 🔥 ADDED
+        selectedAttributes: item.selectedAttributes, // 🔥 ADDED
       };
     });
 
@@ -626,6 +667,9 @@ export const respondToQuote = async (req, res) => {
       (sum, item) => sum + toSafeNumber(item.offeredPrice, 0) * toSafeNumber(item.quantity, 0),
       0
     );
+    // Simple rounding function for internal logic if needed
+    const round2 = (num) => Math.round(num * 100) / 100;
+    
     const discountAmount =
       safeDiscountType === "percent"
         ? round2(computedSubTotal * (safeDiscountValue / 100))
@@ -702,7 +746,7 @@ export const getQuoteByToken = async (req, res) => {
   try {
     const quote = await Quote.findOne({ quoteToken: req.params.token })
       .populate('user', 'name email')
-      .populate('requestedItems.productId', 'name price sellingPrice customFields image images sku details description category categoryPath gstRate heightFt widthFt totalHoles holeSize materialType sheetThickness ledCompatible inputVoltage outputVoltage powerWatt connectivity icNumber ledPerMeter controllerType warranty');
+    .populate('requestedItems.productId', 'name price sellingPrice customFields image images sku details description category categoryPath variants attributes');
     if (!quote) return res.status(404).json({ success: false, message: "Invalid or expired link" });
     const parentId = getParentQuoteId(quote);
     const groupQuotes = await fetchQuoteGroup(parentId);
@@ -823,94 +867,49 @@ export const createManualQuote = async (req, res) => {
         productId: prodId.toString(),
         quantity: Number(item.quantity),
         name: item.name || "Unknown Product",
-        offeredPrice: toSafeNumber(item.offeredPrice, 0), // Admin can override price
+        offeredPrice: toSafeNumber(item.offeredPrice, 0),
         selectedCustomFields: normalizeSelectedCustomFields(item.selectedCustomFields || {}),
+        selectedVariant: item.selectedVariant || null,       // 🔥 ADDED
+        selectedAttributes: item.selectedAttributes || {},   // 🔥 ADDED
       };
     });
 
     const productIds = [...new Set(normalizedItems.map((item) => item.productId))];
     const products = await Product.find({ _id: { $in: productIds } }).select("_id name sku image sellingPrice price customFields");
-    const productMap = new Map(products.map((p) => [p._id.toString(), p]));
-
-    const missingProducts = productIds.filter((id) => !productMap.has(id));
-    if (missingProducts.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Some products are no longer available: ${missingProducts.slice(0,3).join(", ")}${missingProducts.length > 3 ? '...' : ''}`
-      });
-    }
+    const productMap = new Map(products.map((p) => [String(p._id), p]));
 
     const itemsWithPrices = normalizedItems.map((item) => {
       const product = productMap.get(item.productId);
-      const basePrice = toSafeNumber(product?.sellingPrice || product?.price, 0);
-      const resolved = resolveSelectedOptions(product, item.selectedCustomFields);
-      const optionAdjustment = toSafeNumber(resolved.optionAdjustment, 0);
-      const originalPrice = basePrice + optionAdjustment;
-      const offeredPrice = Math.max(0, toSafeNumber(item.offeredPrice, originalPrice));
-
       return {
-        productId: item.productId,
-        name: product?.name || item.name,
-        quantity: item.quantity,
-        basePrice,
-        optionAdjustment,
-        originalPrice,
-        offeredPrice,
-        selectedCustomFields: resolved.selectedCustomFields,
-        selectedOptions: resolved.selectedOptions,
+        ...item,
+        basePrice: product ? product.price : 0,
+        originalPrice: item.offeredPrice || product?.price || 0,
+        selectedVariant: item.selectedVariant,       
+        selectedAttributes: item.selectedAttributes, 
       };
     });
 
-    const subtotal = itemsWithPrices.reduce((sum, item) => sum + (item.offeredPrice * item.quantity), 0);
-    const safeGst = Math.max(0, toSafeNumber(gstPercentage, 0));
-    const gstAmount = round2(subtotal * (safeGst / 100));
-    const safeShipping = Math.max(0, toSafeNumber(shippingCharge, 0));
-    const safeAdditional = Math.max(0, toSafeNumber(additionalChargeAmount, 0));
-    const finalTotal = subtotal + gstAmount + safeShipping + safeAdditional;
-
     const token = crypto.randomBytes(12).toString('hex');
-
     const newQuote = new Quote({
-      user: null, // Manual quotes not tied to registered user
+      user: req.user ? req.user._id : null,
       userDetails,
       requestedItems: itemsWithPrices,
-      adminNotes: `Manual quote created by Admin on ${new Date().toISOString()}`,
-      shippingCharge: safeShipping,
-      additionalChargeName,
-      additionalChargeAmount: safeAdditional,
-      gstPercentage: safeGst,
-      finalTotal,
       quoteToken: token,
-      status: "Responded",
-      isManual: true,
+      status: "Offered", 
       version: 1,
-      parentQuoteId: null,
-      adminUpdateLogs: [`Manual quote created by Admin on ${new Date().toISOString()}`],
-      quoteLogs: [buildLogEntry("Created", "Admin", "Manual quote created")],
+      isManual: true,
+      shippingCharge: toSafeNumber(shippingCharge, 0),
+      additionalChargeName,
+      additionalChargeAmount: toSafeNumber(additionalChargeAmount, 0),
+      gstPercentage: toSafeNumber(gstPercentage, 0),
+      quoteLogs: [buildLogEntry("Created", "Admin", "Manual quotation created by Admin")],
     });
 
     await newQuote.save();
 
-    const shareableLink = `${process.env.FRONTEND_URL || "http://localhost:5173"}/quote/${token}`;
-
-    res.status(201).json({ 
-      success: true, 
-      message: "Manual quotation created successfully!", 
-      quote: newQuote,
-      shareLink: shareableLink 
-    });
+    res.status(201).json({ success: true, message: "Manual Quote created successfully!", quoteId: newQuote._id });
   } catch (error) {
     console.error("Create Manual Quote Error:", error);
-    if (
-      error?.name === "ValidationError" ||
-      error?.name === "CastError" ||
-      error?.code === 11000 ||
-      error?.message?.includes("Invalid")
-    ) {
-      return res.status(400).json({ success: false, message: error.message });
-    }
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
-
-const round2 = (num) => Math.round(num * 100) / 100;

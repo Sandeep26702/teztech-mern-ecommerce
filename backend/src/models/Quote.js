@@ -23,6 +23,15 @@ const requestedItemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    // 👇🔥 ADDED: Ye dono fields lazmi hain variant/options capture karne ke liye
+    selectedVariant: {
+      type: mongoose.Schema.Types.Mixed, 
+      default: null,
+    },
+    selectedAttributes: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
+    },
     selectedOptions: [
       {
         fieldLabel: { type: String, required: true },
@@ -31,8 +40,8 @@ const requestedItemSchema = new mongoose.Schema(
       },
     ],
   }
-  // Note: We are NOT using {_id: false} here like we did in Cart. 
-  // Why? Because Admins might need to update the price of a specific line-item later, and having an _id helps identify which item to update.
+  // Note: We are NOT using {_id: false} here. 
+  // Admin might need to update the price of a specific line-item later.
 );
 
 // 📄 Main Quote Schema
@@ -125,7 +134,7 @@ const quoteSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ⚙️ Pre-save Hook: Auto-generate 'quoteNumber' before saving to Database
+// ⚙️ Pre-validate Hook: Auto-generate 'quoteNumber' before saving to Database
 quoteSchema.pre("validate", function () {
   if (!this.quoteNumber) {
     // Low-collision, human-readable quote number.
