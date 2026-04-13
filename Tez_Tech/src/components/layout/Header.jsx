@@ -2,13 +2,13 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext"; 
 import { useQuote } from "../../context/QuoteContext"; 
+import { useCart } from "../../context/CartContext"; // 🔥 1. Cart Context Import kiya
 
-// 💧 NAYA: Water Droplet Component (Boondein udane ke liye)
+// 💧 Water Droplet Component (Boondein udane ke liye)
 const WaterDroplet = ({ x, y, tx, ty, colorClass }) => {
   const [active, setActive] = useState(false);
   
   useEffect(() => {
-    // Component mount hote hi animation trigger karega
     const frame = requestAnimationFrame(() => setActive(true));
     return () => cancelAnimationFrame(frame);
   }, []);
@@ -32,11 +32,16 @@ const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { isAuthenticated, logout, user } = useAuth();
   const { clearQuote } = useQuote(); 
+  
+  // 🔥 2. Cart Items count nikalne ka logic
+  const { cartItems } = useCart();
+  const cartCount = cartItems?.length || 0;
+
   const navigate = useNavigate();
   const location = useLocation();
 
   const [gliderStyle, setGliderStyle] = useState({ opacity: 0, left: 0, width: 0 });
-  const [droplets, setDroplets] = useState([]); // Boondon ki state
+  const [droplets, setDroplets] = useState([]); 
   const tabRefs = useRef([]); 
 
   useEffect(() => {
@@ -86,7 +91,6 @@ const Header = () => {
     }
   }, [activeIndex, location.pathname]);
 
-  // 🌊 Water Flow Colors (Slider Background)
   const getWaterColor = () => {
     switch (activeIndex) {
       case 0: return 'from-cyan-400 to-blue-500'; 
@@ -98,7 +102,6 @@ const Header = () => {
     }
   };
 
-  // 💧 Droplet Colors (Splash Particles)
   const getDropletColor = (idx) => {
     switch (idx) {
       case 0: return 'bg-cyan-400';
@@ -110,28 +113,22 @@ const Header = () => {
     }
   };
 
-  // 💥 SPLASH LOGIC: Click karne par boondein udana
   const handleNavClick = (e, idx) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const parentRect = e.currentTarget.parentElement.getBoundingClientRect();
-
-    // Click ki exactly center position nikalna
     const x = rect.left - parentRect.left + rect.width / 2;
     const y = rect.top - parentRect.top + rect.height / 2;
 
-    // 6 nayi boondein (droplets) generate karna random directions mein
     const newDroplets = Array.from({ length: 6 }).map((_, i) => ({
       id: Date.now() + i + Math.random(),
       x,
       y,
-      tx: (Math.random() - 0.5) * 80, // Left ya Right
-      ty: (Math.random() - 1) * 50 - 10, // Upar ki taraf udna
+      tx: (Math.random() - 0.5) * 80, 
+      ty: (Math.random() - 1) * 50 - 10, 
       colorClass: getDropletColor(idx),
     }));
 
     setDroplets((prev) => [...prev, ...newDroplets]);
-
-    // 600ms baad boondon ko DOM se hara dena (memory bachane ke liye)
     setTimeout(() => {
       setDroplets((prev) => prev.filter(d => !newDroplets.some(nd => nd.id === d.id)));
     }, 600);
@@ -157,17 +154,12 @@ const Header = () => {
           {/* 💻 DESKTOP NAV LINKS */}
           <nav className="items-center hidden md:flex">
             
-            {/* Nav Container */}
             <div className="relative flex items-center bg-gray-50/80 backdrop-blur-md border border-gray-200/50 rounded-full p-1.5 shadow-[inset_0_2px_6px_rgba(0,0,0,0.04)]">
-              
-              {/* 💧 WATER DROPLET RENDERER */}
               {droplets.map((drop) => (
                 <WaterDroplet key={drop.id} {...drop} />
               ))}
 
-              {/* 🍮 THE BOUNCY LIQUID SLIDER */}
               <div
-                // 🚀 MAGIC CURVE: cubic-bezier(0.4, 2.5, 0.4, 0.8) aage jaake piche reverse hone ka effect deta hai
                 className={`absolute top-1.5 bottom-1.5 rounded-full transition-all duration-1200 ease-[cubic-bezier(0.4,2.5,0.4,0.8)] z-0 bg-gradient-to-r ${getWaterColor()}`}
                 style={{
                   left: `${gliderStyle.left}px`,
@@ -176,12 +168,11 @@ const Header = () => {
                 }}
               ></div>
 
-              {/* The Nav Links */}
               {navLinks.map((link, idx) => (
                 <Link
                   key={link.id}
                   to={link.path}
-                  onClick={(e) => handleNavClick(e, idx)} // Click par splash effect trigger
+                  onClick={(e) => handleNavClick(e, idx)} 
                   ref={(el) => (tabRefs.current[idx] = el)}
                   className={`relative z-10 px-5 py-1.5 text-[15px] font-bold text-center transition-colors duration-300 ${
                     activeIndex === idx 
@@ -200,16 +191,28 @@ const Header = () => {
               </Link>
             )}
 
-            {/* Auth Section */}
+            {/* Auth & Cart Section (Desktop) */}
             <div className="flex items-center gap-4 pl-4 ml-4 border-l border-gray-200">
               {isAuthenticated ? (
                 <>
-                  <Link to="/cart" className="relative p-2 text-gray-600 transition-colors hover:text-cyan-600">
-                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  {/* 🔥 3. PREMIUM DESKTOP CART ICON */}
+                  <Link 
+                    to="/cart" 
+                    className="relative flex items-center justify-center w-10 h-10 transition-all duration-300 bg-white border border-gray-200 rounded-full hover:border-cyan-300 hover:shadow-md hover:bg-cyan-50 group"
+                  >
+                    <svg className="w-5 h-5 text-gray-600 transition-transform duration-300 group-hover:text-cyan-600 group-hover:scale-110 group-hover:-rotate-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
+                    
+                    {/* Badge */}
+                    {cartCount > 0 && (
+                      <span className="absolute flex items-center justify-center w-5 h-5 text-[10px] font-extrabold text-white transition-transform duration-300 border-2 border-white rounded-full bg-gradient-to-br from-rose-500 to-red-600 -top-1.5 -right-1.5 shadow-sm group-hover:scale-110">
+                        {cartCount}
+                      </span>
+                    )}
                   </Link>
 
+                  {/* Profile Dropdown */}
                   <div className="relative group">
                     <button className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-gray-200 hover:border-cyan-300 hover:bg-cyan-50 transition-all text-sm font-medium text-gray-700 cursor-pointer">
                       <div className="flex items-center justify-center w-6 h-6 text-xs text-white rounded-full bg-gradient-to-br from-cyan-500 to-blue-600">
@@ -240,16 +243,27 @@ const Header = () => {
           </nav>
 
           {/* 📱 MOBILE ACTIONS */}
-          <div className="flex items-center gap-2 md:hidden">
+          <div className="flex items-center gap-3 md:hidden">
             {isAuthenticated && (
-              <Link to="/cart" className="p-2 text-gray-600 transition-colors hover:text-cyan-600">
-                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              /* 🔥 4. PREMIUM MOBILE CART ICON */
+              <Link 
+                to="/cart" 
+                className="relative flex items-center justify-center w-10 h-10 transition-all duration-300 border border-gray-200 rounded-full bg-gray-50 active:scale-95 group"
+              >
+                <svg className="w-5 h-5 text-gray-600 transition-colors group-hover:text-cyan-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
+                
+                {/* Badge */}
+                {cartCount > 0 && (
+                  <span className="absolute flex items-center justify-center w-5 h-5 text-[10px] font-extrabold text-white border-2 border-white rounded-full bg-gradient-to-br from-rose-500 to-red-600 -top-1.5 -right-1 shadow-sm">
+                    {cartCount}
+                  </span>
+                )}
               </Link>
             )}
             
-            <button onClick={toggleMenu} className="p-2 text-gray-600 transition-colors rounded-lg hover:text-cyan-600 hover:bg-gray-100 focus:outline-none">
+            <button onClick={toggleMenu} className="flex items-center justify-center w-10 h-10 text-gray-600 transition-colors border border-transparent rounded-full hover:text-cyan-600 hover:bg-gray-100 focus:outline-none">
               {isMenuOpen ? (
                 <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
               ) : (

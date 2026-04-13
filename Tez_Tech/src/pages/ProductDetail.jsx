@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { FaRegHeart } from "react-icons/fa"; 
-import { useNavigate, useParams, useSearchParams } from "react-router-dom"; // 🔥 useSearchParams add kiya
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useQuote } from "../context/QuoteContext";
 import { getProductById } from "../services/productService";
@@ -10,7 +10,7 @@ const round2 = (v) => Math.round((Number(v) + Number.EPSILON) * 100) / 100;
 const ProductDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams(); // 🔥 URL parameters ke liye
+  const [searchParams, setSearchParams] = useSearchParams(); 
   
   const { addToCart } = useCart();
   const { addToQuote } = useQuote();
@@ -33,7 +33,7 @@ const ProductDetail = () => {
         const fetchedProduct = data.product;
         setProduct(fetchedProduct);
 
-        // 🔥 URL se data nikalna
+        // URL se data nikalna
         const urlVariantId = searchParams.get("variant");
         const urlAttrs = searchParams.get("attrs");
 
@@ -71,7 +71,7 @@ const ProductDetail = () => {
     };
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]); // Sirf id dependecy rakhi hai taaki baar baar api call na ho
+  }, [id]); 
 
   // ======================
   // IMAGE LIST
@@ -104,7 +104,7 @@ const ProductDetail = () => {
     return opt;
   }, [product]);
 
-  // 🔥 Variant select hone pe state aur URL dono update honge
+  // Variant select hone pe state aur URL dono update honge
   const handleVariantSelect = (key, value) => {
     const found = product.variants.find(
       (v) => v.combination?.[key] === value
@@ -114,14 +114,13 @@ const ProductDetail = () => {
       
       // Update URL real-time
       searchParams.set("variant", found._id);
-      setSearchParams(searchParams, { replace: true }); // replace: true se browser history kachra nahi hogi
+      setSearchParams(searchParams, { replace: true }); 
     }
   };
 
   // ======================
   // CSV ATTRIBUTE OPTIONS
   // ======================
-  // 🔥 Attribute select hone pe state aur URL dono update honge
   const handleAttributeSelect = (attrName, optionObj) => {
     const newAttrs = {
       ...selectedAttributes,
@@ -282,20 +281,36 @@ const ProductDetail = () => {
             {stock ? "In stock" : <span className="text-red-600">Out of stock</span>}
           </p>
 
-          {/* 🔥 ACTIONS */}
+          {/* 🔥 ACTIONS (WITH PRICE BUG FIX) */}
           <div className="flex flex-col gap-3 mt-5">
-           <button
-  onClick={() => addToCart({
-    ...product, 
-    quantity: 1, 
-    variant: selectedVariant, 
-    attributes: selectedAttributes 
-  })}
-  disabled={stock === 0}
-  className="w-full py-3.5 text-[15px] font-medium text-white transition-colors bg-[#333333] hover:bg-black rounded-sm disabled:bg-gray-400"
->
-  Add to Bag
-</button>
+            <button
+              onClick={() => {
+                // Safety Guard
+                if (product?.variants?.length > 0 && !selectedVariant) {
+                  return alert("Please select a product variant before adding to cart.");
+                }
+                if (product?.attributes?.length > 0) {
+                  for (const attr of product.attributes) {
+                    if (!selectedAttributes[attr.name]) {
+                      return alert(`Please select ${attr.name} before adding to cart.`);
+                    }
+                  }
+                }
+                
+                // Add to Cart Logic
+                addToCart({
+                  ...product, 
+                  price: finalPrice, // ✅ Ye fix zero price ko theek karega
+                  quantity: 1, 
+                  variant: selectedVariant, 
+                  attributes: selectedAttributes 
+                });
+              }}
+              disabled={stock === 0}
+              className="w-full py-3.5 text-[15px] font-medium text-white transition-colors bg-[#333333] hover:bg-black rounded-sm disabled:bg-gray-400"
+            >
+              Add to Bag
+            </button>
 
             <button
               onClick={() => addToQuote(product, 1, selectedVariant, selectedAttributes)}

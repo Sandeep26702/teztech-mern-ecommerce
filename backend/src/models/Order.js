@@ -13,6 +13,14 @@ const orderItemSchema = new mongoose.Schema(
     image: { type: String, required: true },
     quantity: { type: Number, required: true, min: [1, "Quantity cannot be less than 1"] },
     basePrice: { type: Number, required: true, min: 0 },
+    
+    // 🔥 THE FIX: Ye naye fields add kiye hain taaki Mongoose variations ko delete na kare!
+    variant: { type: String },
+    size: { type: String },
+    color: { type: String },
+    attributes: { type: mongoose.Schema.Types.Mixed, default: {} },
+    // ---------------------------------------------------------
+
     optionAdjustment: { type: Number, default: 0 },
     gstRate: { type: Number, default: 0, min: 0, max: 100 },
     unitPrice: { type: Number, required: true, min: 0 },
@@ -70,8 +78,8 @@ const orderSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       required: true,
-      enum: ["COD", "ONLINE"],
-      default: "COD",
+      enum: ['ONLINE', 'COD', 'Card', 'MANUAL', 'STORE_PICKUP'], 
+      default: 'MANUAL'
     },
     paymentStatus: {
       type: String,
@@ -79,6 +87,27 @@ const orderSchema = new mongoose.Schema(
       enum: ["Pending", "Paid", "Failed", "Refunded"],
       default: "Pending",
     },
+    
+    // 🔥 NAYI FIELDS: Manual Payment ke liye
+    deliveryType: {
+      type: String,
+      enum: ['ship', 'pickup'],
+      default: 'ship'
+    },
+    utrNumber: {
+      type: String,
+      default: ""
+    },
+    paymentScreenshot: {
+      type: String,
+      default: "" // Yahan image ka path aayega
+    },
+    orderNotes: {
+      type: String,
+      default: ""
+    },
+    // 🔥 ----------------------------------------------------
+
     subtotalAmount: {
       type: Number,
       required: true,

@@ -234,7 +234,7 @@ const productSchema = new mongoose.Schema(
 
 //productSchema.index({ slug: 1 });
 //productSchema.index({ category: 1 });
-//productSchema.index({ name: "text", searchIndex: "text" });
+productSchema.index({ name: "text", searchIndex: "text" });
 
 // ==========================
 // 🔥 AUTO SLUG + SEARCH INDEX (ORDER CRASH FIX APPLIED)

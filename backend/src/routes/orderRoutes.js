@@ -1,5 +1,5 @@
 import express from 'express';
-// Yahan check karein: getMyOrders ko curly braces ke andar add kiya hai
+import multer from 'multer'; // 🚀 NAYA: Multer import kiya
 import { 
     createOrder, 
     getAllOrdersForAdmin, 
@@ -7,14 +7,26 @@ import {
     getOrderDetail,
     getMyOrders 
 } from '../controllers/orderController.js';
-
 import { protect, authorize } from '../middleware/auth.Middleware.js'; 
 
 const router = express.Router();
 
+// 🚀 NAYA: Multer Configuration (Files kahan save hongi)
+const storage = multer.diskStorage({
+  destination(req, file, cb) {
+    cb(null, 'uploads/'); // Dhyan rahe: Backend folder me 'uploads' naam ka ek khali folder hona chahiye
+  },
+  filename(req, file, cb) {
+    cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`);
+  }
+});
+const upload = multer({ storage });
+
 // --- USER ROUTES ---
-router.post('/create', protect, createOrder);
-router.get('/my-orders', protect, getMyOrders); // Ab ye error nahi dega
+// 🔥 THE FIX: 'upload.single('paymentScreenshot')' add kiya
+router.post('/create', protect, upload.single('paymentScreenshot'), createOrder);
+
+router.get('/my-orders', protect, getMyOrders); 
 router.get('/detail/:id', protect, getOrderDetail);
 
 // --- ADMIN ROUTES ---

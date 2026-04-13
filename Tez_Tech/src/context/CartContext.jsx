@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import api from "../utils/api";
 import { useAuth } from "./AuthContext";
+// 🔥 NAYA: toast import kiya
+import toast from 'react-hot-toast';
 
 const CartContext = createContext();
 
@@ -54,12 +56,9 @@ export const CartProvider = ({ children }) => {
     if (!Array.isArray(items)) return [];
     const merged = new Map();
     items.forEach((item) => {
-      // Yahan thoda advanced logic chahiye hota hai variations ke liye, 
-      // but abhi hum unhe safely store kar lenge.
       const productId = String(item?.productId?._id || item?.productId || item?._id || "").trim();
       if (!productId) return;
       
-      // Basic grouping by productId
       if (!merged.has(productId)) {
         merged.set(productId, { ...item });
         return;
@@ -74,7 +73,6 @@ export const CartProvider = ({ children }) => {
       if (item.pricingSnapshot) {
         existing.pricingSnapshot = item.pricingSnapshot;
       }
-      // Preserve variations during merge
       if (item.variant) existing.variant = item.variant;
       if (item.attributes) existing.attributes = item.attributes;
     });
@@ -123,7 +121,6 @@ export const CartProvider = ({ children }) => {
   const addToCart = async (product) => {
     const token = localStorage.getItem("token");
     
-    // Sab fields extract karo (Variations included)
     const selectedCustomFields = normalizeSelectedCustomFields(product?.selectedCustomFields);
     const pricingSnapshot = product?.pricingSnapshot || null;
     const variant = product?.variant || product?.selectedVariant || null;
@@ -131,7 +128,6 @@ export const CartProvider = ({ children }) => {
 
     if (token && user) {
       try {
-        // API ko ab variations bhi bhej rahe hain
         const { data } = await api.post("/cart/add", {
           productId: product._id,
           quantity: 1,
@@ -143,16 +139,17 @@ export const CartProvider = ({ children }) => {
         
         if (data.success) {
           setCartItems(data.cart.items || []);
-          alert(`${product.name} added to cart.`);
+          // 🔥 NAYA: toast lagaya
+          toast.success(`${product.name} added to cart!`);
         }
       } catch (error) {
         console.error("Add to cart error:", error);
-        alert("Failed to add item to cart. Please try again.");
+        // 🔥 NAYA: toast lagaya
+        toast.error("Failed to add item to cart.");
       }
       return;
     }
 
-    // Guest Cart Logic (Local Storage)
     const localCart = getLocalCart();
     const existingIndex = localCart.findIndex((item) => {
       const itemProductId = item.productId?._id || item.productId;
@@ -164,11 +161,9 @@ export const CartProvider = ({ children }) => {
       localCart[existingIndex].quantity += 1;
       localCart[existingIndex].selectedCustomFields = selectedCustomFields;
       localCart[existingIndex].pricingSnapshot = pricingSnapshot || localCart[existingIndex].pricingSnapshot;
-      // Variations ko existing item pe update kar rahe hain
       localCart[existingIndex].variant = variant || localCart[existingIndex].variant;
       localCart[existingIndex].attributes = attributes || localCart[existingIndex].attributes;
     } else {
-      // Naya item push karte waqt variations ko save kar rahe hain
       localCart.push({
         localItemId: createLocalId(),
         productId: {
@@ -185,13 +180,14 @@ export const CartProvider = ({ children }) => {
         quantity: 1,
         selectedCustomFields,
         pricingSnapshot,
-        variant, // 🔥 FIX: Ye pehle missing tha
-        attributes // 🔥 FIX: Ye pehle missing tha
+        variant, 
+        attributes 
       });
     }
 
     setLocalCart(localCart);
-    alert(`${product.name} added to cart.`);
+    // 🔥 NAYA: toast lagaya
+    toast.success(`${product.name} added to cart!`);
   };
 
   const removeFromCart = async (itemKey) => {
@@ -203,17 +199,24 @@ export const CartProvider = ({ children }) => {
     if (token && user) {
       try {
         const { data } = await api.delete(`/cart/remove/${itemKey}`);
-        if (data.success) setCartItems(data.cart.items || []);
+        if (data.success) {
+          setCartItems(data.cart.items || []);
+          // 🔥 NAYA: toast lagaya
+          toast.success("Item removed from cart");
+        }
       } catch (error) {
         console.error("Remove from cart error:", error);
         setCartItems(previousCart);
-        alert("Failed to remove item.");
+        // 🔥 NAYA: toast lagaya
+        toast.error("Failed to remove item.");
       }
       return;
     }
 
     const newLocalCart = previousCart.filter((item) => getItemKey(item) !== itemKey);
     setLocalCart(newLocalCart);
+    // 🔥 NAYA: toast lagaya
+    toast.success("Item removed from cart");
   };
 
   const updateQuantity = async (itemKey, quantity) => {
@@ -232,7 +235,8 @@ export const CartProvider = ({ children }) => {
       } catch (error) {
         console.error("Update cart quantity error:", error);
         setCartItems(previousCart);
-        alert("Failed to update quantity.");
+        // 🔥 NAYA: toast lagaya
+        toast.error("Failed to update quantity.");
       }
       return;
     }

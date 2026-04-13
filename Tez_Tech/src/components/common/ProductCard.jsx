@@ -23,14 +23,50 @@ const ProductCard = ({ product }) => {
   // 🛠️ FIX 2: ID format check. '_id' aur 'id' dono ko support karega.
   const productId = product?._id || product?.id;
 
+  // 🔥 THE FIX: Default Variation Auto-Select for Cart
   const handleAddToCart = (e) => {
+    e.preventDefault();
     e.stopPropagation(); 
-    addToCart(product);  
+
+    // 1. Pehla Variant uthao (Agar hai toh)
+    const defaultVariant = product?.variants?.length > 0 ? product.variants[0] : null;
+
+    // 2. Pehle Attributes uthao (Color, Size etc.)
+    const defaultAttributes = {};
+    if (product?.attributes?.length > 0) {
+      product.attributes.forEach((attr) => {
+        if (attr.options && attr.options.length > 0) {
+          defaultAttributes[attr.name] = attr.options[0]; 
+        }
+      });
+    }
+
+    // 3. Defaults ke sath Cart mein bhej do
+    addToCart({
+      ...product,
+      quantity: 1,
+      variant: defaultVariant,
+      attributes: defaultAttributes
+    });
   };
 
+  // 🔥 THE FIX: Default Variation Auto-Select for Quote
   const handleAddQuote = (e) => {
+    e.preventDefault();
     e.stopPropagation(); 
-    addToQuote(product); 
+
+    const defaultVariant = product?.variants?.length > 0 ? product.variants[0] : null;
+    const defaultAttributes = {};
+    
+    if (product?.attributes?.length > 0) {
+      product.attributes.forEach((attr) => {
+        if (attr.options && attr.options.length > 0) {
+          defaultAttributes[attr.name] = attr.options[0]; 
+        }
+      });
+    }
+
+    addToQuote(product, 1, defaultVariant, defaultAttributes); 
   };
 
   // Safety check: Agar product data empty hai toh crash hone se bachayega
@@ -68,12 +104,12 @@ const ProductCard = ({ product }) => {
             ₹{sellingPrice.toLocaleString("en-IN")}
           </span>
           {discountPercent > 0 && (
-            <span className="text-xs font-semibold text-green-700 mt-1">
+            <span className="mt-1 text-xs font-semibold text-green-700">
               MRP <span className="line-through">₹{mrp.toLocaleString("en-IN")}</span> ({discountPercent}% OFF)
             </span>
           )}
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 mt-4">
             <button 
               onClick={handleAddToCart}
               className="flex items-center justify-center flex-1 gap-2 py-2 text-sm font-bold text-white transition-all duration-300 bg-orange-600 rounded-lg shadow-sm hover:bg-orange-700 active:scale-95"

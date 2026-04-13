@@ -71,10 +71,10 @@ const Register = () => {
           
           <div className="mb-8 text-center sm:mb-10">
             <h1 className="text-3xl font-black tracking-tight text-transparent sm:text-4xl bg-clip-text bg-gradient-to-r from-purple-400 to-blue-500">
-              SONANI HUB
+              Tez Tech
             </h1>
             <p className="text-slate-300 mt-2 text-xs sm:text-sm uppercase tracking-[0.2em] font-medium">
-              Unlock The Magic
+             The Lighting World
             </p>
           </div>
 
@@ -105,13 +105,13 @@ const Register = () => {
               disabled={loading}
               className="w-full mt-6 sm:mt-8 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_30px_rgba(168,85,247,0.6)] transition-all duration-300 flex items-center justify-center gap-2 uppercase tracking-wider text-sm sm:text-base border border-white/10"
             >
-              {loading ? "Casting Spell..." : "Create Magic Account"}
+              {loading ? "Casting Spell..." : "Create Account"}
               {!loading && <Sparkles size={18} />}
             </motion.button>
           </form>
 
           <p className="mt-8 text-sm text-center text-slate-400 sm:text-base">
-            Already have the key?{" "}
+            Already Account{" "}
             <Link to="/login" className="font-bold text-purple-400 underline transition-all hover:text-purple-300 underline-offset-4">
               Login Here
             </Link>

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useLocation } from "react-router-dom";
 import { getOrderById } from "../services/orderService";
-import { useLocation } from "react-router-dom";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -32,7 +31,7 @@ const renderSelectedOptions = (item) => {
       const value = String(option.value || "").trim();
       const priceAdjustment = toSafeNumber(option.priceAdjustment, 0);
       const priceText = priceAdjustment
-        ? ` (${priceAdjustment >= 0 ? "+" : "-"}Rs ${Math.abs(priceAdjustment)})`
+        ? ` (${priceAdjustment >= 0 ? "+" : "-"}₹${Math.abs(priceAdjustment)})`
         : "";
       return `${fieldLabel}: ${value}${priceText}`;
     });
@@ -60,6 +59,7 @@ const OrderDetail = () => {
   const isAdminView = location.pathname.startsWith("/admin/");
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
+  
   const trackingSteps = ["Order Confirmed", "Processing", "Shipping", "Out for Delivery", "Delivered"];
   const getStepIndex = (status) => {
     if (status === "Confirmed") return 0;
@@ -85,9 +85,7 @@ const OrderDetail = () => {
     if (id) fetchOrderDetail();
   }, [id]);
 
-  const handlePrintLabel = () => {
-    window.print();
-  };
+  const handlePrintLabel = () => window.print();
 
   if (loading) return <div className="pt-32 font-bold text-center">Loading order...</div>;
 
@@ -126,12 +124,8 @@ const OrderDetail = () => {
       <div className="max-w-6xl mx-auto space-y-4">
         <div className="flex items-center justify-between no-print">
           {isAdminView ? (
-            <button onClick={() => navigate(-1)} className="px-3 py-2 text-sm font-semibold bg-white border rounded-lg">
-              Back
-            </button>
-          ) : (
-            <div />
-          )}
+            <button onClick={() => navigate(-1)} className="px-3 py-2 text-sm font-semibold bg-white border rounded-lg">Back</button>
+          ) : <div />}
           {isAdminView && (
             <button onClick={handlePrintLabel} className="px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg">
               Print Shipping Label
@@ -159,13 +153,8 @@ const OrderDetail = () => {
                 {order.orderCode || `Order #${order.orderNumber || order._id.slice(-8)}`}
               </h1>
               <p className="text-xs text-gray-500">
-                Placed on{" "}
-                {new Date(order.createdAt).toLocaleString("en-IN", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
+                Placed on {new Date(order.createdAt).toLocaleString("en-IN", {
+                  day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
                 })}
               </p>
             </div>
@@ -184,20 +173,12 @@ const OrderDetail = () => {
                       {selectedLines.length > 0 && (
                         <div className="mt-2 space-y-1">
                           {selectedLines.map((line) => (
-                            <p key={`${order._id}-${index}-${line}`} className="text-[11px] text-gray-600">
+                            <p key={`${order._id}-${index}-${line}`} className="text-[11px] font-medium text-gray-600 bg-gray-50 px-2 py-1 rounded inline-block">
                               {line}
                             </p>
                           ))}
                         </div>
                       )}
-                      <div className="mt-2">
-                        <Link
-                          to={`/products/${item.productId?._id || item.productId}`}
-                          className="text-xs font-semibold text-blue-600 hover:underline no-print"
-                        >
-                          View Product Details
-                        </Link>
-                      </div>
                     </div>
                     <p className="text-sm font-bold text-gray-900">{formatCurrency(item.lineTotal || item.price * item.quantity)}</p>
                   </div>
@@ -215,28 +196,51 @@ const OrderDetail = () => {
                 </p>
                 <p className="mt-1 text-sm text-gray-700">Phone: {order.shippingInfo?.phone}</p>
               </div>
+              
               <div className="p-3 border rounded-lg bg-gray-50 md:text-right">
-                <h3 className="mb-2 text-xs font-bold tracking-wide text-gray-500 uppercase">Order Summary</h3>
+                <h3 className="mb-3 text-xs font-bold tracking-wide text-gray-500 uppercase">Order Summary</h3>
                 <p className="text-sm text-gray-700">Subtotal: {formatCurrency(order.subtotalAmount)}</p>
                 <p className="text-sm text-gray-700">GST: {formatCurrency(order.gstAmount)}</p>
                 <p className="text-sm text-gray-700">
-                  Shipping:{" "}
-                  {shippingAmount > 0 ? (
-                    formatCurrency(shippingAmount)
-                  ) : (
-                    <span className="font-semibold text-green-600">FREE</span>
-                  )}
+                  Shipping: {shippingAmount > 0 ? formatCurrency(shippingAmount) : <span className="font-semibold text-green-600">FREE</span>}
                 </p>
-                <p className="mt-2 text-xl font-black text-orange-600">{formatCurrency(displayTotal)}</p>
-                <div className="flex flex-wrap gap-2 mt-2 md:justify-end">
-                  <span className={`px-2 py-1 text-xs font-bold rounded ${order.paymentMethod === "ONLINE" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-800"}`}>
-                    {order.paymentMethod === "ONLINE" ? "ONLINE PAYMENT" : "CASH ON DELIVERY"}
+                <p className="mt-2 text-2xl font-black text-orange-600">{formatCurrency(displayTotal)}</p>
+                
+                <div className="flex flex-wrap gap-2 mt-3 md:justify-end">
+                  <span className={`px-2 py-1.5 text-[10px] font-black tracking-wider uppercase rounded-md shadow-sm ${
+                    order.paymentMethod === "ONLINE" ? "bg-green-100 text-green-700 border border-green-200" : 
+                    order.paymentMethod === "MANUAL" ? "bg-blue-100 text-blue-700 border border-blue-200" :
+                    order.paymentMethod === "STORE_PICKUP" ? "bg-purple-100 text-purple-700 border border-purple-200" :
+                    "bg-yellow-100 text-yellow-800 border border-yellow-200"
+                  }`}>
+                    {order.paymentMethod === "ONLINE" ? "ONLINE PAYMENT" : 
+                     order.paymentMethod === "MANUAL" ? "MANUAL TRANSFER (UPI)" : 
+                     order.paymentMethod === "STORE_PICKUP" ? "STORE PICKUP" : 
+                     "CASH ON DELIVERY"}
                   </span>
-                  <span className="px-2 py-1 text-xs font-bold text-blue-700 bg-blue-100 rounded">
+                  <span className="px-2 py-1.5 text-[10px] font-black tracking-wider text-slate-700 bg-white border border-slate-200 shadow-sm rounded-md uppercase">
                     {order.paymentStatus}
                   </span>
                 </div>
-                <p className="mt-2 text-xs font-semibold text-gray-600">{order.orderStatus}</p>
+                
+                <p className="mt-2 text-xs font-bold tracking-widest text-gray-600 uppercase">{order.orderStatus}</p>
+
+                {(order.utrNumber || order.orderNotes) && (
+                  <div className="pt-4 mt-4 text-left border-t border-gray-200 md:text-right">
+                    {order.utrNumber && (
+                      <p className="text-[11px] font-medium text-gray-600 mb-1">
+                        <span className="font-bold tracking-wider text-gray-800 uppercase">UTR/Ref: </span> 
+                        {order.utrNumber}
+                      </p>
+                    )}
+                    {order.orderNotes && (
+                      <div className="text-[11px] font-medium text-gray-600">
+                        <span className="font-bold tracking-wider text-gray-800 uppercase">Notes: </span> 
+                        <span className="italic">{order.orderNotes}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -246,11 +250,8 @@ const OrderDetail = () => {
               <div>
                 <h3 className="text-sm font-bold text-gray-900">Delivery Status</h3>
                 <p className="mt-2 text-sm font-semibold text-green-700">
-                  Delivered on{" "}
-                  {new Date(order.deliveredAt || order.updatedAt || order.createdAt).toLocaleDateString("en-IN", {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
+                  Delivered on {new Date(order.deliveredAt || order.updatedAt || order.createdAt).toLocaleDateString("en-IN", {
+                    day: "2-digit", month: "short", year: "numeric"
                   })}
                 </p>
               </div>

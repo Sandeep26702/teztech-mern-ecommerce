@@ -243,15 +243,47 @@ const withNormalizedItems = (orderDoc) => {
 
 export const createOrder = async (req, res) => {
   try {
-    const { items, shippingInfo, paymentMethod, addressId, saveNewAddress } = req.body;
+    // 🔥 1. THE MAGIC FIX: Agar orderData string mein aaya hai, toh usko wapas Object banao
+    let orderPayload = req.body;
+    if (req.body.orderData) {
+      orderPayload = JSON.parse(req.body.orderData);
+    }
 
+    // 🔥 2. Naye Parsed data se apni cheezein nikalo
+    const { 
+      items, 
+      shippingInfo, 
+      paymentMethod, 
+      addressId, 
+      saveNewAddress,
+      deliveryType,
+      utrNumber,
+      orderNotes,
+      totalAmount
+    } = orderPayload;
+
+    // 🔥 3. Multer se aayi hui image ka path (Agar hai toh)
+    const paymentScreenshot = req.file ? req.file.path : null;
+
+    // 🔥 4. Aapka Validation (Ab ye ekdum sahi chalega!)
     if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ success: false, message: "Cart is empty or shipping address is missing" });
+      return res.status(400).json({ success: false, message: "Cart is empty. Please add items to place an order." });
     }
 
-    if (!["COD", "ONLINE"].includes(paymentMethod)) {
-      return res.status(400).json({ success: false, message: "Invalid payment method" });
+    // (Optional) Manual payment ke liye safety check
+    if (paymentMethod === 'MANUAL' && (!utrNumber || !paymentScreenshot)) {
+      return res.status(400).json({ success: false, message: "UTR number and payment screenshot are required for manual transfer." });
     }
+
+    // ==========================================
+    // Iske niche aapka bacha hua purana code aayega... 
+    // jaise: const order = new Order({ ... }) aur await order.save();
+    // Usko change karne ki zaroorat nahi hai!
+
+   // Ya toh hata do, ya aise update kar do:
+if (!['ONLINE', 'COD', 'Card', 'MANUAL', 'STORE_PICKUP'].includes(paymentMethod)) {
+  return res.status(400).json({ message: "Invalid payment method" });
+}
 
     const user = await User.findById(req.user._id);
     if (!user) {

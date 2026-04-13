@@ -47,7 +47,7 @@ const MyOrders = () => {
                 <button
                   key={order._id}
                   onClick={() => navigate(`/orders/${order._id}`)}
-                  className="w-full text-left bg-white border border-slate-200 rounded-xl p-3 hover:shadow-sm transition"
+                  className="w-full p-3 text-left transition bg-white border border-slate-200 rounded-xl hover:shadow-sm"
                 >
                   <div className="flex items-center gap-4">
                     <img
@@ -59,7 +59,7 @@ const MyOrders = () => {
                       <p className="text-sm font-bold text-slate-900">
                         {order.orderCode || `#${order.orderNumber || order._id.slice(-8)}`}
                       </p>
-                      <p className="mt-1 text-sm text-slate-700 truncate">
+                      <p className="mt-1 text-sm truncate text-slate-700">
                         {firstItem?.name || "Product"} {order.items?.length > 1 ? `+ ${order.items.length - 1} more` : ""}
                       </p>
                       <p className="mt-1 text-xs text-slate-500">
@@ -73,9 +73,20 @@ const MyOrders = () => {
                     <div className="text-right">
                       <p className="text-sm font-bold text-slate-900">{formatCurrency(order.totalAmount)}</p>
                       <p className="mt-1 text-xs font-semibold text-slate-600">{order.orderStatus}</p>
-                      <p className={`mt-1 inline-block px-2 py-0.5 text-[11px] font-bold rounded ${order.paymentMethod === "ONLINE" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-800"}`}>
-                        {order.paymentMethod === "ONLINE" ? "ONLINE" : "COD"}
+                      
+                      {/* 🔥 THE FIX: Dynamic Payment Badge */}
+                      <p className={`mt-1 inline-block px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide rounded ${
+                        order.paymentMethod === "ONLINE" ? "bg-green-100 text-green-700" : 
+                        order.paymentMethod === "MANUAL" ? "bg-blue-100 text-blue-700" :
+                        order.paymentMethod === "STORE_PICKUP" ? "bg-purple-100 text-purple-700" :
+                        "bg-yellow-100 text-yellow-800"
+                      }`}>
+                        {order.paymentMethod === "ONLINE" ? "ONLINE" : 
+                         order.paymentMethod === "MANUAL" ? "MANUAL (UPI)" : 
+                         order.paymentMethod === "STORE_PICKUP" ? "STORE PICKUP" : 
+                         "COD"}
                       </p>
+                      
                     </div>
                   </div>
                 </button>

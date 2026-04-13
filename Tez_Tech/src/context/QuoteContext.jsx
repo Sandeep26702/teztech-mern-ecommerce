@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import api from "../utils/api"; // Your Axios instance for API calls
+import api from "../utils/api"; 
+// 🔥 NAYA: toast import kiya
+import toast from 'react-hot-toast';
 
 const QuoteContext = createContext();
 
@@ -45,21 +47,27 @@ export const QuoteProvider = ({ children }) => {
         selectedCustomFields: product.selectedCustomFields || {},
       };
 
-      console.log("Sending Quote Payload:", payload);
-
       const { data } = await api.post("/quote/add", payload);
 
       if (data.success) {
-        // 🛠️ FIX: Added || [] to prevent undefined crash
         setQuoteItems(data.quote.items || data.quote.requestedItems || []); 
-        alert("✅ Added to Quotation with your requirements!");
+        
+        // 🔥 NAYA: Alert hata kar 1 second wala premium Toast lagaya
+        toast.success(`${product.name || 'Item'} added to quotation!`, {
+          duration: 1000, 
+          style: {
+            borderRadius: '10px',
+            background: '#333',
+            color: '#fff',
+          },
+        });
       }
     } catch (error) {
       console.error("Add to quote error:", error);
       if (error.response?.status === 401) {
-        alert("Please login first to request a quotation!");
+        toast.error("Please login first to request a quotation!", { duration: 2500 });
       } else {
-        alert("Failed to add item. Please try again.");
+        toast.error("Failed to add item. Please try again.", { duration: 2000 });
       }
     }
   };
@@ -68,7 +76,6 @@ export const QuoteProvider = ({ children }) => {
   const removeFromQuote = async (productId) => {
     const previousQuote = [...quoteItems];
     
-    // 🛠️ FIX: Used String() for bulletproof ID comparison
     setQuoteItems((prev) => 
       prev.filter((item) => {
         const currentId = item.productId?._id || item.productId;
@@ -79,13 +86,14 @@ export const QuoteProvider = ({ children }) => {
     try {
       const { data } = await api.delete(`/quote/remove/${productId}`);
       if (data.success) {
-        // 🛠️ FIX: Added || []
         setQuoteItems(data.quote.items || data.quote.requestedItems || []); 
+        // 🔥 Optional: Remove message
+        toast.success("Item removed from quotation", { duration: 1000 });
       }
     } catch (error) {
       console.error("Remove from quote error:", error);
       setQuoteItems(previousQuote); 
-      alert("Failed to remove item. Restoring data.");
+      toast.error("Failed to remove item. Restoring data.", { duration: 2000 });
     }
   };
 
@@ -94,7 +102,6 @@ export const QuoteProvider = ({ children }) => {
     if (quantity < 1) return;
     const previousQuote = [...quoteItems];
 
-    // 🛠️ FIX: Used String() for bulletproof ID comparison
     setQuoteItems((prev) =>
       prev.map((item) => {
         const currentId = item.productId?._id || item.productId;
@@ -109,13 +116,12 @@ export const QuoteProvider = ({ children }) => {
       });
 
       if (data.success) {
-        // 🛠️ FIX: Added || []
         setQuoteItems(data.quote.items || data.quote.requestedItems || []); 
       }
     } catch (error) {
       console.error("Update quote quantity error:", error);
       setQuoteItems(previousQuote); 
-      alert("Failed to update quantity. Restoring data.");
+      toast.error("Failed to update quantity. Restoring data.", { duration: 2000 });
     }
   };
 

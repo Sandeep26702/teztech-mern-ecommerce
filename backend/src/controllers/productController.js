@@ -52,9 +52,84 @@ const sanitizeNum = (val) => {
 
 export const getProducts = async (req, res) => {
   try {
-    const products = await Product.find({ status: "Active" }).lean();
-    res.json({ success: true, products });
+    const { keyword, category, minPrice, maxPrice, page = 1, limit = 8 } = req.query;
+
+    // 1. Match Stage (Filters setup)
+    let matchStage = { status: "Active" };
+
+    // 🔍 REGEX SEARCH: Partial match ke liye (Taki ek letter type karne pe bhi result aaye)
+    if (keyword) {
+      matchStage.name = { $regex: keyword, $options: "i" }; // 'i' for case-insensitive
+    }
+
+    if (category) {
+      matchStage.category = category;
+    }
+
+    if (minPrice || maxPrice) {
+      matchStage.price = {};
+      if (minPrice) matchStage.price.$gte = Number(minPrice);
+      if (maxPrice) matchStage.price.$lte = Number(maxPrice);
+    }
+
+    const skip = (Number(page) - 1) * Number(limit);
+    let products = [];
+    let totalProducts = 0;
+
+    // 🚀 THE MAGIC: AGGREGATION PIPELINE (For Index-based Sorting)
+    if (keyword) {
+      const pipeline = [
+        // Step A: Jo match hote hain unhe filter karo
+        { $match: matchStage },
+        // Step B: Har product ke naam me keyword kis position (index) pe hai wo pata lagao
+        {
+          $addFields: {
+            matchIndex: { 
+              $indexOfCP: [ { $toLower: "$name" }, keyword.toLowerCase() ] 
+            }
+          }
+        },
+        // Step C: Index ke hisaab se sort karo! 
+        // (0 yani starts with sabse upar, phir 1, 2, 3...)
+        { $sort: { matchIndex: 1, name: 1 } },
+        // Step D: Pagination
+        { $skip: skip },
+        { $limit: Number(limit) }
+      ];
+
+      products = await Product.aggregate(pipeline);
+
+      // Pagination ke liye total count
+      const countPipeline = [
+        { $match: matchStage },
+        { $count: "total" }
+      ];
+      const countResult = await Product.aggregate(countPipeline);
+      totalProducts = countResult.length > 0 ? countResult[0].total : 0;
+
+    } else {
+      // NORMAL QUERY (Agar user ne kuch search nahi kiya hai toh fast normal query chalegi)
+      products = await Product.find(matchStage)
+        .sort({ createdAt: -1 }) // Naye products pehle
+        .skip(skip)
+        .limit(Number(limit))
+        .lean();
+        
+      totalProducts = await Product.countDocuments(matchStage);
+    }
+
+    const totalPages = Math.ceil(totalProducts / Number(limit));
+
+    res.status(200).json({
+      success: true,
+      products,
+      totalPages,
+      currentPage: Number(page),
+      totalProducts
+    });
+
   } catch (err) {
+    console.error("GET PRODUCTS ERROR:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 };
