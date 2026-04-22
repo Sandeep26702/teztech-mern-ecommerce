@@ -19,8 +19,10 @@ const API_URL = "https://sonani-backend.onrender.com/api";
 const api = axios.create({
   baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
+  withCredentials: true, // 🚀 VERY IMPORTANT: Live server pe third-party cookies ke liye
 });
 
+// REQUEST INTERCEPTOR: Har API call me token khud lag jayega
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
@@ -32,12 +34,14 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// RESPONSE INTERCEPTOR: Token expire hone par auto-logout
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
       console.warn("Token expired or invalid. Logging out globally...");
       localStorage.removeItem("token");
+      localStorage.removeItem("user");
       if (window.location.pathname !== "/login") {
         window.location.href = "/login"; 
       }
@@ -52,6 +56,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const hasVerifiedRef = useRef(false);
 
+  // 1. VERIFY USER (Page refresh par login bachata hai)
   useEffect(() => {
     if (hasVerifiedRef.current) return;
     hasVerifiedRef.current = true;
@@ -70,10 +75,9 @@ export const AuthProvider = ({ children }) => {
           logout(); 
         }
       } catch (err) {
-        if (err.code === "ERR_NETWORK") {
-          console.warn(`Token verification skipped: auth server is unreachable at ${API_URL}`);
-        } else {
-          console.error("Token verification failed:", err.message);
+        if (err.code !== "ERR_NETWORK") {
+          localStorage.removeItem("token"); 
+          setUser(null);
         }
       } finally {
         setLoading(false);
@@ -96,25 +100,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🚀 Helper Function: Merge Local Cart to DB
+  // 🚀 HELPER: Guest Cart ko Database me merge karna
   const handleCartMerge = async (token) => {
     try {
       const storedCart = localStorage.getItem("guestCart");
       const localItems = storedCart ? JSON.parse(storedCart) : [];
 
       if (localItems.length > 0) {
-        // Send local items to merge API
         await axios.post(
           `${API_URL}/cart/merge`,
           { localItems },
-          { headers: { Authorization: `Bearer ${token}` } } // Pass token manually since interceptor might not catch up instantly
+          { 
+            headers: { Authorization: `Bearer ${token}` },
+            withCredentials: true 
+          }
         );
-        // Clear local storage after successful merge
         localStorage.removeItem("guestCart");
-        console.log("Cart merged successfully on Auth!");
+        console.log("Cart merged successfully!");
       }
     } catch (err) {
-      console.error("Failed to merge cart during auth:", err);
+      console.error("Failed to merge cart:", err);
     }
   };
 
@@ -125,12 +130,16 @@ export const AuthProvider = ({ children }) => {
 
       if (res.data.success) {
         localStorage.setItem("token", res.data.token);
+        localStorage.setItem("user", JSON.stringify(res.data.user));
         setUser(res.data.user);
         
-        // Merge Cart BEFORE redirecting
         await handleCartMerge(res.data.token);
         
-        window.location.href = "/"; 
+        // Delay taaki local storage theek se save ho jaye
+        setTimeout(() => {
+            window.location.href = "/"; 
+        }, 400);
+        
         return { success: true };
       }
     } catch (err) {
@@ -148,12 +157,16 @@ export const AuthProvider = ({ children }) => {
 
       if (res.data.success) {
         localStorage.setItem("token", res.data.token);
+        localStorage.setItem("user", JSON.stringify(res.data.user));
         setUser(res.data.user);
         
-        // Merge Cart BEFORE redirecting
         await handleCartMerge(res.data.token);
         
-        window.location.href = "/"; 
+        // Delay taaki local storage theek se save ho jaye
+        setTimeout(() => {
+            window.location.href = "/"; 
+        }, 400);
+
         return { success: true };
       }
     } catch (err) {
@@ -167,9 +180,10 @@ export const AuthProvider = ({ children }) => {
   /* ================= 4. LOGOUT ================= */
   const logout = () => {
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
     localStorage.removeItem("cartItems"); 
     localStorage.removeItem("quoteItems");
-    localStorage.removeItem("guestCart"); // Clear guest cart too just in case
+    localStorage.removeItem("guestCart");
 
     setUser(null);
     window.location.href = "/login";
@@ -197,7 +211,7 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         createSubAdmin,
-        api,
+        api, // Exporting Custom Axios for other components
         refreshUser,
         updateCurrentUser: setUser,
       }}

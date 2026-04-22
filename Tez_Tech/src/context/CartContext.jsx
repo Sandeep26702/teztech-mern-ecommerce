@@ -29,12 +29,10 @@ const getItemKey = (item) => item._id || item.localItemId || item.productId?._id
 
 // 🚀 MASTER PRICE CALCULATOR
 export const getTrueUnitPrice = (item) => {
-  // 🔥 FIX: Agar Product page ne '_finalPrice' bheja hai (aur backend ne save kar liya hai), toh direct use karo!
   if (item?.selectedCustomFields?._finalPrice) {
     return Number(item.selectedCustomFields._finalPrice);
   }
 
-  // Backup calculation (Agar purana item ho)
   let basePrice = Number(item?.variant?.sellingPrice || item?.variant?.price || item?.productId?.sellingPrice || item?.productId?.price || item?.sellingPrice || item?.price || 0);
   let extraCharges = 0;
   const rawFields = item?.productId?.customFields || item?.productId?.attributes || item?.customFields || item?.attributes || [];
@@ -98,12 +96,18 @@ export const CartProvider = ({ children }) => {
     setCartItems(items);
   };
 
+  // 🚀 BULLETPROOF HELPER: Har API me ye config jayegi
+  const getAuthConfig = (token) => ({
+    headers: { Authorization: `Bearer ${token}` },
+    withCredentials: true
+  });
+
   const fetchCart = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem("token");
     if (token && user) {
       try {
-        const { data } = await api.get("/cart");
+        const { data } = await api.get("/cart", getAuthConfig(token)); // Added Config
         if (data.success && data.cart) setCartItems(data.cart.items || []);
       } catch (error) { setCartItems([]); }
     } else setCartItems(getLocalCart());
@@ -114,7 +118,6 @@ export const CartProvider = ({ children }) => {
 
   const addToCart = async (product) => {
     const token = localStorage.getItem("token");
-    // Normalize fields but DO NOT strip out _finalPrice
     const selectedCustomFields = { ...product?.selectedCustomFields }; 
 
     let variantToAdd = product?.variant;
@@ -132,13 +135,15 @@ export const CartProvider = ({ children }) => {
 
     if (token && user) {
       try {
+        // 🚀 THE FIX: Manually sending config to bypass interceptor delays
         const { data } = await api.post("/cart/add", {
           productId: product._id, 
           quantity: 1, 
           selectedCustomFields, 
           variant: variantToAdd,      
           attributes: attributesToAdd 
-        });
+        }, getAuthConfig(token));
+
         if (data.success) {
           setCartItems(data.cart.items || []);
           toast.success(`${product.name} added to cart!`);
@@ -190,7 +195,8 @@ export const CartProvider = ({ children }) => {
 
     if (token && user) {
       try {
-        const { data } = await api.delete(`/cart/remove/${itemKey}`);
+        // 🚀 THE FIX
+        const { data } = await api.delete(`/cart/remove/${itemKey}`, getAuthConfig(token));
         if (data.success) { setCartItems(data.cart.items || []); toast.success("Item removed"); }
       } catch (error) { setCartItems(previousCart); toast.error("Failed to remove item."); }
       return;
@@ -207,7 +213,8 @@ export const CartProvider = ({ children }) => {
 
     if (token && user) {
       try {
-        const { data } = await api.put("/cart/update", { itemId: itemKey, quantity });
+        // 🚀 THE FIX
+        const { data } = await api.put("/cart/update", { itemId: itemKey, quantity }, getAuthConfig(token));
         if (data.success) setCartItems(data.cart.items || []);
       } catch (error) { setCartItems(previousCart); toast.error("Failed to update quantity."); }
       return;
@@ -218,8 +225,9 @@ export const CartProvider = ({ children }) => {
   const getCartTotal = () => round2(cartItems.reduce((total, item) => total + getTrueUnitPrice(item) * Number(item.quantity || 0), 0));
 
   const clearCart = async () => {
-    if (localStorage.getItem("token") && user) {
-      try { await api.delete("/cart/clear"); } catch (e) {}
+    const token = localStorage.getItem("token");
+    if (token && user) {
+      try { await api.delete("/cart/clear", getAuthConfig(token)); } catch (e) {} // 🚀 THE FIX
     }
     setCartItems([]); localStorage.removeItem("guestCart");
   };

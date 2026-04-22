@@ -9,11 +9,28 @@ export const QuoteProvider = ({ children }) => {
   const [quoteItems, setQuoteItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // 🚀 BULLETPROOF HELPER: Har API call me token lagane ke liye
+  const getAuthConfig = () => {
+    const token = localStorage.getItem("token");
+    return {
+      headers: { Authorization: `Bearer ${token}` },
+      withCredentials: true
+    };
+  };
+
   // 🔄 1. Fetch Quote Items from Backend Database
   const fetchQuote = useCallback(async () => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+        setQuoteItems([]);
+        setLoading(false);
+        return;
+    }
+
     try {
       setLoading(true);
-      const { data } = await api.get("/quote"); 
+      // 🚀 THE FIX: Passing explicit config
+      const { data } = await api.get("/quote", getAuthConfig()); 
       
       if (data.success && data.quote) {
         setQuoteItems(data.quote.items || data.quote.requestedItems || []);
@@ -28,16 +45,17 @@ export const QuoteProvider = ({ children }) => {
 
   // 🚀 Fetch quotation data on initial app load if the user is logged in
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      fetchQuote();
-    } else {
-      setLoading(false); 
-    }
+    fetchQuote();
   }, [fetchQuote]);
 
   // 📝 2. Add to Quote (Save to Database)
   const addToQuote = async (product, quantity = 1, selectedVariant = null, selectedAttributes = {}) => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+        toast.error("Please login first to request a quotation!", { duration: 2500 });
+        return;
+    }
+
     try {
       const payload = {
         productId: product._id || product.id, 
@@ -47,12 +65,12 @@ export const QuoteProvider = ({ children }) => {
         selectedCustomFields: product.selectedCustomFields || {},
       };
 
-      const { data } = await api.post("/quote/add", payload);
+      // 🚀 THE FIX: Passing explicit config
+      const { data } = await api.post("/quote/add", payload, getAuthConfig());
 
       if (data.success) {
         setQuoteItems(data.quote.items || data.quote.requestedItems || []); 
         
-        // 🔥 NAYA: Alert hata kar 1 second wala premium Toast lagaya
         toast.success(`${product.name || 'Item'} added to quotation!`, {
           duration: 1000, 
           style: {
@@ -84,10 +102,11 @@ export const QuoteProvider = ({ children }) => {
     );
 
     try {
-      const { data } = await api.delete(`/quote/remove/${productId}`);
+      // 🚀 THE FIX: Passing explicit config
+      const { data } = await api.delete(`/quote/remove/${productId}`, getAuthConfig());
+      
       if (data.success) {
         setQuoteItems(data.quote.items || data.quote.requestedItems || []); 
-        // 🔥 Optional: Remove message
         toast.success("Item removed from quotation", { duration: 1000 });
       }
     } catch (error) {
@@ -110,10 +129,11 @@ export const QuoteProvider = ({ children }) => {
     );
 
     try {
+      // 🚀 THE FIX: Passing explicit config
       const { data } = await api.put("/quote/update", {
         productId,
         quantity,
-      });
+      }, getAuthConfig());
 
       if (data.success) {
         setQuoteItems(data.quote.items || data.quote.requestedItems || []); 
