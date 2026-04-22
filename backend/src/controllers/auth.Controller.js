@@ -29,7 +29,15 @@ const sendTokenResponse = (user, statusCode, res) => {
     expiresIn: process.env.JWT_EXPIRE || "30d",
   });
 
-  res.status(statusCode).json({
+  // 🚀 NAYA UPDATE: Token ko Cookie mein save karwana live server ke liye
+  const options = {
+    expires: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 Days
+    httpOnly: true,
+    secure: true,        // HTTPS (Vercel) ke liye zaroori
+    sameSite: 'none',    // Cross-domain (Vercel se Render) ke liye zaroori
+  };
+
+  res.status(statusCode).cookie("token", token, options).json({
     success: true,
     token,
     user: {
@@ -69,7 +77,6 @@ export const register = async (req, res) => {
       return res.status(400).json({ success: false, message: "Please enter valid 10-digit mobile number" });
     }
 
-    // Unique check
     const userExists = await User.findOne({
       $or: [{ email: normalizedEmail }, { phone: normalizedPhone }, { userId: normalizedPhone }],
     });
@@ -77,7 +84,6 @@ export const register = async (req, res) => {
       return res.status(400).json({ success: false, message: "Email or mobile already exists" });
     }
 
-    // User Create (Model middleware ab password hash kar dega safely)
     const user = await User.create({
       name: normalizedName,
       email: normalizedEmail,
@@ -88,7 +94,6 @@ export const register = async (req, res) => {
 
     sendTokenResponse(user, 201, res);
   } catch (error) {
-    // Validation errors handle karne ke liye
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -103,7 +108,6 @@ export const login = async (req, res) => {
       return res.status(400).json({ success: false, message: "Please provide email and password" });
     }
 
-    // Password explicitly select karna padta hai kyunki model me select: false hai
     const user = await User.findOne({ email: normalizedEmail }).select("+password");
 
     if (!user) {
@@ -117,7 +121,6 @@ export const login = async (req, res) => {
       });
     }
 
-    // Password Match check
     const isMatch = await user.comparePassword(password);
     
     if (!isMatch) {
@@ -142,6 +145,14 @@ export const getMe = async (req, res) => {
 
 /* ================= 4. LOGOUT ================= */
 export const logout = async (req, res) => {
+  // 🚀 NAYA UPDATE: Logout ke waqt Cookie ko clear karna
+  res.cookie("token", "none", {
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true,
+    secure: true,
+    sameSite: 'none'
+  });
+  
   res.status(200).json({ success: true, message: "Logged out successfully" });
 };
 
@@ -154,16 +165,13 @@ export const forgotPassword = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    // Reset Token Generate
     const resetToken = crypto.randomBytes(20).toString("hex");
 
-    // Hash Token to save in DB
     user.resetPasswordToken = crypto
       .createHash("sha256")
       .update(resetToken)
       .digest("hex");
 
-    // Expire in 10 mins
     user.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
 
     await user.save({ validateBeforeSave: false });
@@ -208,7 +216,6 @@ export const resetPassword = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid or Expired Token" });
     }
 
-    // New password set (Model middleware will hash it)
     user.password = req.body.password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
