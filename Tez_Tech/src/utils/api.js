@@ -10,8 +10,8 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  // withCredentials: true (Ise tabhi on karein jab aap cookies use kar rahe ho, 
-  // varna LocalStorage + Bearer token ke liye iski zaroorat nahi hoti)
+  // 🚀 THE FIX: Ise ON kar diya hai taaki Live Server (Render) token accept kar sake
+  withCredentials: true 
 });
 
 // ==========================================
@@ -19,7 +19,7 @@ const api = axios.create({
 // ==========================================
 api.interceptors.request.use(
   (config) => {
-    // LocalStorage se token nikal kar har request me bhejenge
+    // LocalStorage se token nikal kar har request me bhejenge (Double Security)
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
