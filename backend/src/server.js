@@ -19,16 +19,23 @@ const PORT = process.env.PORT || 5000;
 
 /* ================= MIDDLEWARE ================= */
 
+// 🚀 THE FIX: Yahan humne Vercel aur GoDaddy ke links add kar diye hain
 app.use(
   cors({
-    origin: ["http://localhost:5173"],
+    origin: [
+      "http://localhost:5173", 
+      "http://localhost:5000",
+      "https://teztech-mern-ecommerce-ixig.vercel.app", // Aapka Vercel link
+      "https://www.sonanielectronics.in", // Aapka aane wala GoDaddy link
+      "https://sonanielectronics.in"
+    ],
     credentials: true,
   })
 );
 
 app.use(express.json());
 
-// 🚀 THE FINAL BOSS FIX: Uploads folder ko public banaya taaki frontend images dekh sake
+// Uploads folder ko public banaya taaki frontend images dekh sake
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 /* ================= ROUTES ================= */
