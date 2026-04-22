@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
-import { placeNewOrder } from "../services/orderService";
 import api from "../utils/api";
 
 // Import your components
@@ -56,16 +55,18 @@ const CheckoutPage = () => {
     pickupTime: "", 
   });
 
+  // 🔥 FIX 1: Exact wahi naam rakha hai jo ShippingMethod list ka pehla option hai
   const [selectedCourier, setSelectedCourier] = useState({
-    name: "COURIER (Whatsapp Confirmation)",
+    name: "COURIER", 
     price: 1350
   });
 
+  // 🔥 DOUBLE TAX FIX
   const cartTotal = getCartTotal();
   const totalItemsCount = cartItems.reduce((total, item) => total + Number(item.quantity || 1), 0);
   const shippingTotal = deliveryType === 'pickup' ? 0 : (selectedCourier.price * totalItemsCount); 
-  const igstTotal = Math.round((cartTotal * 0.18) * 100) / 100;
-  const grandTotal = Math.round((cartTotal + shippingTotal + igstTotal) * 100) / 100;
+  
+  const grandTotal = Math.round((cartTotal + shippingTotal) * 100) / 100;
 
   useEffect(() => {
     if (!user) navigate("/login");
@@ -132,7 +133,6 @@ const CheckoutPage = () => {
     e.preventDefault();
     if (cartItems.length === 0) return alert("Your cart is empty.");
     
-    // Manual Payment Validation
     if (paymentMethod === "MANUAL") {
       if (!paymentDetails.utrNumber || !paymentDetails.screenshot) {
         return alert("Please enter UTR Number and upload Payment Screenshot to proceed.");
@@ -142,20 +142,15 @@ const CheckoutPage = () => {
     setLoading(true);
 
     try {
-      // Create FormData to handle image upload
       const formData = new FormData();
       
       const orderPayload = {
-        // 🔥 THE FIX: Cart item ka Pura data (Name, Price, Variations) ab backend jayega
         items: cartItems.map((item) => ({
-          ...item, // Ye line cart ka saara data copy kar legi
+          ...item, 
           productId: item.productId?._id || item.productId || item._id,
           quantity: Number(item.quantity || 0),
-          
-          // 👇 Ye hain aapke sabse zaroori Tags (9mm, Matte aadi) 👇
           selectedOptions: item.selectedOptions || [],
           selectedCustomFields: item.selectedCustomFields || {},
-          
           variant: item.variant,
           attributes: item.attributes,
           size: item.size,
@@ -168,7 +163,11 @@ const CheckoutPage = () => {
         deliveryType,
         utrNumber: paymentDetails.utrNumber,
         orderNotes: orderNotes,
-        courierPartner: deliveryType === 'pickup' ? 'Self Pickup' : selectedCourier.name,
+        
+        // 🔥 FIX 2: Solid Courier Name passing
+        courierPartner: deliveryType === 'pickup' ? 'Self Pickup' : (selectedCourier?.name || 'Standard Courier'),
+        selectedCourier: selectedCourier, // Backup just in case
+        
         shippingCost: shippingTotal,
         totalAmount: grandTotal
       };
@@ -178,7 +177,6 @@ const CheckoutPage = () => {
         formData.append("paymentScreenshot", paymentDetails.screenshot);
       }
 
-      // API Call
       const res = await api.post("/orders/create", formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
@@ -288,12 +286,13 @@ const CheckoutPage = () => {
                     />
                     <div className="flex justify-between gap-4 pt-8 mt-10 border-t border-slate-100">
                       <button type="button" onClick={handlePrevStep} className="px-6 py-4 font-bold text-slate-500 bg-slate-100 rounded-2xl hover:bg-slate-200">Back</button>
+                      
                       <button 
                         type="submit" 
                         disabled={loading} 
                         className="flex-1 px-10 py-4 font-bold text-white transition-all shadow-xl sm:flex-none bg-slate-900 rounded-2xl hover:bg-black disabled:bg-slate-300 active:scale-95"
                       >
-                        {loading ? "Processing..." : `Place Order (₹${grandTotal.toFixed(2)})`}
+                        {loading ? "Processing..." : `Place Order (₹${grandTotal.toLocaleString("en-IN")})`}
                       </button>
                     </div>
                   </div>
@@ -306,7 +305,7 @@ const CheckoutPage = () => {
           <div className="lg:col-span-5 xl:col-span-4">
             <OrderSummary 
               summaryRows={summaryRows} cartTotal={cartTotal} 
-              shippingTotal={shippingTotal} igstTotal={igstTotal} 
+              shippingTotal={shippingTotal} igstTotal={0} 
               grandTotal={grandTotal} loading={loading} cartItems={cartItems}
             />
           </div>

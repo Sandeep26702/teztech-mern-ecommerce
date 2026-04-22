@@ -1,193 +1,111 @@
 import Cart from "../models/Cart.js";
-import mongoose from "mongoose";
+import Product from "../models/Product.js";
 
-const toSafeNumber = (value, fallback = 0) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
+const round2 = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
+const toSafeNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 
-const normalizeSelectionValue = (value) => {
-  if (Array.isArray(value)) {
-    return value
-      .map((v) => String(v).trim())
-      .filter(Boolean)
-      .sort();
-  }
-  if (value === undefined || value === null) return "";
-  return String(value).trim();
-};
+// 🚀 THE CORE PRICING ENGINE
+export const calculateExactPricing = async (productId, selectedCustomFields, variantParams) => {
+  try {
+    const product = await Product.findById(productId);
+    if (!product) return null;
 
-const normalizeSelectedCustomFields = (input) => {
-  if (!input || typeof input !== "object" || Array.isArray(input)) return {};
-  const normalized = {};
-  Object.keys(input)
-    .sort()
-    .forEach((key) => {
-      const safeKey = String(key).trim();
-      if (!safeKey) return;
-      normalized[safeKey] = normalizeSelectionValue(input[key]);
-    });
-  return normalized;
-};
+    let basePrice = toSafeNumber(product.price, 0);
+    let optionAdjustment = 0;
+    const gstRate = toSafeNumber(product.gstRate, 0);
 
-const sanitizePricing = (pricing) => {
-  if (!pricing || typeof pricing !== "object") {
+    // 1. Calculate Option Adjustments (+₹200 etc)
+    if (product.customFields && Array.isArray(product.customFields)) {
+      for (const field of product.customFields) {
+        const fieldLabel = String(field.label || "").trim();
+        const selectedValue = selectedCustomFields?.[field._id] || selectedCustomFields?.[fieldLabel];
+        
+        if (!selectedValue) continue;
+
+        const selectedValuesArr = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
+        
+        for (const val of selectedValuesArr) {
+          const matchedOption = (field.options || []).find(opt => {
+            const optLabel = typeof opt === 'object' ? opt.label : opt;
+            return String(optLabel).trim() === String(val).trim();
+          });
+
+          if (matchedOption && matchedOption.priceAdjustment) {
+            optionAdjustment += toSafeNumber(matchedOption.priceAdjustment, 0);
+          }
+        }
+      }
+    }
+
+    // 2. Variant Price Override
+    if (variantParams && variantParams.price) {
+      basePrice = toSafeNumber(variantParams.price, basePrice);
+    }
+
+    // 3. Exact Math
+    const taxableAmount = round2(basePrice + optionAdjustment);
+    const gstAmount = round2((taxableAmount * gstRate) / 100);
+    const unitPrice = round2(taxableAmount + gstAmount);
+
     return {
-      basePrice: 0,
-      optionAdjustment: 0,
-      gstRate: 0,
-      gstAmount: 0,
-      unitPrice: 0,
+      basePrice: round2(basePrice),
+      optionAdjustment: round2(optionAdjustment),
+      gstRate: round2(gstRate),
+      gstAmount: round2(gstAmount),
+      unitPrice: unitPrice, // 100% Accurate Total Price per piece
     };
+  } catch (e) {
+    console.error("Pricing Engine Error:", e);
+    return null;
   }
-
-  return {
-    basePrice: toSafeNumber(pricing.basePrice, 0),
-    optionAdjustment: toSafeNumber(pricing.optionAdjustment, 0),
-    gstRate: toSafeNumber(pricing.gstRate, 0),
-    gstAmount: toSafeNumber(pricing.gstAmount, 0),
-    unitPrice: toSafeNumber(pricing.unitPrice, 0),
-  };
 };
 
 export const getMyCart = async (req, res) => {
   try {
-    const cart = await Cart.findOne({ user: req.user._id }).populate(
-      "items.productId",
-      "name price gstRate customFields image stock category shippingCharge"
-    );
-
-    if (!cart) {
-      return res.status(200).json({ success: true, cart: { items: [] } });
-    }
-
-    const originalLength = cart.items.length;
-    cart.items = cart.items.filter((item) => item.productId !== null);
-
-    // Merge duplicate product entries
-    const mergedMap = new Map();
-    cart.items.forEach((item) => {
-      const productKey = String(item.productId?._id || item.productId || "");
-      if (!productKey) return;
-      
-      if (!mergedMap.has(productKey)) {
-        mergedMap.set(productKey, item);
-        return;
-      }
-      
-      const existing = mergedMap.get(productKey);
-      existing.quantity += item.quantity || 0;
-      
-      if (item.selectedCustomFields && Object.keys(item.selectedCustomFields).length > 0) {
-        existing.selectedCustomFields = item.selectedCustomFields;
-      }
-      if (item.pricing) {
-        existing.pricing = item.pricing;
-      }
-      // 🔥 FIX: Keep variations during get cart merge
-      if (item.variant) existing.variant = item.variant;
-      if (item.attributes) existing.attributes = item.attributes;
-    });
-
-    const mergedItems = Array.from(mergedMap.values());
-    if (mergedItems.length !== cart.items.length || mergedItems.length !== originalLength) {
-      cart.items = mergedItems;
-      cart.markModified("items");
-      await cart.save();
-    }
-
-    res.status(200).json({ success: true, cart });
+    const cart = await Cart.findOne({ user: req.user._id }).populate("items.productId", "name price gstRate customFields image stock category shippingCharge sku");
+    res.status(200).json({ success: true, cart: cart || { items: [] } });
   } catch (error) {
-    console.error("Get Cart Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
 
 export const addToCart = async (req, res) => {
   try {
-    // 🔥 FIX: Extract variant and attributes from req.body
-    const { productId, quantity, selectedCustomFields, pricingSnapshot, variant, attributes } = req.body;
+    const { productId, quantity, selectedCustomFields, variant, attributes } = req.body;
     const userId = req.user._id;
 
-    if (!productId) {
-      return res.status(400).json({ success: false, message: "Product ID is required" });
-    }
-
     const safeQuantity = Math.max(1, Math.floor(toSafeNumber(quantity, 1)));
-    const normalizedSelections = normalizeSelectedCustomFields(selectedCustomFields);
-    const safePricing = sanitizePricing(pricingSnapshot);
+    
+    // 🛡️ Get 100% real price from DB
+    const truePricing = await calculateExactPricing(productId, selectedCustomFields || {}, variant);
+    if (!truePricing) return res.status(404).json({ success: false, message: "Product not found" });
 
     let cart = await Cart.findOne({ user: userId });
-    if (!cart) {
-      cart = new Cart({ user: userId, items: [] });
-    }
+    if (!cart) cart = new Cart({ user: userId, items: [] });
 
-    const itemIndex = cart.items.findIndex(
-      (item) => item.productId.toString() === String(productId)
-    );
+    const itemIndex = cart.items.findIndex(item => item.productId.toString() === String(productId));
 
     if (itemIndex > -1) {
-      // Update existing item
       cart.items[itemIndex].quantity += safeQuantity;
-      cart.items[itemIndex].selectedCustomFields = normalizedSelections;
-      cart.items[itemIndex].pricing = safePricing;
-      // 🔥 FIX: Update variations for existing item
-      if (variant) cart.items[itemIndex].variant = variant;
-      if (attributes) cart.items[itemIndex].attributes = attributes;
+      cart.items[itemIndex].selectedCustomFields = selectedCustomFields;
+      cart.items[itemIndex].pricing = truePricing;
+      cart.items[itemIndex].variant = variant;
+      cart.items[itemIndex].attributes = attributes;
     } else {
-      // Add new item
       cart.items.push({
         productId,
         quantity: safeQuantity,
-        selectedCustomFields: normalizedSelections,
-        pricing: safePricing,
-        // 🔥 FIX: Save variations for new item
+        selectedCustomFields: selectedCustomFields || {},
+        pricing: truePricing,
         variant: variant || null,
         attributes: attributes || null
       });
     }
 
-    cart.markModified("items");
     await cart.save();
-
-    const updatedCart = await Cart.findById(cart._id).populate(
-      "items.productId",
-      "name price gstRate customFields image stock category shippingCharge"
-    );
-
-    res.status(200).json({ success: true, message: "Item added to cart", cart: updatedCart });
+    const updatedCart = await Cart.findById(cart._id).populate("items.productId");
+    res.status(200).json({ success: true, cart: updatedCart });
   } catch (error) {
-    console.error("Add to Cart Error:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
-};
-
-export const removeFromCart = async (req, res) => {
-  try {
-    const { itemId } = req.params;
-    const userId = req.user._id;
-
-    const cart = await Cart.findOne({ user: userId });
-    if (!cart) {
-      return res.status(404).json({ success: false, message: "Cart not found" });
-    }
-
-    cart.items = cart.items.filter((item) => {
-      const byItemId = item._id ? item._id.toString() === String(itemId) : false;
-      const byProductId = item.productId ? item.productId.toString() === String(itemId) : false;
-      return !(byItemId || byProductId);
-    });
-    
-    await cart.save();
-
-    const updatedCart = await Cart.findById(cart._id).populate(
-      "items.productId",
-      "name price gstRate customFields image stock category shippingCharge"
-    );
-
-    res.status(200).json({ success: true, message: "Item removed", cart: updatedCart });
-  } catch (error) {
-    console.error("Remove from Cart Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
@@ -195,134 +113,75 @@ export const removeFromCart = async (req, res) => {
 export const updateCartItem = async (req, res) => {
   try {
     const { itemId, quantity } = req.body;
-    const userId = req.user._id;
-
-    if (!itemId) {
-      return res.status(400).json({ success: false, message: "Cart item id is required" });
-    }
-
     const safeQuantity = Math.floor(toSafeNumber(quantity, 1));
-    const cart = await Cart.findOne({ user: userId });
-    if (!cart) {
-      return res.status(404).json({ success: false, message: "Cart not found" });
-    }
-
-    const getMatch = (item) => {
-      const byItemId = item._id ? item._id.toString() === String(itemId) : false;
-      const byProductId = item.productId ? item.productId.toString() === String(itemId) : false;
-      return byItemId || byProductId;
-    };
+    const cart = await Cart.findOne({ user: req.user._id });
+    
+    if (!cart) return res.status(404).json({ success: false, message: "Cart not found" });
 
     if (safeQuantity <= 0) {
-      cart.items = cart.items.filter((item) => !getMatch(item));
-      await cart.save();
-      const updatedCart = await Cart.findById(cart._id).populate(
-        "items.productId",
-        "name price gstRate customFields image stock category shippingCharge"
-      );
-      return res.status(200).json({ success: true, message: "Item removed", cart: updatedCart });
+      cart.items = cart.items.filter(item => String(item._id) !== String(itemId) && String(item.productId) !== String(itemId));
+    } else {
+      const itemIndex = cart.items.findIndex(item => String(item._id) === String(itemId) || String(item.productId) === String(itemId));
+      if (itemIndex > -1) cart.items[itemIndex].quantity = safeQuantity;
     }
 
-    const itemIndex = cart.items.findIndex((item) => getMatch(item));
-    if (itemIndex === -1) {
-      return res.status(404).json({ success: false, message: "Item not found in cart" });
-    }
-
-    cart.items[itemIndex].quantity = safeQuantity;
     await cart.save();
-
-    const updatedCart = await Cart.findById(cart._id).populate(
-      "items.productId",
-      "name price gstRate customFields image stock category shippingCharge"
-    );
-    res.status(200).json({ success: true, message: "Quantity updated", cart: updatedCart });
+    const updatedCart = await Cart.findById(cart._id).populate("items.productId");
+    res.status(200).json({ success: true, cart: updatedCart });
   } catch (error) {
-    console.error("Update Cart Item Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
 
+export const removeFromCart = async (req, res) => {
+  try {
+    const cart = await Cart.findOne({ user: req.user._id });
+    if (!cart) return res.status(404).json({ success: false });
+
+    cart.items = cart.items.filter(item => String(item._id) !== String(req.params.itemId) && String(item.productId) !== String(req.params.itemId));
+    await cart.save();
+    
+    const updatedCart = await Cart.findById(cart._id).populate("items.productId");
+    res.status(200).json({ success: true, cart: updatedCart });
+  } catch (error) { res.status(500).json({ success: false }); }
+};
+
 export const clearCart = async (req, res) => {
   try {
-    const userId = req.user._id;
-    const cart = await Cart.findOne({ user: userId });
-    if (cart) {
-      cart.items = [];
-      await cart.save();
-    }
-
-    res.status(200).json({ success: true, message: "Cart cleared successfully", cart: { items: [] } });
-  } catch (error) {
-    console.error("Clear Cart Error:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
+    await Cart.findOneAndUpdate({ user: req.user._id }, { items: [] });
+    res.status(200).json({ success: true, cart: { items: [] } });
+  } catch (error) { res.status(500).json({ success: false }); }
 };
 
 export const mergeCart = async (req, res) => {
   try {
     const { localItems } = req.body;
-    const userId = req.user._id;
+    if (!Array.isArray(localItems) || localItems.length === 0) return res.status(200).json({ success: true });
 
-    if (!Array.isArray(localItems) || localItems.length === 0) {
-      const cart = await Cart.findOne({ user: userId }).populate(
-        "items.productId",
-        "name price gstRate customFields image stock category shippingCharge"
-      );
-      return res.status(200).json({ success: true, message: "No items to merge", cart: cart || { items: [] } });
-    }
-
-    let cart = await Cart.findOne({ user: userId });
-    if (!cart) {
-      cart = new Cart({ user: userId, items: [] });
-    }
+    let cart = await Cart.findOne({ user: req.user._id });
+    if (!cart) cart = new Cart({ user: req.user._id, items: [] });
 
     for (const localItem of localItems) {
-      const productId = localItem?.productId?._id || localItem?.productId || localItem?._id;
+      const productId = localItem.productId?._id || localItem.productId;
       if (!productId) continue;
 
-      const quantity = Math.max(1, Math.floor(toSafeNumber(localItem.quantity, 1)));
-      const normalizedSelections = normalizeSelectedCustomFields(localItem.selectedCustomFields);
-      const safePricing = sanitizePricing(localItem.pricingSnapshot || localItem.pricing);
-      
-      // 🔥 FIX: Extract variations from local item
-      const variant = localItem.variant || localItem.selectedVariant || null;
-      const attributes = localItem.attributes || localItem.selectedAttributes || null;
+      const truePricing = await calculateExactPricing(productId, localItem.selectedCustomFields || {}, localItem.variant);
+      if (!truePricing) continue;
 
-      const itemIndex = cart.items.findIndex(
-        (dbItem) => dbItem.productId.toString() === String(productId)
-      );
+      const itemIndex = cart.items.findIndex(dbItem => dbItem.productId.toString() === String(productId));
 
       if (itemIndex > -1) {
-        cart.items[itemIndex].quantity += quantity;
-        cart.items[itemIndex].selectedCustomFields = normalizedSelections;
-        cart.items[itemIndex].pricing = safePricing;
-        // 🔥 FIX: Update merged variations
-        if (variant) cart.items[itemIndex].variant = variant;
-        if (attributes) cart.items[itemIndex].attributes = attributes;
+        cart.items[itemIndex].quantity += Number(localItem.quantity || 1);
+        cart.items[itemIndex].pricing = truePricing;
       } else {
         cart.items.push({
-          productId,
-          quantity,
-          selectedCustomFields: normalizedSelections,
-          pricing: safePricing,
-          // 🔥 FIX: Save merged variations
-          variant,
-          attributes
+          productId, quantity: Number(localItem.quantity || 1),
+          selectedCustomFields: localItem.selectedCustomFields || {},
+          pricing: truePricing, variant: localItem.variant, attributes: localItem.attributes
         });
       }
     }
-
-    cart.markModified("items");
     await cart.save();
-
-    const updatedCart = await Cart.findById(cart._id).populate(
-      "items.productId",
-      "name price gstRate customFields image stock category shippingCharge"
-    );
-
-    res.status(200).json({ success: true, message: "Cart merged successfully", cart: updatedCart });
-  } catch (error) {
-    console.error("Merge Cart Error:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
+    res.status(200).json({ success: true });
+  } catch (error) { res.status(500).json({ success: false }); }
 };

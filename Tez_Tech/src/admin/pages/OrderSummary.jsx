@@ -2,9 +2,8 @@ import React from "react";
 import { FaLock } from "react-icons/fa";
 
 const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOnly = false }) => {
-  // ✅ 1. QuoteEditor se aane wale data ko destructure kar rahe hain
   const {
-    extraDiscountType = "flat", // 'flat' ya 'percentage'
+    extraDiscountType = "flat",
     extraDiscountValue = 0,
     shippingCharge = 0,
     gstPercentage = 0,
@@ -12,24 +11,28 @@ const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOn
     additionalChargeAmount = 0,
   } = quoteData;
 
-  // 🧮 2. Calculations Logic
-  const subtotal = items.reduce(
-    (sum, item) => sum + (Number(item.offeredPrice) * Number(item.quantity) || 0),
-    0
-  );
+  // 🧮 FIX 1: Robust Subtotal Calculation
+  // Ab ye offeredPrice, unitPrice ya price kisi ko bhi pakad lega
+  const subtotal = items.reduce((sum, item) => {
+    const price = Number(item.offeredPrice) || Number(item.unitPrice) || Number(item.price) || 0;
+    const qty = Number(item.quantity) || 1; // Default quantity 1 agar empty ho
+    return sum + (price * qty);
+  }, 0);
 
+  // 🧮 FIX 2: Safe Discount Calculation
   let discountAmount = Number(extraDiscountValue) || 0;
   if (extraDiscountType === "percentage") {
-    discountAmount = subtotal * (discountAmount / 100);
+    discountAmount = (subtotal * discountAmount) / 100;
   }
 
-  // Taxable amount wo hota hai jispar GST lagta hai (Subtotal - Discount + Shipping + Extra Charges)
-  const taxableAmount = Math.max(
-    0,
-    subtotal - discountAmount + Number(shippingCharge) + Number(additionalChargeAmount)
-  );
+  // 🧮 FIX 3: Taxable Amount Math
+  const shipping = Number(shippingCharge) || 0;
+  const extraCharge = Number(additionalChargeAmount) || 0;
+  
+  const taxableAmount = Math.max(0, subtotal - discountAmount + shipping + extraCharge);
 
-  const taxAmount = taxableAmount * (Number(gstPercentage) / 100) || 0;
+  // 🧮 FIX 4: Tax & Grand Total Math
+  const taxAmount = (taxableAmount * Number(gstPercentage)) / 100 || 0;
   const grandTotal = taxableAmount + taxAmount;
 
   return (
@@ -47,7 +50,7 @@ const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOn
         <div className="flex items-center justify-between">
           <span className="font-medium text-gray-700">Subtotal</span>
           <span className="font-semibold text-gray-900">
-            ₹ {subtotal.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+            ₹ {subtotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
 
@@ -55,7 +58,6 @@ const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOn
         <div className="flex items-center justify-between group">
           <div className="flex flex-col gap-1">
             <span className="font-medium text-gray-700">Discount</span>
-            {/* Toggle for Flat vs Percentage (Hidden in View Only if not needed, but good for context) */}
             {!isViewOnly && (
               <div className="flex items-center p-0.5 bg-gray-100 rounded-md w-fit border border-gray-200">
                 <button
@@ -92,7 +94,7 @@ const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOn
             </div>
             {discountAmount > 0 && (
               <span className="text-[10px] font-bold text-emerald-600">
-                - ₹ {discountAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                - ₹ {discountAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             )}
           </div>
@@ -147,7 +149,7 @@ const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOn
             <span className="font-medium text-gray-700">GST / Tax</span>
             {taxAmount > 0 && (
               <span className="text-[10px] font-semibold text-gray-500 mt-0.5">
-                On ₹{taxableAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                On ₹{taxableAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             )}
           </div>
@@ -167,7 +169,7 @@ const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOn
             </div>
             {taxAmount > 0 && (
               <span className="text-[11px] font-bold text-gray-600">
-                + ₹ {taxAmount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                + ₹ {taxAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             )}
           </div>
@@ -177,7 +179,7 @@ const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOn
         <div className="flex items-center justify-between p-4 mt-4 border border-blue-100 rounded-xl bg-blue-50">
           <span className="text-base font-black text-blue-900">Grand Total</span>
           <span className="text-xl font-black text-blue-700">
-            ₹ {grandTotal > 0 ? grandTotal.toLocaleString("en-IN", { maximumFractionDigits: 2 }) : "0.00"}
+            ₹ {grandTotal > 0 ? grandTotal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
           </span>
         </div>
 

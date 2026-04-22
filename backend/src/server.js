@@ -1,6 +1,7 @@
 import 'dotenv/config'; 
 import express from "express";
 import cors from "cors";
+import path from "path"; // 🚀 NAYA: Path module import kiya
 import connectDB from "./config/db.js";
 import seedAdmin from "./utils/seedAdmin.js";
 
@@ -11,11 +12,7 @@ import categoryRoutes from "./routes/categoryRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
-
-// 👇 1. Naya Quote Route Import Kiya
 import quoteRoutes from "./routes/quoteRoutes.js"; 
-
-// ❌ Framer motion yahan se hata diya gaya hai kyunki wo backend me nahi chalta
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -31,6 +28,9 @@ app.use(
 
 app.use(express.json());
 
+// 🚀 THE FINAL BOSS FIX: Uploads folder ko public banaya taaki frontend images dekh sake
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+
 /* ================= ROUTES ================= */
 
 app.get("/", (req, res) => {
@@ -43,8 +43,6 @@ app.use("/api/products", productRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
-
-// 👇 2. Naya Quote Route Main Gate Par Mount Diya (S hata diya taaki frontend se match kare)
 app.use("/api/quote", quoteRoutes); 
 app.use("/api/cart", cartRoutes);
 

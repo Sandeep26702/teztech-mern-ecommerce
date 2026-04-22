@@ -1,5 +1,5 @@
 import { Routes, Route, Outlet } from "react-router-dom";
-import { Toaster } from "react-hot-toast"; // 🔥 YAHAN IMPORT KIYA HAI
+import { Toaster } from "react-hot-toast";
 
 // ✅ Custom Route Guard (Authentication ke liye)
 import PrivateRoute from "./routes/PrivateRoute"; 
@@ -30,7 +30,9 @@ import ResetPassword from "./pages/ResetPassword";
 import CheckoutPage from "./pages/CheckoutPage";
 import OrderSuccess from "./pages/Checkout/OrderSuccess";
 import Orders from "./pages/MyOrders";
-import OrderDetail from './pages/OrderDetail';
+
+// 🔥 CLIENT ORDER PAGE IMPORT
+import ClientOrderDetail from './pages/ClientOrderDetail'; 
 
 // 👤 User Specific Pages (Dashboard, Profile)
 import Dashboard from "./pages/Dashboard";
@@ -52,6 +54,7 @@ import AdminAnalytics from "./admin/pages/AdminAnalytics";
 import AdminSettings from "./admin/pages/AdminSettings";
 import QuotesTable from "./admin/pages/QuotesTable";
 import QuoteEditor from "./admin/pages/QuoteEditor";
+import AdminOrderDetail from './admin/pages/OrderDetail';
 
 /**
  * 🌟 PUBLIC LAYOUT WRAPPER
@@ -71,20 +74,19 @@ const PublicLayout = () => {
 function App() {
   return (
     <>
-      {/* 🔥 TOASTER YAHAN ADD KIYA HAI (Poori app me popup yahi se aayega) */}
-     <Toaster 
-  position="top-right" /* 🔥 Yahan top-right kar diya */
-  reverseOrder={false} 
-  toastOptions={{ 
-    duration: 2500,
-    style: {
-      marginTop: '60px', /* Header ke thoda niche aayega */
-      background: '#333',
-      color: '#fff',
-    }
-  }} 
-/>
-
+      {/* 🔥 TOASTER */}
+      <Toaster 
+        position="top-right" 
+        reverseOrder={false} 
+        toastOptions={{ 
+          duration: 2500,
+          style: {
+            marginTop: '60px',
+            background: '#333',
+            color: '#fff',
+          }
+        }} 
+      />
 
       <Routes>
         
@@ -101,7 +103,7 @@ function App() {
             <Route path="categories" element={<AdminCategoryManagement />} />
             
             <Route path="orders" element={<AdminOrders />} />
-            <Route path="orders/:id" element={<OrderDetail />} />
+            {/* 🚧 Admin Order Detail ka route yahan se hata diya gaya hai. Jab naya banayenge tab dalenge */}
             <Route path="quotes" element={<QuotesTable />} />
             <Route path="quotes/:id" element={<QuoteEditor />} />
             
@@ -109,6 +111,7 @@ function App() {
             <Route path="subadmins" element={<AdminUsers />} />
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="settings" element={<AdminSettings />} />
+            <Route path="orders/:id" element={<AdminOrderDetail />} />
           </Route>
         </Route> 
 
@@ -152,8 +155,10 @@ function App() {
             <Route path="/addresses" element={<AddressesPage />} />
             
             <Route path="/orders" element={<Orders />} />
-            <Route path="/orders/:id" element={<OrderDetail />} />
-            <Route path="/order/:id" element={<OrderDetail />} /> 
+            
+            {/* 🔥 Client ka Naya Order Detail Page */}
+            <Route path="/orders/:id" element={<ClientOrderDetail />} />
+            <Route path="/order/:id" element={<ClientOrderDetail />} /> 
           </Route>
 
         </Route> {/* PublicLayout Ends Here */}

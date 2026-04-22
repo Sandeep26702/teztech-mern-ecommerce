@@ -1,7 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import api from "../utils/api";
 import { useAuth } from "./AuthContext";
-// 🔥 NAYA: toast import kiya
 import toast from 'react-hot-toast';
 
 const CartContext = createContext();
@@ -9,12 +8,7 @@ const CartContext = createContext();
 const round2 = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 
 const normalizeSelectionValue = (value) => {
-  if (Array.isArray(value)) {
-    return value
-      .map((v) => String(v).trim())
-      .filter(Boolean)
-      .sort();
-  }
+  if (Array.isArray(value)) return value.map((v) => String(v).trim()).filter(Boolean).sort();
   if (value === undefined || value === null) return "";
   return String(value).trim();
 };
@@ -22,29 +16,53 @@ const normalizeSelectionValue = (value) => {
 const normalizeSelectedCustomFields = (input) => {
   if (!input || typeof input !== "object" || Array.isArray(input)) return {};
   const normalized = {};
-  Object.keys(input)
-    .sort()
-    .forEach((key) => {
-      const safeKey = String(key).trim();
-      if (!safeKey) return;
-      normalized[safeKey] = normalizeSelectionValue(input[key]);
-    });
+  Object.keys(input).sort().forEach((key) => {
+    const safeKey = String(key).trim();
+    if (!safeKey) return;
+    normalized[safeKey] = normalizeSelectionValue(input[key]);
+  });
   return normalized;
 };
 
 const createLocalId = () => `local_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
 const getItemKey = (item) => item._id || item.localItemId || item.productId?._id || item.productId || item._id;
 
-const getItemUnitPrice = (item) => {
-  const unitPrice =
-    item?.pricing?.unitPrice ||
-    item?.pricingSnapshot?.unitPrice ||
-    item?.unitPrice ||
-    item?.productId?.price ||
-    item?.price ||
-    0;
-  return Number(unitPrice) || 0;
+// 🚀 MASTER PRICE CALCULATOR
+export const getTrueUnitPrice = (item) => {
+  // 🔥 FIX: Agar Product page ne '_finalPrice' bheja hai (aur backend ne save kar liya hai), toh direct use karo!
+  if (item?.selectedCustomFields?._finalPrice) {
+    return Number(item.selectedCustomFields._finalPrice);
+  }
+
+  // Backup calculation (Agar purana item ho)
+  let basePrice = Number(item?.variant?.sellingPrice || item?.variant?.price || item?.productId?.sellingPrice || item?.productId?.price || item?.sellingPrice || item?.price || 0);
+  let extraCharges = 0;
+  const rawFields = item?.productId?.customFields || item?.productId?.attributes || item?.customFields || item?.attributes || [];
+  const customFields = Array.isArray(rawFields) ? rawFields : [];
+  const selections = item?.selectedCustomFields || {};
+
+  customFields.forEach(field => {
+    if (!field) return;
+    const fieldId = String(field._id || "");
+    const fieldLabel = String(field.label || field.name || "").trim();
+    const selectedValue = selections[fieldId] ?? selections[fieldLabel] ?? selections[field.name];
+    
+    if (!selectedValue) return;
+
+    const selectedValuesArr = Array.isArray(selectedValue) ? selectedValue : [selectedValue];
+    selectedValuesArr.forEach(val => {
+      const safeVal = String(val).trim();
+      const matchedOption = (Array.isArray(field.options) ? field.options : []).find(opt => {
+        const optValue = typeof opt === 'object' ? String(opt.value || opt.label || "") : String(opt);
+        return optValue.trim() === safeVal;
+      });
+
+      if (matchedOption && matchedOption.priceAdjustment) extraCharges += Number(matchedOption.priceAdjustment);
+    });
+  });
+
+  const gstRate = Number(item?.gstRate || item?.productId?.gstRate || item?.productId?.GST || 18);
+  return Math.round((basePrice + extraCharges) * (1 + (gstRate / 100)));
 };
 
 export const CartProvider = ({ children }) => {
@@ -58,21 +76,10 @@ export const CartProvider = ({ children }) => {
     items.forEach((item) => {
       const productId = String(item?.productId?._id || item?.productId || item?._id || "").trim();
       if (!productId) return;
-      
-      if (!merged.has(productId)) {
-        merged.set(productId, { ...item });
-        return;
-      }
-      
+      if (!merged.has(productId)) { merged.set(productId, { ...item }); return; }
       const existing = merged.get(productId);
       existing.quantity = (existing.quantity || 0) + Number(item.quantity || 0);
-      
-      if (item.selectedCustomFields && Object.keys(item.selectedCustomFields).length > 0) {
-        existing.selectedCustomFields = item.selectedCustomFields;
-      }
-      if (item.pricingSnapshot) {
-        existing.pricingSnapshot = item.pricingSnapshot;
-      }
+      if (item.selectedCustomFields) existing.selectedCustomFields = item.selectedCustomFields;
       if (item.variant) existing.variant = item.variant;
       if (item.attributes) existing.attributes = item.attributes;
     });
@@ -81,12 +88,9 @@ export const CartProvider = ({ children }) => {
 
   const getLocalCart = () => {
     try {
-      const storedCart = localStorage.getItem("guestCart");
-      const parsed = storedCart ? JSON.parse(storedCart) : [];
-      return mergeLocalItemsByProduct(parsed);
-    } catch {
-      return [];
-    }
+      const stored = localStorage.getItem("guestCart");
+      return stored ? mergeLocalItemsByProduct(JSON.parse(stored)) : [];
+    } catch { return []; }
   };
 
   const setLocalCart = (items) => {
@@ -97,219 +101,134 @@ export const CartProvider = ({ children }) => {
   const fetchCart = useCallback(async () => {
     setLoading(true);
     const token = localStorage.getItem("token");
-
     if (token && user) {
       try {
         const { data } = await api.get("/cart");
-        if (data.success && data.cart) {
-          setCartItems(data.cart.items || []);
-        }
-      } catch (error) {
-        console.error("Cart fetch error:", error);
-        setCartItems([]);
-      }
-    } else {
-      setCartItems(getLocalCart());
-    }
+        if (data.success && data.cart) setCartItems(data.cart.items || []);
+      } catch (error) { setCartItems([]); }
+    } else setCartItems(getLocalCart());
     setLoading(false);
   }, [user]);
 
-  useEffect(() => {
-    fetchCart();
-  }, [fetchCart]);
+  useEffect(() => { fetchCart(); }, [fetchCart]);
 
   const addToCart = async (product) => {
     const token = localStorage.getItem("token");
-    
-    const selectedCustomFields = normalizeSelectedCustomFields(product?.selectedCustomFields);
-    const pricingSnapshot = product?.pricingSnapshot || null;
-    const variant = product?.variant || product?.selectedVariant || null;
-    const attributes = product?.attributes || product?.selectedAttributes || null;
+    // Normalize fields but DO NOT strip out _finalPrice
+    const selectedCustomFields = { ...product?.selectedCustomFields }; 
+
+    let variantToAdd = product?.variant;
+    let attributesToAdd = product?.attributes;
+
+    if (!variantToAdd && product?.variants?.length > 0) variantToAdd = product.variants[0];
+    if (!attributesToAdd && product?.attributes?.length > 0) {
+      attributesToAdd = {};
+      product.attributes.forEach((attr) => {
+        if (attr.options && attr.options.length > 0) attributesToAdd[attr.name] = attr.options[0];
+      });
+    }
+
+    const finalItemPrice = Number(variantToAdd?.sellingPrice ?? variantToAdd?.price ?? product?.sellingPrice ?? product?.price ?? 0);
 
     if (token && user) {
       try {
         const { data } = await api.post("/cart/add", {
-          productId: product._id,
-          quantity: 1,
-          selectedCustomFields,
-          pricingSnapshot,
-          variant, 
-          attributes 
+          productId: product._id, 
+          quantity: 1, 
+          selectedCustomFields, 
+          variant: variantToAdd,      
+          attributes: attributesToAdd 
         });
-        
         if (data.success) {
           setCartItems(data.cart.items || []);
-          // 🔥 NAYA: toast lagaya
           toast.success(`${product.name} added to cart!`);
         }
-      } catch (error) {
-        console.error("Add to cart error:", error);
-        // 🔥 NAYA: toast lagaya
-        toast.error("Failed to add item to cart.");
-      }
+      } catch (error) { toast.error("Failed to add item to cart."); }
       return;
     }
 
     const localCart = getLocalCart();
-    const existingIndex = localCart.findIndex((item) => {
-      const itemProductId = item.productId?._id || item.productId;
-      if (String(itemProductId) !== String(product._id)) return false;
-      return true;
-    });
+    const existingIndex = localCart.findIndex(item =>
+      String(item.productId?._id || item.productId) === String(product._id) &&
+      String(item.variant?._id || item.variant?.sku) === String(variantToAdd?._id || variantToAdd?.sku)
+    );
 
     if (existingIndex > -1) {
       localCart[existingIndex].quantity += 1;
       localCart[existingIndex].selectedCustomFields = selectedCustomFields;
-      localCart[existingIndex].pricingSnapshot = pricingSnapshot || localCart[existingIndex].pricingSnapshot;
-      localCart[existingIndex].variant = variant || localCart[existingIndex].variant;
-      localCart[existingIndex].attributes = attributes || localCart[existingIndex].attributes;
+      localCart[existingIndex].variant = variantToAdd;
+      localCart[existingIndex].attributes = attributesToAdd;
     } else {
       localCart.push({
         localItemId: createLocalId(),
         productId: {
-          _id: product._id,
+          _id: product._id, 
           name: product.name,
-          price: product.price,
+          image: product.image,
+          category: product.category || "",
+          price: finalItemPrice, 
           gstRate: product.gstRate || 0,
           shippingCharge: product.shippingCharge || 0,
-          image: product.image,
-          stock: product.stock,
-          category: product.category,
-          customFields: product.customFields || [],
+          customFields: product.customFields || product.attributes || [] 
         },
+        sku: variantToAdd?.sku || product.sku, 
+        price: finalItemPrice,   
         quantity: 1,
+        variant: variantToAdd,
+        attributes: attributesToAdd,
         selectedCustomFields,
-        pricingSnapshot,
-        variant, 
-        attributes 
       });
     }
-
     setLocalCart(localCart);
-    // 🔥 NAYA: toast lagaya
     toast.success(`${product.name} added to cart!`);
   };
 
   const removeFromCart = async (itemKey) => {
     const token = localStorage.getItem("token");
     const previousCart = [...cartItems];
-
-    setCartItems((prevItems) => prevItems.filter((item) => getItemKey(item) !== itemKey));
+    setCartItems(prev => prev.filter(item => getItemKey(item) !== itemKey));
 
     if (token && user) {
       try {
         const { data } = await api.delete(`/cart/remove/${itemKey}`);
-        if (data.success) {
-          setCartItems(data.cart.items || []);
-          // 🔥 NAYA: toast lagaya
-          toast.success("Item removed from cart");
-        }
-      } catch (error) {
-        console.error("Remove from cart error:", error);
-        setCartItems(previousCart);
-        // 🔥 NAYA: toast lagaya
-        toast.error("Failed to remove item.");
-      }
+        if (data.success) { setCartItems(data.cart.items || []); toast.success("Item removed"); }
+      } catch (error) { setCartItems(previousCart); toast.error("Failed to remove item."); }
       return;
     }
-
-    const newLocalCart = previousCart.filter((item) => getItemKey(item) !== itemKey);
-    setLocalCart(newLocalCart);
-    // 🔥 NAYA: toast lagaya
-    toast.success("Item removed from cart");
+    setLocalCart(previousCart.filter(item => getItemKey(item) !== itemKey));
+    toast.success("Item removed");
   };
 
   const updateQuantity = async (itemKey, quantity) => {
     if (quantity < 1) return;
     const token = localStorage.getItem("token");
     const previousCart = [...cartItems];
-
-    setCartItems((prevItems) =>
-      prevItems.map((item) => (getItemKey(item) === itemKey ? { ...item, quantity } : item))
-    );
+    setCartItems(prev => prev.map(item => getItemKey(item) === itemKey ? { ...item, quantity } : item));
 
     if (token && user) {
       try {
         const { data } = await api.put("/cart/update", { itemId: itemKey, quantity });
         if (data.success) setCartItems(data.cart.items || []);
-      } catch (error) {
-        console.error("Update cart quantity error:", error);
-        setCartItems(previousCart);
-        // 🔥 NAYA: toast lagaya
-        toast.error("Failed to update quantity.");
-      }
+      } catch (error) { setCartItems(previousCart); toast.error("Failed to update quantity."); }
       return;
     }
-
-    const newLocalCart = previousCart.map((item) =>
-      getItemKey(item) === itemKey ? { ...item, quantity } : item
-    );
-    setLocalCart(newLocalCart);
+    setLocalCart(previousCart.map(item => getItemKey(item) === itemKey ? { ...item, quantity } : item));
   };
 
-  const getCartTotal = () =>
-    round2(
-      cartItems.reduce((total, item) => total + getItemUnitPrice(item) * Number(item.quantity || 0), 0)
-    );
+  const getCartTotal = () => round2(cartItems.reduce((total, item) => total + getTrueUnitPrice(item) * Number(item.quantity || 0), 0));
 
   const clearCart = async () => {
-    const token = localStorage.getItem("token");
-    setCartItems([]);
-
-    if (token && user) {
-      try {
-        await api.delete("/cart/clear");
-      } catch (error) {
-        console.error("Clear DB cart error:", error);
-      }
-      return;
+    if (localStorage.getItem("token") && user) {
+      try { await api.delete("/cart/clear"); } catch (e) {}
     }
-
-    localStorage.removeItem("guestCart");
-  };
-
-  const mergeLocalCartWithDB = async () => {
-    const localCart = getLocalCart();
-    if (localCart.length === 0) {
-      fetchCart();
-      return;
-    }
-
-    try {
-      const { data } = await api.post("/cart/merge", { localItems: localCart });
-      if (data.success) {
-        setCartItems(data.cart.items || []);
-        localStorage.removeItem("guestCart");
-      }
-    } catch (error) {
-      console.error("Failed to merge cart:", error);
-      fetchCart();
-    }
+    setCartItems([]); localStorage.removeItem("guestCart");
   };
 
   return (
-    <CartContext.Provider
-      value={{
-        cartItems,
-        loading,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        getCartTotal,
-        clearCart,
-        fetchCart,
-        mergeLocalCartWithDB,
-      }}
-    >
+    <CartContext.Provider value={{ cartItems, loading, addToCart, removeFromCart, updateQuantity, getCartTotal, clearCart }}>
       {children}
     </CartContext.Provider>
   );
 };
 
-export const useCart = () => {
-  const context = useContext(CartContext);
-  if (!context) {
-    throw new Error("useCart must be used within a CartProvider");
-  }
-  return context;
-};
+export const useCart = () => useContext(CartContext);

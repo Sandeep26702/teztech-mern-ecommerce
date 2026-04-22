@@ -14,7 +14,7 @@ const orderItemSchema = new mongoose.Schema(
     quantity: { type: Number, required: true, min: [1, "Quantity cannot be less than 1"] },
     basePrice: { type: Number, required: true, min: 0 },
     
-    // 🔥 THE FIX: Ye naye fields add kiye hain taaki Mongoose variations ko delete na kare!
+    // 🔥 Variations Fix
     variant: { type: String },
     size: { type: String },
     color: { type: String },
@@ -88,7 +88,7 @@ const orderSchema = new mongoose.Schema(
       default: "Pending",
     },
     
-    // 🔥 NAYI FIELDS: Manual Payment ke liye
+    // 🔥 Manual Payment & Delivery fields
     deliveryType: {
       type: String,
       enum: ['ship', 'pickup'],
@@ -100,13 +100,19 @@ const orderSchema = new mongoose.Schema(
     },
     paymentScreenshot: {
       type: String,
-      default: "" // Yahan image ka path aayega
+      default: "" 
     },
     orderNotes: {
       type: String,
       default: ""
     },
-    // 🔥 ----------------------------------------------------
+
+    // 🚀 THE ULTIMATE FIX: Courier Partner Database Field 🚀
+    courierPartner: {
+      type: String,
+      default: "Standard Courier"
+    },
+    // ----------------------------------------------------
 
     subtotalAmount: {
       type: Number,

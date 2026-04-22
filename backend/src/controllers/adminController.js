@@ -2,46 +2,93 @@ import User from "../models/User.js";
 import Product from "../models/Product.js"; 
 import Order from "../models/Order.js";
 
-/* ================= DASHBOARD STATS ================= */
+/* ================= DASHBOARD STATS (UPDATED FOR NEW UI) ================= */
 export const getDashboardStats = async (req, res) => {
   try {
-    // 1. Sabhi counts parallel mein fetch karein (Performance fast hogi)
-    const [totalUsers, totalProducts, activeProducts, outOfStockProducts, totalOrders, recentOrders] = await Promise.all([
-      User.countDocuments(),
-      Product ? Product.countDocuments() : Promise.resolve(0),
-      Product ? Product.countDocuments({ status: { $regex: "^active$", $options: "i" } }) : Promise.resolve(0),
-      Product ? Product.countDocuments({ stock: { $lte: 0 } }) : Promise.resolve(0),
-      Order ? Order.countDocuments() : Promise.resolve(0),
-      Order
-        ? Order.find({})
-            .sort({ createdAt: -1 })
-            .limit(5)
-            .select("orderCode orderNumber totalAmount createdAt orderStatus shippingInfo")
-        : Promise.resolve([]),
-    ]);
+    // 1. Date limits for Revenue calculation
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    const d = new Date();
+    const day = d.getDay();
+    const diff = d.getDate() - day; // Sunday as start of week
+    const startOfWeek = new Date(d.setDate(diff));
+    startOfWeek.setHours(0, 0, 0, 0);
 
-    // 2. Revenue calculation
-    let totalRevenue = 0;
-    if (Order) {
-      const orders = await Order.find({}, 'totalPrice'); // Sirf totalPrice field fetch karein
-      totalRevenue = orders.reduce((acc, order) => acc + (order.totalPrice || 0), 0);
-    }
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    // 3. Response Structure Fix: Frontend ke fetchStats() ke mutabiq bhej rahe hain
-    res.status(200).json({
-      success: true,
-      totalUsers,     // Seedha bhej rahe hain bina extra 'data' object ke
+    // 2. Execute all database queries in parallel for maximum speed
+    const [
       totalProducts,
       activeProducts,
       outOfStockProducts,
       totalOrders,
-      totalRevenue,
-      recentOrders: recentOrders || [],
+      recentOrders,
+      revenueTodayAgg,
+      revenueWeekAgg,
+      revenueMonthAgg,
+      pendingUPI,
+      processing,
+      shipping,
+      delivered,
+      lowStockItems,
+      totalUsers
+    ] = await Promise.all([
+      // Basic counts
+      Product ? Product.countDocuments() : Promise.resolve(0),
+      Product ? Product.countDocuments({ status: { $regex: "^active$", $options: "i" } }) : Promise.resolve(0),
+      Product ? Product.countDocuments({ stock: { $lte: 0 } }) : Promise.resolve(0),
+      Order ? Order.countDocuments() : Promise.resolve(0),
+      
+      // Recent Orders (Last 5)
+      Order ? Order.find({}).sort({ createdAt: -1 }).limit(5).select("-items -paymentScreenshot") : Promise.resolve([]),
+      
+      // Revenue calculations using MongoDB Aggregation
+      Order ? Order.aggregate([{ $match: { createdAt: { $gte: startOfToday }, paymentStatus: { $ne: "Failed" } } }, { $group: { _id: null, total: { $sum: "$totalAmount" } } }]) : Promise.resolve([{total: 0}]),
+      Order ? Order.aggregate([{ $match: { createdAt: { $gte: startOfWeek }, paymentStatus: { $ne: "Failed" } } }, { $group: { _id: null, total: { $sum: "$totalAmount" } } }]) : Promise.resolve([{total: 0}]),
+      Order ? Order.aggregate([{ $match: { createdAt: { $gte: startOfMonth }, paymentStatus: { $ne: "Failed" } } }, { $group: { _id: null, total: { $sum: "$totalAmount" } } }]) : Promise.resolve([{total: 0}]),
+      
+      // Action Alerts
+      Order ? Order.countDocuments({ paymentMethod: "MANUAL", paymentStatus: "Pending" }) : Promise.resolve(0),
+      
+      // Order Status counts
+      Order ? Order.countDocuments({ orderStatus: "Processing" }) : Promise.resolve(0),
+      Order ? Order.countDocuments({ orderStatus: "Shipping" }) : Promise.resolve(0),
+      Order ? Order.countDocuments({ orderStatus: "Delivered" }) : Promise.resolve(0),
+      
+      // Low Stock Alert (Stock < 5)
+      Product ? Product.find({ stock: { $lt: 5 } }).select("name stock").limit(10).sort({ stock: 1 }) : Promise.resolve([]),
+      
+      User.countDocuments()
+    ]);
+
+    // 3. Format response exactly as React frontend expects
+    res.status(200).json({
+      success: true,
+      stats: {
+        // Essential metrics for new Dashboard
+        revenue: {
+          today: revenueTodayAgg[0]?.total || 0,
+          week: revenueWeekAgg[0]?.total || 0,
+          month: revenueMonthAgg[0]?.total || 0
+        },
+        pendingUPI,
+        orderStatus: { processing, shipping, delivered },
+        lowStockItems,
+        recentOrders: recentOrders || [],
+        
+        // Retained basic stats to avoid breaking old components
+        totalProducts,
+        activeProducts,
+        outOfStockProducts,
+        totalOrders,
+        totalUsers
+      }
     });
 
   } catch (error) {
-    console.error("Controller Error:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
+    console.error("Dashboard Stats Error:", error);
+    res.status(500).json({ success: false, message: "Server Error calculating stats" });
   }
 };
 
@@ -54,7 +101,7 @@ export const getAllUsers = async (req, res) => {
     res.status(200).json({ 
         success: true, 
         users,
-        totalUsers: users.length // Ye line 404 error fix karne mein help karegi
+        totalUsers: users.length 
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

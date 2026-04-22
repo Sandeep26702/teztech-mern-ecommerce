@@ -1,5 +1,7 @@
 import express from 'express';
-import multer from 'multer'; // 🚀 NAYA: Multer import kiya
+import multer from 'multer';
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import { 
     createOrder, 
     getAllOrdersForAdmin, 
@@ -11,19 +13,26 @@ import { protect, authorize } from '../middleware/auth.Middleware.js';
 
 const router = express.Router();
 
-// 🚀 NAYA: Multer Configuration (Files kahan save hongi)
-const storage = multer.diskStorage({
-  destination(req, file, cb) {
-    cb(null, 'uploads/'); // Dhyan rahe: Backend folder me 'uploads' naam ka ek khali folder hona chahiye
-  },
-  filename(req, file, cb) {
-    cb(null, `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`);
-  }
+// ☁️ Cloudinary Configuration (Aapke .env variables ke hisaab se)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+// 📦 Storage Engine: Cloudinary Setup
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'teztech_payments', // Cloudinary me is naam ka folder ban jayega
+    allowed_formats: ['jpg', 'png', 'jpeg', 'webp'], // webp added for better support
+  },
+});
+
 const upload = multer({ storage });
 
 // --- USER ROUTES ---
-// 🔥 THE FIX: 'upload.single('paymentScreenshot')' add kiya
+// Frontend se 'paymentScreenshot' aayegi aur seedha Cloudinary par jayegi
 router.post('/create', protect, upload.single('paymentScreenshot'), createOrder);
 
 router.get('/my-orders', protect, getMyOrders); 

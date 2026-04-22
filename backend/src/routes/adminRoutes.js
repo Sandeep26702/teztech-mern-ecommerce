@@ -1,6 +1,8 @@
 import express from "express";
 import { protect, authorize } from "../middleware/auth.Middleware.js"; 
 import { adminOnly } from "../middleware/roleMiddleware.js";
+
+// Admin Controller Imports
 import { 
   getDashboardStats, 
   getAllUsers, 
@@ -10,7 +12,16 @@ import {
   updateUserProfileByAdmin,
   toggleUserBlockStatus,
 } from "../controllers/adminController.js"; 
+
+// Quote Controller Imports
 import { getQuoteById, respondToQuote } from "../controllers/quoteController.js";
+
+// 🔥 NAYA FIX: getOrderDetail ko yahan add kiya hai
+import { 
+  getAllOrdersForAdmin, 
+  updateOrderStatus, 
+  getOrderDetail 
+} from "../controllers/orderController.js";
 
 const router = express.Router();
 
@@ -23,14 +34,18 @@ router.use(authorize("admin", "subadmin"));
 
 /* ================= ROUTES ================= */
 
-// Dashboard overview stats ke liye
-router.get("/dashboard", getDashboardStats);
+// 📊 Dashboard Stats 
+router.get("/dashboard-stats", getDashboardStats);
 
-// 🛠️ FIX: Dashboard orders fetch karne ke liye (Abhi ke liye dashboard stats hi use kar rahe hain)
-// Note: Future mein aap yahan specific 'getAllOrders' controller add kar sakte hain
-router.get("/orders", getDashboardStats); 
+// 📦 Order Management Routes 
+router.get("/orders", getAllOrdersForAdmin); 
 
-// Users management routes
+// 🔥 NAYA FIX: Single order detail fetch karne ka route (404 Error yahan se theek hoga)
+router.get("/orders/:id", getOrderDetail); 
+
+router.put("/orders/:orderId/status", updateOrderStatus); 
+
+// 👥 Users Management Routes
 router.get("/users", getAllUsers);
 router.get("/users/:id", getUserById);
 router.put("/users/:id/profile", updateUserProfileByAdmin);
@@ -40,7 +55,7 @@ router.route("/users/:id")
   .delete(adminOnly, deleteUser)
   .put(adminOnly, updateUserRole);
 
-// Quote management routes for Admin Panel
+// 📝 Quote Management Routes
 router.get("/quote/:id", getQuoteById);
 router.put("/quote/:id", respondToQuote);
 router.patch("/quote/:id", respondToQuote);

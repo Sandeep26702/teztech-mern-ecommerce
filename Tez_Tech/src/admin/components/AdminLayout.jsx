@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate, Outlet, useLocation } from "react-router-dom";
 import { 
   FaBox, FaUsers, FaClipboardList, FaChartLine, 
-  FaSignOutAlt, FaBars, FaTimes, FaUserShield, FaFileInvoiceDollar, FaLayerGroup 
+  FaSignOutAlt, FaBars, FaTimes, FaUserShield, FaFileInvoiceDollar, FaLayerGroup,
+  FaCog // 👈 1. Settings Icon Import kiya
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 
@@ -10,21 +11,23 @@ const AdminLayout = () => {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const { logout, user } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation(); // To highlight active menu
+  const location = useLocation();
 
   const handleLogout = () => {
     logout();
     navigate("/login");
   };
 
+  // 👈 2. Yahan 'Settings' ko list mein add kar diya
   const menuItems = [
     { name: "Dashboard", path: "/admin/dashboard", icon: <FaChartLine size={20} /> },
     { name: "Products", path: "/admin/products", icon: <FaBox size={20} /> },
     { name: "Categories", path: "/admin/categories", icon: <FaLayerGroup size={20} /> },
-    { name: "Quotations", path: "/admin/quotes", icon: <FaFileInvoiceDollar size={20} /> }, // 👈 VIP Jagah Quotes ke liye
+    { name: "Quotations", path: "/admin/quotes", icon: <FaFileInvoiceDollar size={20} /> },
     { name: "Orders", path: "/admin/orders", icon: <FaClipboardList size={20} /> },
     { name: "Users", path: "/admin/users", icon: <FaUsers size={20} /> },
     { name: "Sub Admins", path: "/admin/subadmins", icon: <FaUserShield size={20} /> },
+   /// { name: "Settings", path: "/admin/settings", icon: <FaCog size={20} /> }, // 🔥 Naya Settings Button
   ];
 
   return (
@@ -122,7 +125,7 @@ const AdminLayout = () => {
 
         {/* 📄 Dynamic Content (Outlet) */}
         <section className="flex-1 p-4 overflow-x-hidden overflow-y-auto bg-gray-50 sm:p-6 lg:p-8">
-          <Outlet /> {/* Har page ka content mast bg-gray-50 par load hoga */}
+          <Outlet />
         </section>
         
       </main>

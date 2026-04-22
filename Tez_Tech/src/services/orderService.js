@@ -21,7 +21,13 @@ API.interceptors.request.use((config) => {
  */
 export const placeNewOrder = async (orderData) => {
   try {
-    const { data } = await API.post('/create', orderData);
+    // 🔥 THE FIX: Check agar data FormData hai (matlab usme image hai)
+    const isFormData = orderData instanceof FormData;
+
+    const { data } = await API.post('/create', orderData, {
+      // Agar image hai toh explicitly header set karo, warna blank chhod do
+      headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : {}
+    });
     return data;
   } catch (error) {
     // Preserve full axios error so caller can read status + response payload
