@@ -14,7 +14,7 @@ const getImageUrl = (path) => {
   if (!path) return "https://placehold.co/100x100?text=No+Image";
   if (path.startsWith("http")) return path;
   const cleanPath = path.replace(/\\/g, "/");
-  return `http://localhost:5000${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
+  return `https://sonani-backend.onrender.com${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
 };
 
 const getVariations = (item) => {

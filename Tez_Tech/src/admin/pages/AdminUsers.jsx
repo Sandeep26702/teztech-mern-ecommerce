@@ -4,7 +4,7 @@ import axios from "axios";
 import { FaTrash, FaSearch, FaUserShield, FaUserFriends } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 
-const API_BASE = "http://localhost:5000/api/admin";
+const API_BASE = "https://sonani-backend.onrender.com/api/admin";
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);

@@ -14,7 +14,7 @@ import {
   FaTimesCircle,
 } from "react-icons/fa";
 
-const API = "http://localhost:5000/api/products";
+const API = "https://sonani-backend.onrender.com/api/products";
 
 const AdminProductCsvManagement = () => {
   const [loading, setLoading] = useState(false);

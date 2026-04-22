@@ -19,7 +19,7 @@ const getImageUrl = (path) => {
   if (!path) return "https://placehold.co/100x100?text=No+Image";
   if (path.startsWith("http")) return path;
   const cleanPath = path.replace(/\\/g, "/");
-  return `http://localhost:5000${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
+  return `https://sonani-backend.onrender.com${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
 };
 
 // 🏷️ Variations Parser (For factory instructions)
@@ -56,7 +56,7 @@ const OrderDetail = () => {
       const token = localStorage.getItem("token");
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
-      const res = await axios.get(`http://localhost:5000/api/admin/orders/${id}`, config);
+      const res = await axios.get(`https://sonani-backend.onrender.com/api/admin/orders/${id}`, config);
       if (res.data.success) {
         setOrder(res.data.order);
         setNewOrderStatus(res.data.order.orderStatus);
@@ -82,7 +82,7 @@ const OrderDetail = () => {
       const config = { headers: { Authorization: `Bearer ${token}` } };
 
       const res = await axios.put(
-        `http://localhost:5000/api/admin/orders/${id}/status`, 
+        `https://sonani-backend.onrender.com/api/admin/orders/${id}/status`, 
         { orderStatus: newOrderStatus, paymentStatus: newPaymentStatus },
         config
       );

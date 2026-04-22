@@ -37,7 +37,7 @@ const AdminDashboard = () => {
         const token = localStorage.getItem("token");
         const config = { headers: { Authorization: `Bearer ${token}` } };
 
-        const res = await axios.get("http://localhost:5000/api/admin/dashboard-stats", config);
+        const res = await axios.get("https://sonani-backend.onrender.com/api/admin/dashboard-stats", config);
         
         if (res.data.success) {
           setStats(res.data.stats);

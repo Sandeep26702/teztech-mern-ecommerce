@@ -30,7 +30,7 @@ const AdminOrders = () => {
       setLoading(true);
       const token = localStorage.getItem("token");
       const config = { headers: { Authorization: `Bearer ${token}` } };
-      const res = await axios.get("http://localhost:5000/api/admin/orders", config);
+      const res = await axios.get("https://sonani-backend.onrender.com/api/admin/orders", config);
       if (res.data.success) {
         setOrders(res.data.orders);
       }
@@ -55,7 +55,7 @@ const AdminOrders = () => {
       const payload = { orderStatus: newOrderStatus };
       if (newPaymentStatus) payload.paymentStatus = newPaymentStatus;
 
-      const res = await axios.put(`http://localhost:5000/api/admin/orders/${orderId}/status`, payload, config);
+      const res = await axios.put(`https://sonani-backend.onrender.com/api/admin/orders/${orderId}/status`, payload, config);
       if (res.data.success) {
         // Update local state smoothly without full reload
         setOrders(orders.map(o => o._id === orderId ? { ...o, orderStatus: newOrderStatus, paymentStatus: newPaymentStatus || o.paymentStatus } : o));

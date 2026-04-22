@@ -28,7 +28,7 @@ const Products = () => {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const res = await axios.get("http://localhost:5000/api/categories");
+        const res = await axios.get("https://sonani-backend.onrender.com/api/categories");
         if (res.data.success) {
           setCategories(res.data.categories || []);
         }
