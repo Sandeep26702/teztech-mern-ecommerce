@@ -3,14 +3,15 @@ import axios from 'axios';
 // ==========================================
 // 1. MASTER AXIOS INSTANCE
 // ==========================================
-const API_URL = import.meta.env.VITE_API_URL || 'https://sonani-backend.onrender.com/api';
+// 🚀 THE FINAL BOSS FIX: Ab Vercel majboori mein sirf Render ko hi call karega!
+const API_URL = 'https://sonani-backend.onrender.com/api';
 
 const api = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json'
   },
-  // 🚀 THE FIX: Ise ON kar diya hai taaki Live Server (Render) token accept kar sake
+  // 🚀 Ise ON kar diya hai taaki Live Server (Render) token accept kar sake
   withCredentials: true 
 });
 
