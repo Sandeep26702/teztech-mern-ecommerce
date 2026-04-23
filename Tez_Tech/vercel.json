@@ -5,6 +5,4 @@
       "destination": "/index.html"
     }
   ]
-}git add .
-git commit -m "Added vercel.json to fix 404 errors"
-git push
+}
