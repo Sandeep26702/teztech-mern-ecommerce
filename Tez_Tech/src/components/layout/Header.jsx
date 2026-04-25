@@ -2,9 +2,9 @@ import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext"; 
 import { useQuote } from "../../context/QuoteContext"; 
-import { useCart } from "../../context/CartContext"; // 🔥 1. Cart Context Import kiya
+import { useCart } from "../../context/CartContext"; 
 
-// 💧 Water Droplet Component (Boondein udane ke liye)
+// 💧 Water Droplet Component
 const WaterDroplet = ({ x, y, tx, ty, colorClass }) => {
   const [active, setActive] = useState(false);
   
@@ -33,7 +33,6 @@ const Header = () => {
   const { isAuthenticated, logout, user } = useAuth();
   const { clearQuote } = useQuote(); 
   
-  // 🔥 2. Cart Items count nikalne ka logic
   const { cartItems } = useCart();
   const cartCount = cartItems?.length || 0;
 
@@ -195,7 +194,6 @@ const Header = () => {
             <div className="flex items-center gap-4 pl-4 ml-4 border-l border-gray-200">
               {isAuthenticated ? (
                 <>
-                  {/* 🔥 3. PREMIUM DESKTOP CART ICON */}
                   <Link 
                     to="/cart" 
                     className="relative flex items-center justify-center w-10 h-10 transition-all duration-300 bg-white border border-gray-200 rounded-full hover:border-cyan-300 hover:shadow-md hover:bg-cyan-50 group"
@@ -204,7 +202,6 @@ const Header = () => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                     </svg>
                     
-                    {/* Badge */}
                     {cartCount > 0 && (
                       <span className="absolute flex items-center justify-center w-5 h-5 text-[10px] font-extrabold text-white transition-transform duration-300 border-2 border-white rounded-full bg-gradient-to-br from-rose-500 to-red-600 -top-1.5 -right-1.5 shadow-sm group-hover:scale-110">
                         {cartCount}
@@ -245,7 +242,6 @@ const Header = () => {
           {/* 📱 MOBILE ACTIONS */}
           <div className="flex items-center gap-3 md:hidden">
             {isAuthenticated && (
-              /* 🔥 4. PREMIUM MOBILE CART ICON */
               <Link 
                 to="/cart" 
                 className="relative flex items-center justify-center w-10 h-10 transition-all duration-300 border border-gray-200 rounded-full bg-gray-50 active:scale-95 group"
@@ -254,7 +250,6 @@ const Header = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                 
-                {/* Badge */}
                 {cartCount > 0 && (
                   <span className="absolute flex items-center justify-center w-5 h-5 text-[10px] font-extrabold text-white border-2 border-white rounded-full bg-gradient-to-br from-rose-500 to-red-600 -top-1.5 -right-1 shadow-sm">
                     {cartCount}
@@ -285,6 +280,7 @@ const Header = () => {
             <Link 
               key={idx} 
               to={link.path} 
+              onClick={toggleMenu} // 🔥 Menu band karne ke liye add kiya
               className="relative flex items-center justify-between px-4 py-3.5 overflow-hidden transition-all duration-300 bg-transparent rounded-2xl group hover:bg-cyan-50"
             >
               <span className="relative z-10 text-base font-bold text-gray-700 transition-transform duration-300 group-hover:translate-x-2 group-hover:text-cyan-700">
@@ -294,21 +290,40 @@ const Header = () => {
           ))}
 
           {(user?.role === "admin" || user?.role === "subadmin") && (
-            <Link to="/admin/dashboard" className="block px-5 py-4 mt-4 font-bold text-center text-white uppercase bg-gradient-to-r from-cyan-600 to-blue-600 rounded-2xl">
+            <Link to="/admin/dashboard" onClick={toggleMenu} className="block px-5 py-4 mt-4 font-bold text-center text-white uppercase bg-gradient-to-r from-cyan-600 to-blue-600 rounded-2xl">
               Admin Panel ✨
             </Link>
           )}
 
           <div className="pt-6 mt-6 border-t border-gray-100">
             {isAuthenticated ? (
-              <div className="p-4 border border-gray-200 bg-gray-50 rounded-2xl">
-                <p className="mb-4 font-bold text-gray-700">Welcome, {user?.name}</p>
-                <button onClick={handleLogout} className="w-full py-3 font-bold text-white bg-red-500 rounded-xl hover:bg-red-600">
+              // 🔥 YAHAN MAIN CHANGES KIYE HAIN MOBILE PROFILE MENU KE LIYE
+              <div className="flex flex-col gap-3 p-4 border border-gray-200 bg-gray-50 rounded-2xl">
+                <p className="mb-2 font-bold text-center text-gray-700">Welcome, {user?.name || "User"}</p>
+                
+                <div className="grid grid-cols-2 gap-3 mb-2">
+                  <Link 
+                    to="/profile" 
+                    onClick={toggleMenu}
+                    className="flex items-center justify-center gap-2 py-3 text-sm font-bold transition-colors text-cyan-700 bg-cyan-100 rounded-xl hover:bg-cyan-200"
+                  >
+                    👤 My Profile
+                  </Link>
+                  <Link 
+                    to="/orders" 
+                    onClick={toggleMenu}
+                    className="flex items-center justify-center gap-2 py-3 text-sm font-bold text-blue-700 transition-colors bg-blue-100 rounded-xl hover:bg-blue-200"
+                  >
+                    📦 My Orders
+                  </Link>
+                </div>
+
+                <button onClick={handleLogout} className="w-full py-3 font-bold text-white transition-colors bg-red-500 rounded-xl hover:bg-red-600">
                   Logout
                 </button>
               </div>
             ) : (
-              <Link to="/login" className="block w-full py-4 font-bold text-center text-white uppercase bg-gray-900 rounded-2xl hover:bg-gray-800">
+              <Link to="/login" onClick={toggleMenu} className="block w-full py-4 font-bold text-center text-white uppercase bg-gray-900 rounded-2xl hover:bg-gray-800">
                 Login / Register
               </Link>
             )}
