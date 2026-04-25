@@ -114,7 +114,10 @@ const ProductDetail = () => {
 
   return (
     <div className="max-w-6xl px-4 py-8 mx-auto font-sans">
+      {/* 📦 TOP SECTION: Image Gallery & Product Buy Options */}
       <div className="grid gap-12 md:grid-cols-2">
+        
+        {/* Left Side: Images */}
         <div>
           <div className="bg-[#f8f8f8] p-4 rounded-md">
             <img src={images[activeImageIndex]} alt={product.name} className="w-full object-contain max-h-[600px] mix-blend-multiply" />
@@ -128,6 +131,7 @@ const ProductDetail = () => {
           )}
         </div>
 
+        {/* Right Side: Options, Price & Add to Cart */}
         <div className="flex flex-col">
           <h1 className="text-[26px] leading-tight font-normal text-gray-900 uppercase">{product.name}</h1>
           <div className="mt-3 text-[13px] text-gray-500 uppercase tracking-wide flex items-center gap-2">
@@ -204,7 +208,6 @@ const ProductDetail = () => {
                   shippingCharge: product.shippingCharge || 0,
                   customFields: product.customFields || product.attributes || [],
                   variant: selectedVariant,
-                  // 🔥 THE FIX: _finalPrice bhej diya jo DB me save ho jayega
                   selectedCustomFields: {
                     ...formattedCustomFields,
                     _finalPrice: displayPrice
@@ -231,16 +234,52 @@ const ProductDetail = () => {
               <FaRegHeart className="text-gray-500" /> Favorite
             </button>
           </div>
-
-          {product.description && (
-            <div className="mt-8">
-               <div className="w-full h-px mb-6 bg-gray-200"></div>
-              <h3 className="mb-3 text-[15px] text-gray-900">Description</h3>
-              <p className="text-[14px] text-gray-700 whitespace-pre-line leading-relaxed">{product.description}</p>
-            </div>
-          )}
         </div>
       </div>
+
+      {/* 🔥 BOTTOM SECTION: Product Details & Description (Ye naya part hai) */}
+      {(product.description || product.details) && (
+        <div className="pt-10 mt-12 border-t border-gray-200 lg:mt-16">
+          <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
+            
+            {/* 1. Product Details (Specifications) */}
+            {product.details && (
+              <div>
+                <h3 className="mb-5 text-lg font-bold text-gray-900 uppercase">Product Details</h3>
+                
+                {/* Agar details Array form me hain (like key-value pairs) toh table banega */}
+                {Array.isArray(product.details) ? (
+                  <div className="border border-gray-200 rounded-sm">
+                    {product.details.map((detail, index) => (
+                      <div key={index} className={`flex px-4 py-3 text-sm ${index !== product.details.length - 1 ? 'border-b border-gray-200' : ''}`}>
+                        <span className="w-2/5 font-semibold text-gray-700">{detail.name || detail.key || "Feature"}</span>
+                        <span className="w-3/5 text-gray-900">{detail.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  /* Agar details sirf text string hai toh normally print hoga */
+                  <div className="text-[14.5px] text-gray-700 whitespace-pre-line leading-relaxed">
+                    {product.details}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 2. Product Description */}
+            {product.description && (
+              <div className={!product.details ? "md:col-span-2 max-w-4xl" : ""}>
+                <h3 className="mb-5 text-lg font-bold text-gray-900 uppercase">Description</h3>
+                <p className="text-[14.5px] text-gray-700 whitespace-pre-line leading-relaxed">
+                  {product.description}
+                </p>
+              </div>
+            )}
+            
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
