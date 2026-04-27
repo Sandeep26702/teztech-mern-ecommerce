@@ -3,7 +3,7 @@ import { Link, useNavigate, Outlet, useLocation } from "react-router-dom";
 import { 
   FaBox, FaUsers, FaClipboardList, FaChartLine, 
   FaSignOutAlt, FaBars, FaTimes, FaUserShield, FaFileInvoiceDollar, FaLayerGroup,
-  FaCog // 👈 1. Settings Icon Import kiya
+  FaCog, FaTruck // 👈 1. Yahan FaTruck (Shipping Icon) import kiya
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 
@@ -18,7 +18,7 @@ const AdminLayout = () => {
     navigate("/login");
   };
 
-  // 👈 2. Yahan 'Settings' ko list mein add kar diya
+  // 👈 2. Yahan 'Shipping' ko list mein add kar diya
   const menuItems = [
     { name: "Dashboard", path: "/admin/dashboard", icon: <FaChartLine size={20} /> },
     { name: "Products", path: "/admin/products", icon: <FaBox size={20} /> },
@@ -27,7 +27,7 @@ const AdminLayout = () => {
     { name: "Orders", path: "/admin/orders", icon: <FaClipboardList size={20} /> },
     { name: "Users", path: "/admin/users", icon: <FaUsers size={20} /> },
     { name: "Sub Admins", path: "/admin/subadmins", icon: <FaUserShield size={20} /> },
-   /// { name: "Settings", path: "/admin/settings", icon: <FaCog size={20} /> }, // 🔥 Naya Settings Button
+    { name: "Shipping", path: "/admin/shipping", icon: <FaTruck size={20} /> }, // 🔥 Naya Shipping Button
   ];
 
   return (
@@ -47,7 +47,7 @@ const AdminLayout = () => {
             </div>
             {isSidebarOpen && (
               <h2 className="overflow-hidden text-xl font-bold tracking-wide text-white transition-opacity duration-300 whitespace-nowrap">
-                Sonani Admin
+                TezTech Admin
               </h2>
             )}
           </div>

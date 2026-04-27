@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { FaTimes, FaTrash, FaSearch, FaCheckCircle, FaArrowRight, FaArrowLeft, FaCopy, FaShoppingCart, FaEdit } from 'react-icons/fa';
+import { FaTimes, FaTrash, FaSearch, FaCheckCircle, FaArrowRight, FaArrowLeft, FaCopy, FaWhatsapp, FaShoppingCart, FaEdit } from 'react-icons/fa';
 import api from '../../utils/api'; 
 
 const CreateManualQuotationModal = ({ isOpen, onClose }) => {
@@ -10,7 +10,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
   const [activeProduct, setActiveProduct] = useState(null); 
   const [cartItems, setCartItems] = useState([]);
   
-  // UPDATED: Kept only name, phone, and optional message
   const [quoteData, setQuoteData] = useState({
     userDetails: { name: '', phone: '', message: '' },
     shippingCharge: 0,
@@ -51,7 +50,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
   const getFieldKey = (field) => String(field?._id || field?.label || "");
   const getFieldLabel = (field, key) => field?.label ? String(field.label) : String(key || "");
 
-  // Helper to extract combinations just like ProductDetail.jsx
   const variantOptions = useMemo(() => {
     if (!activeProduct?.variants) return {};
     const opt = {};
@@ -64,7 +62,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
     return opt;
   }, [activeProduct]);
 
-  // FIX: Accurate Price Calculation using Object values
   const calculatePrice = (item) => {
     let finalPrice = Number(item.price || item.sellingPrice || 0);
 
@@ -96,7 +93,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
       if (type === 'variant') {
         updated.selectedVariant = value;
       } else if (type === 'attribute') {
-        // Here value is the full option object {value: '...', priceAdjustment: ...}
         updated.selectedAttributes = { ...updated.selectedAttributes, [fieldOrName]: value };
       } else if (type === 'customField') {
         const key = getFieldKey(fieldOrName);
@@ -140,7 +136,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
   };
 
   const handleEditItem = (item) => {
-    // FIX: Editing now restores all selections perfectly
     setActiveProduct({ ...item }); 
   };
 
@@ -156,9 +151,8 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
 
   const totals = calculateTotals();
 
-  const submitQuote = async () => {
+const submitQuote = async () => {
     if (cartItems.length === 0) return alert('Please add items first');
-    // UPDATED VALIDATION: Sirf name aur phone chahiye
     if (!quoteData.userDetails.name || !quoteData.userDetails.phone) return alert('Client Name & Phone Number are required');
     
     setSubmitting(true);
@@ -171,6 +165,7 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
           quantity: item.quantity,
           basePrice: item.basePrice,
           offeredPrice: item.offeredPrice,
+          gstRate: item.gstRate || 18, // Excel wala GST yahan se jayega
           selectedVariant: item.selectedVariant || null,
           selectedAttributes: item.selectedAttributes || {},
           selectedCustomFields: item.selectedCustomFields || {}
@@ -178,29 +173,27 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
         shippingCharge: quoteData.shippingCharge,
         additionalChargeName: quoteData.additionalChargeName,
         additionalChargeAmount: quoteData.additionalChargeAmount,
-        gstPercentage: Math.min(Number(quoteData.gstPercentage) || 0, 100), 
-        discountPercentage: Math.min(Number(quoteData.discountPercentage) || 0, 100),
+        gstPercentage: Number(quoteData.gstPercentage) || 0, 
+        discountPercentage: Number(quoteData.discountPercentage) || 0,
         isManualAdminQuote: true
       };
       
       const res = await api.post('/quote/manual', payload);
 
-      // 👇 BAS YEH EK LINE ADD KARO 👇
-      console.log("Backend ka Response:", res.data);
-      
-      if (res.data) {
-        // API se token ya ID nikal rahe hain
-        const tokenOrId = res.data.token || res.data.quote?.token || res.data.quote?._id || res.data.quoteId || res.data.shareLink;
-        
-        // Base URL ke sath complete shareable link bana rahe hain
-        let finalLink = res.data.shareLink;
-        if (!finalLink || !finalLink.startsWith('http')) {
-           finalLink = `${window.location.origin}/quote/${tokenOrId}`;
-        }
+      // 🚀 TOKEN EXTRACTION FIX: Sabhi tariko se check karega
+      const data = res.data;
+      const token = data.quoteToken || data.token || data.quote?.quoteToken || data.quote?.token;
 
+      if (token) {
+        // Link ko bypass karke direct client-side URL bana rahe hain
+        const finalLink = `${window.location.origin}/quote/${token}`;
         setShareLink(finalLink);
         setStep(3); 
+      } else {
+        console.error("Backend Response Data:", data);
+        alert("Quote saved but Token not received from server. Check console.");
       }
+
     } catch (err) {
       alert('Failed to create quote: ' + (err.response?.data?.message || err.message));
     } finally {
@@ -213,7 +206,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
   const renderStep1Selection = () => (
     <div className="grid h-full grid-cols-1 gap-6 overflow-hidden lg:grid-cols-3">
       
-      {/* LEFT PANEL: Search & Product Details */}
       <div className="flex flex-col h-full pr-2 overflow-y-auto lg:col-span-2">
         
         {!activeProduct && (
@@ -237,7 +229,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
                     key={product._id} 
                     className="flex items-center gap-4 p-4 transition-colors border-b cursor-pointer hover:bg-gray-50"
                     onClick={() => {
-                      // FIX: Auto-Select Defaults on Initial Click
                       let defaultVariant = null;
                       if (product.variants?.length > 0) defaultVariant = product.variants[0];
 
@@ -260,14 +251,15 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
                       initProduct.offeredPrice = defaultPrice;
 
                       setActiveProduct(initProduct);
-                      searchResults([]);
+                      setSearchResults([]);
                       setSearchQuery('');
                     }}
                   >
                     <img src={product.image || product.images?.[0]} alt={product.name} className="object-cover w-16 h-16 bg-gray-100 border rounded" />
                     <div>
                       <div className="text-lg font-semibold text-gray-800">{product.name}</div>
-                      <div className="text-sm text-gray-500">SKU: {product.sku || 'N/A'} | ₹{product.sellingPrice || product.price}</div>
+                      {/* 🚀 FIX: SKU now explicitly checks baseSku too */}
+                      <div className="text-sm text-gray-500">SKU: {product.sku || product.baseSku || 'N/A'} | ₹{product.sellingPrice || product.price}</div>
                     </div>
                   </div>
                 ))}
@@ -276,7 +268,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
           </div>
         )}
 
-        {/* DETAILS PAGE REPLICA */}
         {activeProduct && (
           <div className="relative flex flex-col min-h-full mb-6 bg-white border border-gray-200 shadow-sm rounded-xl">
             <button 
@@ -289,7 +280,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
             
             <div className="grid flex-1 grid-cols-1 gap-8 p-8 md:grid-cols-2">
               
-              {/* Product Image & Details Panel */}
               <div className="w-full">
                 <div className="flex items-center justify-center w-full overflow-hidden bg-gray-200 rounded-lg aspect-square">
                    <img 
@@ -299,7 +289,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
                    />
                 </div>
 
-                {/* FIX: Product Details List Appended Below Image */}
                 {activeProduct.details?.length > 0 && (
                   <div className="p-6 mt-8 border border-gray-200 rounded-lg bg-gray-50">
                     <h3 className="mb-4 text-base font-medium text-gray-900">Product Details</h3>
@@ -321,8 +310,9 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
                 <div className="flex gap-2 mt-2 text-xs tracking-widest text-gray-500 uppercase">
                   STORE {activeProduct.category && `/ ${activeProduct.category.name || activeProduct.category}`}
                 </div>
+                {/* 🚀 FIX: SKU check enhanced here too */}
                 <div className="mt-1 mb-4 text-xs text-gray-500">
-                  SKU {activeProduct.sku || activeProduct.baseSku || 'N/A'}
+                  SKU: {activeProduct.sku || activeProduct.baseSku || 'N/A'}
                 </div>
 
                 <div className="mb-6">
@@ -335,8 +325,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
                 <hr className="mb-6 border-gray-200" />
 
                 <div className="flex-1 space-y-6">
-                  
-                  {/* FIX: Advanced Variants Mapping with Combination Checking */}
                   {Object.entries(variantOptions).length > 0 && Object.entries(variantOptions).map(([key, values]) => (
                     <div key={key}>
                       <label className="block mb-3 text-xs font-bold text-gray-800 uppercase">{key}</label>
@@ -365,7 +353,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
                     </div>
                   ))}
 
-                  {/* Fallback for Simple Variants (No Combinations) */}
                   {!activeProduct.variants?.[0]?.combination && activeProduct.variants?.length > 0 && (
                     <div>
                       <label className="block mb-3 text-xs font-bold text-gray-800 uppercase">VARIANT</label>
@@ -391,7 +378,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
                     </div>
                   )}
                   
-                  {/* FIX: Attributes Mapping mapped to Option Objects instead of Strings */}
                   {activeProduct.attributes?.length > 0 && activeProduct.attributes.map((attr, i) => (
                     <div key={i}>
                       <label className="block mb-3 text-xs font-bold text-gray-800 uppercase">{attr.name}</label>
@@ -421,7 +407,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
                     </div>
                   ))}
 
-                  {/* Custom Fields */}
                   {activeProduct.customFields?.length > 0 && activeProduct.customFields.map((field) => {
                     const fieldKey = getFieldKey(field);
                     const selectedValue = activeProduct.selectedCustomFields?.[fieldKey] || "";
@@ -486,7 +471,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
                   </div>
                 </div>
                 
-                {/* Action Button */}
                 <div className="pt-6 mt-4 border-t border-gray-100">
                   <button 
                     onClick={addToQuoteCart} 
@@ -501,7 +485,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
         )}
       </div>
 
-      {/* RIGHT PANEL: Cart Summary */}
       <div className="flex flex-col h-full p-5 border border-gray-200 shadow-inner bg-gray-50 rounded-xl">
         <h3 className="pb-2 mb-4 text-lg font-bold text-gray-800 border-b border-gray-300">Quotation Items ({cartItems.length})</h3>
         
@@ -525,7 +508,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
                   <div className="flex-1">
                     <div className="font-bold text-gray-800 line-clamp-1">{item.name}</div>
                     
-                    {/* Selected Options Summary Text */}
                     <div className="mt-1 text-xs text-gray-500 line-clamp-2">
                       {item.selectedVariant && <span className="mr-2">Var: {item.selectedVariant.name || Object.values(item.selectedVariant.combination || {}).join('/')}</span>}
                       {Object.entries(item.selectedAttributes || {}).map(([k,v]) => <span key={k} className="mr-2">{v.value || v.label || v}</span>)}
@@ -633,8 +615,6 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
         <div className="p-6 bg-white border border-gray-200 shadow-sm rounded-xl">
           <h3 className="pb-2 mb-4 text-lg font-bold text-gray-800 border-b">Client Details</h3>
           <div className="space-y-4">
-            
-            {/* UPDATED: Only Name, Phone, and Optional Message */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block mb-1 text-xs font-bold text-gray-500 uppercase">Client Name *</label>
@@ -660,11 +640,10 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
               <textarea 
                 value={quoteData.userDetails.message || ''} 
                 onChange={(e) => setQuoteData({...quoteData, userDetails: {...quoteData.userDetails, message: e.target.value}})} 
-                className="w-full p-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500 resize-none h-24" 
+                className="w-full h-24 p-3 border border-gray-300 rounded-lg outline-none resize-none focus:ring-2 focus:ring-blue-500" 
                 placeholder="Any specific requests or notes for the client..." 
               />
             </div>
-
           </div>
         </div>
 
@@ -723,10 +702,21 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
         </button>
       </div>
 
-      <div className="flex gap-4 mt-12">
+      {/* 🚀 FIX: Naya WhatsApp Button Add Kiya Gaya Hai */}
+      {quoteData.userDetails.phone && (
+        <a 
+          href={`https://wa.me/${quoteData.userDetails.phone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hello ${quoteData.userDetails.name},\n\nHere is your requested quotation. You can view it here:\n${_shareLink}\n\nThank you!`)}`}
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-8 py-3 mt-6 font-bold text-white transition-colors bg-green-500 rounded-xl hover:bg-green-600"
+        >
+          <FaWhatsapp size={22} /> Send link via WhatsApp
+        </a>
+      )}
+
+      <div className="flex gap-4 mt-8">
         <button onClick={() => {
           setStep(1); setCartItems([]); setShareLink(''); setActiveProduct(null);
-          // UPDATED RESET STATE
           setQuoteData({ userDetails: {name:'', phone:'', message:''}, shippingCharge: 0, additionalChargeName: '', additionalChargeAmount: 0, gstPercentage: 0, discountPercentage: 0 });
         }} className="px-8 py-3 font-bold text-blue-600 transition-colors border-2 border-blue-200 hover:bg-blue-50 rounded-xl">
           Create Another Quote

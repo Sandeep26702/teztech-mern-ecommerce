@@ -16,7 +16,6 @@ const QuoteEditor = () => {
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
 
-  // 🟢 NEW STATE: Generate hone wale link ko store karne ke liye
   const [shareLink, setShareLink] = useState("");
   const [copied, setCopied] = useState(false);
 
@@ -35,32 +34,52 @@ const QuoteEditor = () => {
     extraDiscountType: "flat",
     extraDiscountValue: 0,
     shippingCharge: 0,
-    gstPercentage: 0,
     additionalChargeName: "",
     additionalChargeAmount: 0,
     adminNotes: "",
   });
 
+  // ---------------------------------------------------------
+  // 🧮 EXCEL-BASED DYNAMIC GST & MATH CALCULATION
+  // ---------------------------------------------------------
+  
+  // 1. Total Subtotal (Bina GST aur discount ke)
   const subTotal = items.reduce((sum, item) => sum + (Number(item.offeredPrice) * Number(item.quantity)), 0);
   
+  // 2. Total Discount
   const discountAmount = quoteData.extraDiscountType === "percent" 
         ? (subTotal * (Number(quoteData.extraDiscountValue) / 100)) 
         : Number(quoteData.extraDiscountValue);
 
-  const gstAmount = (subTotal * (Number(quoteData.gstPercentage) / 100));
-  
+  // 3. Har item ka alag-alag GST calculate karna (Excel data se)
+  let totalGstAmount = 0;
+
+  items.forEach(item => {
+      const itemTotal = Number(item.offeredPrice) * Number(item.quantity);
+      // Global discount ko har item par barabar baantna
+      const itemDiscount = subTotal > 0 ? (itemTotal / subTotal) * discountAmount : 0;
+      const itemTaxableAmount = itemTotal - itemDiscount;
+      
+      // Excel se aaya hua GST % (Agar Excel me field 'gstRate' ya 'GST' nahi hai toh 18% lega)
+      const itemGstPercent = Number(item.gstRate || item.GST || item.product?.gstRate || item.product?.GST || 18); 
+      
+      totalGstAmount += itemTaxableAmount * (itemGstPercent / 100);
+  });
+
+  // 4. Final Total Bill
   const finalTotal = subTotal 
         - discountAmount 
         + Number(quoteData.shippingCharge) 
-        + gstAmount 
+        + totalGstAmount 
         + Number(quoteData.additionalChargeAmount);
 
-  // 1. Fetch Real Data from Backend
+  // ---------------------------------------------------------
+
+  // Fetch Real Data from Backend
   useEffect(() => {
     const fetchQuoteDetails = async () => {
       if (isNewQuote) {
         setFetchLoading(false);
-        // Remove empty item push. Let PricingTable be totally empty initially.
         setItems([]);
         return;
       }
@@ -86,6 +105,8 @@ const QuoteEditor = () => {
           quantity: Number(item.quantity) || 1,
           originalPrice: Number(item.originalPrice) || Number(item.basePrice) || 0,
           offeredPrice: Number(item.offeredPrice) || Number(item.originalPrice) || 0,
+          // DB se GST field le raha hai (purane quotes ke liye)
+          gstRate: item.gstRate || item.GST || item.product?.gstRate || item.product?.GST || 18,
         }));
         setItems(formattedItems);
 
@@ -93,13 +114,11 @@ const QuoteEditor = () => {
           extraDiscountType: realQuote.extraDiscountType || "flat",
           extraDiscountValue: Number(realQuote.extraDiscountValue) || 0,
           shippingCharge: Number(realQuote.shippingCharge) || 0,
-          gstPercentage: Number(realQuote.gstPercentage) || 0,
           additionalChargeName: realQuote.additionalChargeName || "",
           additionalChargeAmount: Number(realQuote.additionalChargeAmount) || 0,
           adminNotes: realQuote.adminNotes || "",
         });
 
-        // 🟢 Generate Share Link for existing quote
         if (realQuote.quoteToken) {
            const baseUrl = window.location.origin;
            setShareLink(`${baseUrl}/quote/${realQuote.quoteToken}`);
@@ -128,7 +147,7 @@ const QuoteEditor = () => {
     setQuoteData((prev) => ({ ...prev, [field]: value }));
   };
 
- const handleItemChange = (itemId, field, value) => {
+  const handleItemChange = (itemId, field, value) => {
     setItems((prevItems) =>
       prevItems.map((item) => {
         if (item._id !== itemId) return item;
@@ -146,6 +165,7 @@ const QuoteEditor = () => {
       {
         ...newConfiguredProduct,
         _id: Date.now().toString(),
+        gstRate: newConfiguredProduct.gstRate || newConfiguredProduct.GST || 18, 
       },
     ]);
   };
@@ -154,9 +174,8 @@ const QuoteEditor = () => {
     setItems((prev) => prev.filter((item) => item._id !== itemId));
   };
 
-  // 3. 🚀 Save / Update Logic
+  // Save / Update Logic
   const handleSaveQuote = async () => {
-    // Validation
     if (items.length === 0) return alert("Please add at least one item to the quotation.");
     if (!customerData.name || !customerData.phone) return alert("Customer Name and Phone are required.");
 
@@ -170,10 +189,10 @@ const QuoteEditor = () => {
       extraDiscountType: quoteData.extraDiscountType,
       extraDiscountValue: quoteData.extraDiscountValue,
       shippingCharge: quoteData.shippingCharge,
-      gstPercentage: quoteData.gstPercentage,
       additionalChargeName: quoteData.additionalChargeName,
       additionalChargeAmount: quoteData.additionalChargeAmount,
       finalTotal: finalTotal,
+      totalGstAmount: totalGstAmount, // 👈 Backend ko bhejne ke liye 
       adminNotes: quoteData.adminNotes,
     };
 
@@ -189,12 +208,10 @@ const QuoteEditor = () => {
            alert("Quote Updated Successfully! 🎉");
         }
         
-        // 🟢 Update Share Link after successful save
         if (responseData && (responseData.quoteToken || responseData.quote?.quoteToken)) {
             const token = responseData.quoteToken || responseData.quote.quoteToken;
             setShareLink(`${window.location.origin}/quote/${token}`);
             
-            // If it was a new quote, optionally redirect to the edit page of that new quote
             if (isNewQuote && responseData.quoteId) {
                navigate(`/admin/quotes/${responseData.quoteId}`, { replace: true });
             }
@@ -208,7 +225,6 @@ const QuoteEditor = () => {
     }
   };
 
-  // 🟢 Copy to Clipboard Logic
   const handleCopyLink = () => {
     if (!shareLink) return;
     navigator.clipboard.writeText(shareLink);
@@ -257,14 +273,12 @@ const QuoteEditor = () => {
       </div>
 
       <div className="space-y-6">
-        {/* Customer Details Component */}
         <CustomerInfo
           customerData={customerData}
           onUpdateCustomerField={handleUpdateCustomerField}
           isViewOnly={isViewOnly}
         />
 
-        {/* Pricing & Items Component */}
         <PricingTable
           items={items}
           onItemChange={handleItemChange}
@@ -275,28 +289,24 @@ const QuoteEditor = () => {
 
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
           
-          {/* Action Buttons & Share Link Box */}
-          <div className="flex flex-col w-full lg:w-1/2 gap-6 mt-6 lg:mt-12">
-            
-            {/* Primary Save/PDF Buttons */}
+          <div className="flex flex-col w-full gap-6 mt-6 lg:w-1/2 lg:mt-12">
             <div className="flex flex-wrap gap-3">
               {!isViewOnly && (
                 <button 
                   onClick={handleSaveQuote}
                   disabled={loading}
-                  className="flex items-center gap-2 px-6 py-3 font-bold text-white transition-all bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-70 shadow-sm"
+                  className="flex items-center gap-2 px-6 py-3 font-bold text-white transition-all bg-blue-600 rounded-lg shadow-sm hover:bg-blue-700 disabled:opacity-70"
                 >
                   <FaSave /> {loading ? "Saving to Database..." : "Save Quote"}
                 </button>
               )}
-              <button className="flex items-center gap-2 px-6 py-3 font-bold text-gray-700 transition-all bg-white border border-gray-300 rounded-lg hover:bg-gray-50 shadow-sm">
+              <button className="flex items-center gap-2 px-6 py-3 font-bold text-gray-700 transition-all bg-white border border-gray-300 rounded-lg shadow-sm hover:bg-gray-50">
                 <FaFilePdf className="text-red-500" /> Generate PDF
               </button>
             </div>
 
-            {/* 🟢 NEW: Share Link UI Box */}
             {shareLink && (
-              <div className="p-5 mt-4 bg-emerald-50 border border-emerald-200 rounded-xl shadow-sm">
+              <div className="p-5 mt-4 border shadow-sm bg-emerald-50 border-emerald-200 rounded-xl">
                 <h4 className="mb-2 text-sm font-bold text-emerald-800">🔗 Shareable Quotation Link</h4>
                 <p className="mb-4 text-xs text-emerald-600">Send this link to the customer to view and accept the quote.</p>
                 
@@ -327,16 +337,18 @@ const QuoteEditor = () => {
                 )}
               </div>
             )}
-            {/* End of Share Link Box */}
-
           </div>
 
-          {/* Order Summary Component */}
           <OrderSummary
             items={items}
             quoteData={quoteData}
             onUpdateQuoteField={handleUpdateQuoteField}
             isViewOnly={isViewOnly}
+            // Passing explicitly calculated values to OrderSummary 
+            calculatedSubTotal={subTotal}
+            calculatedDiscount={discountAmount}
+            calculatedGst={totalGstAmount}
+            calculatedFinalTotal={finalTotal}
           />
         </div>
       </div>

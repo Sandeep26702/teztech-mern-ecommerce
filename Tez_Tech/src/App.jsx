@@ -55,6 +55,7 @@ import AdminSettings from "./admin/pages/AdminSettings";
 import QuotesTable from "./admin/pages/QuotesTable";
 import QuoteEditor from "./admin/pages/QuoteEditor";
 import AdminOrderDetail from './admin/pages/OrderDetail';
+import ShippingManagement from './admin/pages/ShippingManagement'; // 🚚 Naya Shipping Management Page
 
 /**
  * 🌟 PUBLIC LAYOUT WRAPPER
@@ -112,6 +113,7 @@ function App() {
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="orders/:id" element={<AdminOrderDetail />} />
+            <Route path="shipping" element={<ShippingManagement />} /> {/* 🚚 Shipping Management Route */}
           </Route>
         </Route> 
 

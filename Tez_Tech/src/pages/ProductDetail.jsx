@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { FaRegHeart } from "react-icons/fa"; 
+// 🔥 NAYA: FaShareAlt icon import kiya share button ke liye
+import { FaRegHeart, FaShareAlt } from "react-icons/fa"; 
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useQuote } from "../context/QuoteContext";
 import { getProductById } from "../services/productService";
+// 🔥 NAYA: Link copy hone par message dikhane ke liye
+import toast from 'react-hot-toast';
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -92,6 +95,34 @@ const ProductDetail = () => {
     setSearchParams(searchParams, { replace: true });
   };
 
+  // 🔥 NAYA: Share Functionality (Mobile me native share, PC me copy link)
+  const handleShare = async () => {
+    const shareData = {
+      title: product.name,
+      text: `Hey! Check out this awesome product: ${product.name} at Sonani Electronics`,
+      url: window.location.href,
+    };
+
+    try {
+      // Agar browser Web Share API support karta hai (mostly mobiles)
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        // Agar PC/Laptop hai toh Link Copy kar do
+        await navigator.clipboard.writeText(window.location.href);
+        toast.success("Product link copied to clipboard!", {
+          style: {
+            borderRadius: '10px',
+            background: '#333',
+            color: '#fff',
+          },
+        });
+      }
+    } catch (err) {
+      console.log("Error sharing product:", err);
+    }
+  };
+
   const attributesExtraPrice = useMemo(() => {
     let extra = 0;
     Object.values(selectedAttributes).forEach((opt) => {
@@ -119,9 +150,20 @@ const ProductDetail = () => {
         
         {/* Left Side: Images */}
         <div>
-          <div className="bg-[#f8f8f8] p-4 rounded-md">
-            <img src={images[activeImageIndex]} alt={product.name} className="w-full object-contain max-h-[600px] mix-blend-multiply" />
+          {/* 🔥 NAYA: relative lagaya taaki share button top-right me fix rahe */}
+          <div className="relative bg-[#f8f8f8] p-4 rounded-md group">
+            <img src={images[activeImageIndex]} alt={product.name} className="w-full object-contain max-h-[600px] mix-blend-multiply transition-transform duration-500 ease-in-out group-hover:scale-105" />
+            
+            {/* 🔥 NAYA: Premium Animated Share Button */}
+            <button
+              onClick={handleShare}
+              title="Share this product"
+              className="absolute top-4 right-4 p-3.5 bg-white text-gray-500 rounded-full shadow-[0_4px_10px_rgba(0,0,0,0.08)] transition-all duration-300 hover:text-blue-600 hover:scale-110 hover:shadow-[0_6px_14px_rgba(0,0,0,0.15)] active:scale-95"
+            >
+              <FaShareAlt size={18} />
+            </button>
           </div>
+
           {images.length > 1 && (
             <div className="flex gap-2 mt-4 overflow-x-auto">
               {images.map((img, i) => (
@@ -237,7 +279,7 @@ const ProductDetail = () => {
         </div>
       </div>
 
-      {/* 🔥 BOTTOM SECTION: Product Details & Description (Ye naya part hai) */}
+      {/* 🔥 BOTTOM SECTION: Product Details & Description */}
       {(product.description || product.details) && (
         <div className="pt-10 mt-12 border-t border-gray-200 lg:mt-16">
           <div className="grid grid-cols-1 gap-10 md:grid-cols-2">
@@ -247,7 +289,6 @@ const ProductDetail = () => {
               <div>
                 <h3 className="mb-5 text-lg font-bold text-gray-900 uppercase">Product Details</h3>
                 
-                {/* Agar details Array form me hain (like key-value pairs) toh table banega */}
                 {Array.isArray(product.details) ? (
                   <div className="border border-gray-200 rounded-sm">
                     {product.details.map((detail, index) => (
@@ -258,7 +299,6 @@ const ProductDetail = () => {
                     ))}
                   </div>
                 ) : (
-                  /* Agar details sirf text string hai toh normally print hoga */
                   <div className="text-[14.5px] text-gray-700 whitespace-pre-line leading-relaxed">
                     {product.details}
                   </div>
