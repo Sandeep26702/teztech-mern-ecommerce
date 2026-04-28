@@ -346,7 +346,7 @@ const OrderDetail = () => {
                 <span className="text-slate-900">{formatCurrency(calculatedSubtotal)}</span>
               </div>
               <div className="flex justify-between text-slate-600">
-                <span>Shipping Cost</span>
+                <span>Shipping Cost {order.courierPartner ? `(${order.courierPartner})` : ""}</span>
                 <span className={order.shippingAmount > 0 ? "text-slate-900" : "text-green-600"}>
                   {order.shippingAmount > 0 ? formatCurrency(order.shippingAmount) : "FREE"}
                 </span>
