@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams, Link } from "react-router-dom";
 import axios from "axios";
 import { getProducts } from "../services/productService";
 import ProductCard from "../components/common/ProductCard";
@@ -23,6 +23,19 @@ const Products = () => {
   const [categories, setCategories] = useState([]);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [breadcrumbPath, setBreadcrumbPath] = useState([]);
+
+  useEffect(() => {
+    if (slug) {
+      axios.get(`https://sonani-backend.onrender.com/api/categories/tree/${slug}`)
+        .then(res => {
+           if (res.data.success) setBreadcrumbPath(res.data.tree);
+        })
+        .catch(err => console.error(err));
+    } else {
+      setBreadcrumbPath([]);
+    }
+  }, [slug]);
 
   // 1. Load Categories on Mount
   useEffect(() => {
@@ -145,6 +158,26 @@ const Products = () => {
     <div className="min-h-screen px-4 py-12 font-sans bg-gray-50 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col gap-6 mb-8">
+          
+          {/* Breadcrumb Navigation */}
+          {breadcrumbPath.length > 0 && (
+            <nav className="flex items-center overflow-x-auto text-sm font-medium text-gray-500 whitespace-nowrap">
+              <Link to="/" className="hover:text-blue-600">Home</Link>
+              <span className="mx-2 text-gray-400">/</span>
+              <Link to="/categories" className="hover:text-blue-600">Categories</Link>
+              {breadcrumbPath.map((item, index) => (
+                <span key={item._id} className="flex items-center">
+                  <span className="mx-2 text-gray-400">/</span>
+                  {index === breadcrumbPath.length - 1 ? (
+                    <span className="font-bold text-gray-900">{item.name}</span>
+                  ) : (
+                    <Link to={`/category/${item.slug}`} className="hover:text-blue-600">{item.name}</Link>
+                  )}
+                </span>
+              ))}
+            </nav>
+          )}
+
           <div>
             <h2 className="text-3xl font-extrabold tracking-tight text-gray-900">Our Products</h2>
             <p className="mt-2 text-gray-500">

@@ -7,6 +7,7 @@ import {
   deleteCategory,
   reassignCategoryProducts,
   cleanupUnusedCategories,
+  getCategoryTree,
 } from "../controllers/categoryController.js";
 import { protect, authorize } from "../middleware/auth.Middleware.js";
 import { upload } from "../config/cloudinary.js";
@@ -14,6 +15,7 @@ import { upload } from "../config/cloudinary.js";
 const router = express.Router();
 
 router.get("/", getPublicCategories);
+router.get("/tree/:slug", getCategoryTree);
 router.get("/admin", protect, authorize("admin", "subadmin"), getAdminCategories);
 router.post("/admin/cleanup-unused", protect, authorize("admin", "subadmin"), cleanupUnusedCategories);
 router.post("/", protect, authorize("admin", "subadmin"), upload.single("image"), createCategory);

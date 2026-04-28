@@ -63,7 +63,7 @@ export const getProducts = async (req, res) => {
     }
 
     if (category) {
-      matchStage.category = category;
+      matchStage.categories = category;
     }
 
     if (minPrice || maxPrice) {
@@ -244,13 +244,38 @@ export const importProductsCsv = async (req, res) => {
     let failed = 0;
     const errorLogs = []; 
 
-    // Core fields jinhe Details me nahi daalna hai
     const coreFields = [
       "sku", "product_id", "code", "name", "product_name", "title", "selling_price", 
       "price", "mrp", "stock", "qty", "status", "search_tags", "tags",
       "gst", "gst_rate", "gst_percent", "tax", "shipping", "shipping_charge", 
       "delivery", "delivery_charge", "description", "desc", "detail", "brand", "brand_name"
     ];
+
+    const categoryCache = {}; // Slug -> Category Document
+
+    const getOrCreateCategory = async (catName, parentObj, level) => {
+      if (!catName) return null;
+      
+      const toSlug = (value = "") => String(value || "").trim().replace(/\s+/g, " ").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)+/g, "");
+      
+      const parentSlugPrefix = parentObj ? parentObj.slug + "-" : "";
+      const rawSlug = parentSlugPrefix + toSlug(catName);
+
+      if (categoryCache[rawSlug]) return categoryCache[rawSlug];
+
+      let cat = await Category.findOne({ slug: rawSlug });
+      if (!cat) {
+        cat = await Category.create({
+          name: catName,
+          slug: rawSlug,
+          parent: parentObj ? parentObj._id : null,
+          level: level,
+          createdBy: req.user?._id
+        });
+      }
+      categoryCache[rawSlug] = cat;
+      return cat;
+    };
 
     for (let i = 1; i < rows.length; i++) {
       try {
@@ -319,12 +344,8 @@ export const importProductsCsv = async (req, res) => {
 
             if (val === undefined || val === null || val === "") return; // Skip empty fields
 
-            // 1. Dynamic Categories
-            if (lowerKey.startsWith("category")) {
-                categories.push(String(val).trim());
-            }
-            // 2. Dynamic Images
-            else if (lowerKey.startsWith("image")) {
+            // Dynamic Images
+            if (lowerKey.startsWith("image")) {
                 images.push(String(val).trim());
             }
             // 3. Dynamic Variations (_Add)
@@ -348,7 +369,37 @@ export const importProductsCsv = async (req, res) => {
             }
         });
 
-        const mainCategory = categories.length > 0 ? categories[0] : "Uncategorized";
+        // 🔥 Nested Category Extraction & Resolution
+        const cat1Name = String(getValIgnoreCase(["category_1", "category 1", "category1", "main_category", "category"]) || "").trim();
+        const cat2Name = String(getValIgnoreCase(["category_2", "category 2", "category2", "sub_category"]) || "").trim();
+        const cat3Name = String(getValIgnoreCase(["category_3", "category 3", "category3"]) || "").trim();
+
+        if (cat1Name) categories.push(cat1Name);
+        if (cat2Name) categories.push(cat2Name);
+        if (cat3Name) categories.push(cat3Name);
+
+        let deepestCategoryId = null;
+        let deepestCategoryName = "Uncategorized";
+
+        if (cat1Name) {
+            const cat1 = await getOrCreateCategory(cat1Name, null, 1);
+            deepestCategoryId = cat1._id;
+            deepestCategoryName = cat1.name;
+
+            if (cat2Name) {
+                const cat2 = await getOrCreateCategory(cat2Name, cat1, 2);
+                deepestCategoryId = cat2._id;
+                deepestCategoryName = cat2.name;
+
+                if (cat3Name) {
+                    const cat3 = await getOrCreateCategory(cat3Name, cat2, 3);
+                    deepestCategoryId = cat3._id;
+                    deepestCategoryName = cat3.name;
+                }
+            }
+        }
+
+        const mainCategory = deepestCategoryName;
         const mainImage = images.length > 0 ? images[0] : DEFAULT_PRODUCT_IMAGE;
 
         const attributesArray = Object.keys(attributesMap).map(group => ({
@@ -370,6 +421,7 @@ export const importProductsCsv = async (req, res) => {
             shippingCharge: shippingCharge, 
             weightKg: weightKg,
             category: mainCategory,
+            categoryId: deepestCategoryId,
             categories: categories,
             image: mainImage,
             images: images,

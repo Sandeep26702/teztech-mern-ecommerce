@@ -5,10 +5,7 @@ const categorySchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      trim: true,
-      // Dhyan dein: Agar same naam ki sub-category alag-alag main category me hui (jaise 'Lamp'), 
-      // toh unique: true error dega. Tab aap isey hata sakte hain.
-      unique: true, 
+      // Toh humne 'unique: true' hata diya taaki duplicate names with different parents allowed hon.
     },
     slug: {
       type: String,
@@ -46,7 +43,7 @@ const categorySchema = new mongoose.Schema(
       required: true,
       default: 1, // 1 = Main Category, 2 = Sub Category, 3 = Item Name
     },
-    parentCategory: {
+    parent: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
       default: null, // Level 1 (Main) ke liye ye null rahega

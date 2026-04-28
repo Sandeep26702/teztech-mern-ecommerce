@@ -290,3 +290,31 @@ export const cleanupUnusedCategories = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const getCategoryTree = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    if (!slug) return res.status(400).json({ success: false, message: "Slug is required" });
+
+    // Fetch the target category
+    const target = await Category.findOne({ slug });
+    if (!target) return res.status(404).json({ success: false, message: "Category not found" });
+
+    const path = [target];
+    let current = target;
+
+    // Walk up the tree up to 3 levels to avoid infinite loops
+    let depth = 0;
+    while (current.parent && depth < 3) {
+      const parent = await Category.findById(current.parent);
+      if (!parent) break;
+      path.unshift(parent); // Add to the beginning so it's Root -> Child -> Grandchild
+      current = parent;
+      depth++;
+    }
+
+    res.status(200).json({ success: true, tree: path });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
