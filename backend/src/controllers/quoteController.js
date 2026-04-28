@@ -907,7 +907,7 @@ export const createManualQuote = async (req, res) => {
 
     await newQuote.save();
 
-    res.status(201).json({ success: true, message: "Manual Quote created successfully!", quoteId: newQuote._id });
+    res.status(201).json({ success: true, message: "Manual Quote created successfully!", quoteId: newQuote._id, quoteToken: newQuote.quoteToken, quote: newQuote });
   } catch (error) {
     console.error("Create Manual Quote Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });

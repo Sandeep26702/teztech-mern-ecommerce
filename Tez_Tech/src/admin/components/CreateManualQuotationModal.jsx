@@ -36,7 +36,7 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
     debounceRef.current = setTimeout(async () => {
       if (query.length < 2) return setSearchResults([]);
       try {
-        const res = await api.get(`/products?q=${encodeURIComponent(query)}&limit=10`);
+        const res = await api.get(`/products?keyword=${encodeURIComponent(query)}&limit=10`);
         setSearchResults(res.data.products || []);
       } catch (err) { console.error('Search error:', err); }
     }, 300);
