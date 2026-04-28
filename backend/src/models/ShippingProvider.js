@@ -8,15 +8,11 @@ const shippingProviderSchema = new mongoose.Schema(
       trim: true,
       unique: true,
     },
-    baseRate: {
+    ratePerKg: {
       type: Number,
-      required: [true, "Base rate for the first 1 KG is required"],
-      min: [0, "Base rate cannot be negative"],
-    },
-    extraRatePerKg: {
-      type: Number,
-      required: [true, "Extra rate per additional KG is required"],
-      min: [0, "Extra rate cannot be negative"],
+      required: [true, "Rate per KG is required"],
+      min: [0, "Rate cannot be negative"],
+      default: 0,
     },
     isDefault: {
       type: Boolean,

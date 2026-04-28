@@ -12,8 +12,7 @@ const ShippingManagement = () => {
     const [formData, setFormData] = useState({
         id: null,
         name: '',
-        baseRate: '',
-        extraRatePerKg: '',
+        ratePerKg: '',
         isDefault: false,
         isActive: true
     });
@@ -44,7 +43,7 @@ const ShippingManagement = () => {
             if (data.success) {
                 toast.success(formData.id ? "Updated successfully" : "Added successfully");
                 setShowModal(false);
-                setFormData({ id: null, name: '', baseRate: '', extraRatePerKg: '', isDefault: false, isActive: true });
+                setFormData({ id: null, name: '', ratePerKg: '', isDefault: false, isActive: true });
                 fetchProviders();
             }
         } catch (error) {
@@ -79,7 +78,7 @@ const ShippingManagement = () => {
                     </div>
                     <button 
                         onClick={() => {
-                            setFormData({ id: null, name: '', baseRate: '', extraRatePerKg: '', isDefault: false, isActive: true });
+                            setFormData({ id: null, name: '', ratePerKg: '', isDefault: false, isActive: true });
                             setShowModal(true);
                         }}
                         className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg flex items-center gap-2 transition-all shadow-md"
@@ -94,8 +93,7 @@ const ShippingManagement = () => {
                         <thead className="border-b border-gray-100 bg-gray-50">
                             <tr>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Company Name</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Base Rate (1st KG)</th>
-                                <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Extra Rate (Per KG)</th>
+                                <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Rate Per KG (₹)</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Status</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-gray-600 uppercase">Default</th>
                                 <th className="px-6 py-4 text-xs font-semibold text-center text-gray-600 uppercase">Actions</th>
@@ -105,8 +103,7 @@ const ShippingManagement = () => {
                             {providers.map((p) => (
                                 <tr key={p._id} className="transition-colors hover:bg-gray-50/50">
                                     <td className="px-6 py-4 font-medium text-gray-800">{p.name}</td>
-                                    <td className="px-6 py-4 text-gray-700">₹{p.baseRate}</td>
-                                    <td className="px-6 py-4 text-gray-700">₹{p.extraRatePerKg}</td>
+                                    <td className="px-6 py-4 text-gray-700">₹{p.ratePerKg}</td>
                                     <td className="px-6 py-4">
                                         {p.isActive ? (
                                             <span className="flex items-center gap-1 text-sm font-medium text-green-600">
@@ -132,8 +129,7 @@ const ShippingManagement = () => {
                                                     setFormData({
                                                         id: p._id,
                                                         name: p.name,
-                                                        baseRate: p.baseRate,
-                                                        extraRatePerKg: p.extraRatePerKg,
+                                                        ratePerKg: p.ratePerKg,
                                                         isDefault: p.isDefault,
                                                         isActive: p.isActive
                                                     });
@@ -179,23 +175,13 @@ const ShippingManagement = () => {
                                     className="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
                                 />
                             </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block mb-1 text-sm font-medium text-gray-700">Base Rate (₹)</label>
-                                    <input 
-                                        type="number" required value={formData.baseRate} min="0" step="0.01"
-                                        onChange={(e) => setFormData({...formData, baseRate: e.target.value})}
-                                        className="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block mb-1 text-sm font-medium text-gray-700">Extra Per KG (₹)</label>
-                                    <input 
-                                        type="number" required value={formData.extraRatePerKg} min="0" step="0.01"
-                                        onChange={(e) => setFormData({...formData, extraRatePerKg: e.target.value})}
-                                        className="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
+                            <div>
+                                <label className="block mb-1 text-sm font-medium text-gray-700">Rate Per KG (₹)</label>
+                                <input 
+                                    type="number" required value={formData.ratePerKg} min="0" step="0.01"
+                                    onChange={(e) => setFormData({...formData, ratePerKg: e.target.value})}
+                                    className="w-full px-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                                />
                             </div>
                             <div className="flex flex-col gap-3 py-2">
                                 <label className="flex items-center gap-3 cursor-pointer group">

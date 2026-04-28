@@ -29,7 +29,7 @@ export const getActiveProviders = async (req, res) => {
 // @access  Private/Admin
 export const createProvider = async (req, res) => {
   try {
-    const { name, baseRate, extraRatePerKg, isDefault, isActive } = req.body;
+    const { name, ratePerKg, isDefault, isActive } = req.body;
 
     const providerExists = await ShippingProvider.findOne({ name });
     if (providerExists) {
@@ -38,8 +38,7 @@ export const createProvider = async (req, res) => {
 
     const provider = await ShippingProvider.create({
       name,
-      baseRate,
-      extraRatePerKg,
+      ratePerKg,
       isDefault,
       isActive,
     });
@@ -55,7 +54,7 @@ export const createProvider = async (req, res) => {
 // @access  Private/Admin
 export const updateProvider = async (req, res) => {
   try {
-    const { name, baseRate, extraRatePerKg, isDefault, isActive } = req.body;
+    const { name, ratePerKg, isDefault, isActive } = req.body;
 
     const provider = await ShippingProvider.findById(req.params.id);
     if (!provider) {
@@ -63,8 +62,7 @@ export const updateProvider = async (req, res) => {
     }
 
     provider.name = name ?? provider.name;
-    provider.baseRate = baseRate ?? provider.baseRate;
-    provider.extraRatePerKg = extraRatePerKg ?? provider.extraRatePerKg;
+    provider.ratePerKg = ratePerKg ?? provider.ratePerKg;
     provider.isDefault = isDefault ?? provider.isDefault;
     provider.isActive = isActive ?? provider.isActive;
 
