@@ -3,7 +3,7 @@ import axios from "axios";
 import { FaSearch, FaFileImport, FaSyncAlt, FaExternalLinkAlt } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://sonani-backend.onrender.com/api";
+const API_BASE_URL = "https://sonani-backend.onrender.com/api";
 
 const normalizeText = (value = "") => String(value || "").trim().toLowerCase();
 
