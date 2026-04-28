@@ -157,7 +157,7 @@ export const createOrder = async (req, res) => {
       if (provider) {
         actualCourierPartner = provider.name;
         const rate = provider.ratePerKg ?? provider.baseRate ?? 0;
-        secureShippingCost = calcWeight * rate;
+        secureShippingCost = Math.round(calcWeight * rate);
       } else {
         // Fallback agar koi provider na mile (though client frontend validation rok lega)
         secureShippingCost = toSafeNumber(shippingCost, 0); 

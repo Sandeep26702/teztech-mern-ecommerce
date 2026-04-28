@@ -38,7 +38,7 @@ const Cart = () => {
 
           if (totalWeight === 0 && cartItems.length > 0) totalWeight = 1; // Default to 1 KG minimum
           const rate = defaultProvider.ratePerKg ?? defaultProvider.baseRate ?? 0;
-          setDefaultShipping(totalWeight * rate);
+          setDefaultShipping(Math.round(totalWeight * rate));
         }
       } catch (err) {
         console.error("Failed to fetch shipping", err);

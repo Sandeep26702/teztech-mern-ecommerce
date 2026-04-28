@@ -77,7 +77,8 @@ const CheckoutPage = () => {
     if (baseProviders.length > 0) {
       const options = baseProviders.map(p => {
         const rate = p.ratePerKg ?? p.baseRate ?? 0; // Migration fallback
-        const cost = totalWeight * rate;
+        const rawCost = totalWeight * rate;
+        const cost = Math.round(rawCost); // Round to nearest integer to avoid decimals like 197.399999999
         return {
           id: p._id,
           name: p.name,
