@@ -1,5 +1,6 @@
 import Product from "../models/Product.js";
 import ProductImportJob from "../models/ProductImportJob.js";
+import Category from "../models/Category.js";
 
 const DEFAULT_PRODUCT_IMAGE = "https://placehold.co/600x600?text=Product";
 
