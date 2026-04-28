@@ -64,7 +64,13 @@ const CheckoutPage = () => {
 
   // 🔥 DOUBLE TAX FIX & DYNAMIC SHIPPING FIX
   const cartTotal = getCartTotal();
-  const totalWeight = useMemo(() => cartItems.reduce((acc, item) => acc + ((item.productId?.weightKg || item.weightKg || 0) * Number(item.quantity || 1)), 0), [cartItems]);
+  const totalWeight = useMemo(() => {
+    return cartItems.reduce((acc, item) => {
+      const w = Number(item?.productId?.weightKg) || Number(item?.weightKg) || 0;
+      const q = Number(item?.quantity) || 1;
+      return acc + (w * q);
+    }, 0);
+  }, [cartItems]);
   
   useEffect(() => {
     if (baseProviders.length > 0) {
@@ -287,7 +293,7 @@ const CheckoutPage = () => {
                       setSaveAddressForNext={setSaveAddressForNext} addressesLoading={addressesLoading}
                       deliveryType={deliveryType} setDeliveryType={setDeliveryType}
                     />
-                    <div className="flex justify-end pt-8 mt-10 border-t border-slate-100">
+                    <div className="hidden lg:flex justify-end pt-8 mt-10 border-t border-slate-100">
                       <button type="button" onClick={handleNextStep} className="w-full px-10 py-4 font-bold text-white transition-all bg-blue-600 shadow-lg sm:w-auto rounded-2xl hover:bg-blue-700 shadow-blue-100 active:scale-95">
                         Deliver to this Address
                       </button>
@@ -312,8 +318,7 @@ const CheckoutPage = () => {
                         <p className="mt-1 text-sm font-medium text-blue-600">No shipping charges applied. Proceed to payment.</p>
                       </div>
                     )}
-                    <div className="flex justify-between gap-4 pt-8 mt-10 border-t border-slate-100">
-                      <button type="button" onClick={handlePrevStep} className="px-6 py-4 font-bold transition-all text-slate-500 bg-slate-100 rounded-2xl hover:bg-slate-200">Back</button>
+                    <div className="hidden lg:flex justify-end gap-4 pt-8 mt-10 border-t border-slate-100">
                       <button type="button" onClick={handleNextStep} className="flex-1 px-10 py-4 font-bold text-white transition-all bg-blue-600 shadow-lg sm:flex-none rounded-2xl hover:bg-blue-700 active:scale-95">Proceed to Payment</button>
                     </div>
                   </div>
@@ -331,9 +336,7 @@ const CheckoutPage = () => {
                       paymentDetails={paymentDetails}
                       setPaymentDetails={setPaymentDetails}
                     />
-                    <div className="flex justify-between gap-4 pt-8 mt-10 border-t border-slate-100">
-                      <button type="button" onClick={handlePrevStep} className="px-6 py-4 font-bold text-slate-500 bg-slate-100 rounded-2xl hover:bg-slate-200">Back</button>
-                      
+                    <div className="hidden lg:flex justify-end gap-4 pt-8 mt-10 border-t border-slate-100">
                       <button 
                         type="submit" 
                         disabled={loading} 
@@ -354,6 +357,8 @@ const CheckoutPage = () => {
               summaryRows={summaryRows} cartTotal={cartTotal} 
               shippingTotal={shippingTotal} igstTotal={0} 
               grandTotal={grandTotal} loading={loading} cartItems={cartItems}
+              selectedCourierName={selectedCourier?.name}
+              currentStep={currentStep} handleNextStep={handleNextStep}
             />
           </div>
         </div>

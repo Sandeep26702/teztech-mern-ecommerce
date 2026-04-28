@@ -14,7 +14,7 @@ const renderSelectedOptions = (item) => {
   return results;
 };
 
-const OrderSummary = ({ summaryRows, shippingTotal, loading, cartItems }) => {
+const OrderSummary = ({ summaryRows, shippingTotal, loading, cartItems, selectedCourierName, currentStep, handleNextStep }) => {
   const [isOpen, setIsOpen] = useState(false);
 
   let cartTotal = 0;
@@ -61,7 +61,7 @@ const OrderSummary = ({ summaryRows, shippingTotal, loading, cartItems }) => {
         </div>
         <div className="mb-6 space-y-3 text-sm">
           <div className="flex justify-between"><span>Subtotal</span><span className="font-bold">₹{cartTotal.toLocaleString("en-IN")}</span></div>
-          <div className="flex justify-between"><span>Shipping</span><span className="font-bold">₹{shippingTotal.toLocaleString("en-IN")}</span></div>
+          <div className="flex justify-between"><span>Shipping {selectedCourierName ? `(${selectedCourierName})` : ''}</span><span className="font-bold">₹{shippingTotal.toLocaleString("en-IN")}</span></div>
           <div className="flex justify-between text-xs italic text-slate-400"><span>* Total includes GST of ₹{Math.round(totalGstAmount).toLocaleString("en-IN")}</span></div>
         </div>
         <div className="flex items-center justify-between pt-5 border-t">
@@ -75,7 +75,7 @@ const OrderSummary = ({ summaryRows, shippingTotal, loading, cartItems }) => {
         {isOpen && (
           <div className="px-2 py-2 mb-4 space-y-3 animate-fade-in">
             <div className="flex justify-between text-sm"><span className="text-slate-500">Subtotal</span><span className="font-bold">₹{cartTotal.toLocaleString("en-IN")}</span></div>
-            <div className="flex justify-between text-sm"><span className="text-slate-500">Shipping Charge</span><span className="font-bold text-emerald-600">₹{shippingTotal.toLocaleString("en-IN")}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-slate-500">Shipping {selectedCourierName ? `(${selectedCourierName})` : ''}</span><span className="font-bold text-emerald-600">₹{shippingTotal.toLocaleString("en-IN")}</span></div>
             <p className="text-[10px] text-slate-400 italic text-right">* Total includes GST of ₹{Math.round(totalGstAmount).toLocaleString("en-IN")}</p>
           </div>
         )}
@@ -86,7 +86,17 @@ const OrderSummary = ({ summaryRows, shippingTotal, loading, cartItems }) => {
             </div>
             <p className="text-[10px] font-bold text-blue-600 uppercase tracking-tighter">Bill Details</p>
           </div>
-          <button type="submit" form="checkout-form" disabled={loading || cartItems.length === 0} className="flex-1 py-4 text-sm font-bold text-white bg-slate-900 rounded-2xl">Place Order</button>
+          <button 
+            type={currentStep === 3 ? "submit" : "button"} 
+            form={currentStep === 3 ? "checkout-form" : undefined} 
+            onClick={currentStep < 3 ? handleNextStep : undefined}
+            disabled={loading || cartItems.length === 0} 
+            className="flex-1 py-4 text-sm font-bold text-white bg-slate-900 rounded-2xl"
+          >
+            {loading && currentStep === 3 ? "Processing..." : 
+              currentStep === 1 ? "Proceed to Shipping" : 
+              currentStep === 2 ? "Proceed to Payment" : "Place Order"}
+          </button>
         </div>
       </div>
     </>
