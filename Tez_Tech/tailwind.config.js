@@ -11,6 +11,15 @@ export default {
         secondary: "#a855f7", // Purple
         dark: "#0f172a", // Dark Slate
       },
+      keyframes: {
+        shimmer: {
+          '0%': { transform: 'translateX(-100%)' },
+          '100%': { transform: 'translateX(100%)' },
+        }
+      },
+      animation: {
+        shimmer: 'shimmer 1.5s infinite linear',
+      }
     },
   },
   plugins: [],
