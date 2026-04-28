@@ -1,24 +1,27 @@
 import React from 'react';
 
-const ShippingMethod = ({ selectedCourier, setSelectedCourier }) => {
-  // Aapke diye gaye options aur unke prices
-  const courierOptions = [
-    { 
-      id: 1, 
-      name: "COURIER", 
-      description: "We will charge rs 140/- shipping charge per kg. Please get confirmation of shipping charges from our whatsapp number 7801891805", 
-      price: 1350.00 
-    },
-    { id: 2, name: "TPC (THE PROFESSIONAL COURIER SURFACE)", price: 1080.00 },
-    { id: 3, name: "TPC ARI (THE PROFESSIONAL COURIER AIR )", price: 1350.00 },
-    { id: 4, name: "TIRUPATI SURAFCE", price: 1080.00 },
-    { id: 5, name: "TIRUPATI AIR", price: 1350.00 },
-    { id: 6, name: "DTDC SURFACE", price: 1080.00 },
-    { id: 7, name: "DTDC AIR", price: 1350.00 },
-    { id: 8, name: "DELHIVERY SURFACE", price: 945.00 },
-    { id: 9, name: "( rs 200 Internal Packing and Forwarding Charges ) ( Transport Charge To Pay To Transport Company )", price: 200.00 },
-    { id: 10, name: "IndianPost", price: 1350.00 },
-  ];
+const ShippingMethod = ({ selectedCourier, setSelectedCourier, courierOptions, loading }) => {
+  if (loading) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 animate-pulse">
+        <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
+        <div className="h-4 bg-gray-200 rounded w-1/3 mb-6"></div>
+        <div className="space-y-4">
+          <div className="h-12 bg-gray-100 rounded"></div>
+          <div className="h-12 bg-gray-100 rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!courierOptions || courierOptions.length === 0) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100 text-center">
+        <h2 className="mb-2 text-xl font-semibold text-gray-800">Shipping method</h2>
+        <p className="text-gray-500">No shipping methods available at the moment.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
@@ -28,7 +31,7 @@ const ShippingMethod = ({ selectedCourier, setSelectedCourier }) => {
       <div className="space-y-0 border border-gray-200 rounded-md overflow-hidden max-h-[350px] overflow-y-auto custom-scrollbar">
         {courierOptions.map((courier) => (
           <label 
-            key={courier.id} 
+            key={courier.name} 
             className={`flex justify-between items-start p-4 cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors duration-150 ${selectedCourier?.name === courier.name ? 'bg-gray-50' : 'hover:bg-gray-50'}`}
           >
             <div className="flex items-start gap-3 flex-1 pr-4">
@@ -41,7 +44,6 @@ const ShippingMethod = ({ selectedCourier, setSelectedCourier }) => {
               />
               <div className="flex flex-col">
                 <span className="text-sm font-medium text-gray-800">{courier.name}</span>
-                {/* Agar description hai toh yahan show hoga */}
                 {courier.description && (
                   <span className="text-xs text-gray-500 mt-1 leading-relaxed">
                     {courier.description}

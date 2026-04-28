@@ -3,6 +3,7 @@ import Cart from "../models/Cart.js";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
+import ShippingProvider from "../models/ShippingProvider.js";
 
 const ORDER_COUNTER_KEY = "order_number_seq";
 const ORDER_NUMBER_START = 100000;
@@ -79,6 +80,7 @@ export const createOrder = async (req, res) => {
     const finalOrderItems = [];
     let calcSubtotal = 0;
     let calcGst = 0;
+    let calcWeight = 0;
 
     for (const rawItem of items) {
       const productId = rawItem.productId?._id || rawItem.productId;
@@ -127,11 +129,37 @@ export const createOrder = async (req, res) => {
 
       calcSubtotal += round2(basePrice * quantity);
       calcGst += round2(unitGst * quantity);
+      calcWeight += (product.weightKg || 0) * quantity;
 
       // Stock update
       product.stock -= quantity;
       await product.save();
     }
+
+    // 🚀 SECURE SHIPPING RECALCULATION
+    let secureShippingCost = 0;
+    let actualCourierPartner = courierPartner || orderPayload.selectedCourier?.name || "Standard Courier";
+    
+    // Sirf ship mode me shipping cost charge hoga
+    if (orderPayload.deliveryType !== 'pickup') {
+      let provider = await ShippingProvider.findOne({ name: actualCourierPartner });
+      
+      // Agar provider delete ho gaya ho, toh default uthao
+      if (!provider) {
+        provider = await ShippingProvider.findOne({ isDefault: true }) || await ShippingProvider.findOne({ isActive: true });
+      }
+
+      if (provider) {
+        actualCourierPartner = provider.name;
+        secureShippingCost = provider.baseRate + (Math.max(0, calcWeight - 1) * provider.extraRatePerKg);
+      } else {
+        // Fallback agar koi provider na mile (though client frontend validation rok lega)
+        secureShippingCost = toSafeNumber(shippingCost, 0); 
+      }
+    }
+    
+    // Secure Total Calculation
+    const secureTotalAmount = round2(calcSubtotal + calcGst + secureShippingCost);
 
     const orderNumber = await getNextOrderNumber();
     
@@ -150,12 +178,13 @@ export const createOrder = async (req, res) => {
       
       // 🔥 THE COURIER FIX: 
       // Pehle orderPayload.courierPartner check karega, fir selectedCourier.name
-      courierPartner: courierPartner || orderPayload.selectedCourier?.name || "Standard Courier",
+      courierPartner: actualCourierPartner,
+      selectedShippingProvider: actualCourierPartner,
       
       subtotalAmount: round2(calcSubtotal), 
       gstAmount: round2(calcGst), 
-      shippingAmount: toSafeNumber(shippingCost, 0), 
-      totalAmount: toSafeNumber(totalAmount, 0), // 👈 Frontend se aane wala total
+      shippingAmount: round2(secureShippingCost), 
+      totalAmount: secureTotalAmount, // 👈 Backend se fully secured total
     });
 
     const savedOrder = await order.save();

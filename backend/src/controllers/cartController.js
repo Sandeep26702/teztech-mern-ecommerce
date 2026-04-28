@@ -62,7 +62,7 @@ export const calculateExactPricing = async (productId, selectedCustomFields, var
 
 export const getMyCart = async (req, res) => {
   try {
-    const cart = await Cart.findOne({ user: req.user._id }).populate("items.productId", "name price gstRate customFields image stock category shippingCharge sku");
+    const cart = await Cart.findOne({ user: req.user._id }).populate("items.productId", "name price gstRate customFields image stock category shippingCharge sku weightKg");
     res.status(200).json({ success: true, cart: cart || { items: [] } });
   } catch (error) {
     res.status(500).json({ success: false, message: "Server Error" });

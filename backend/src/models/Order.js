@@ -112,6 +112,10 @@ const orderSchema = new mongoose.Schema(
       type: String,
       default: "Standard Courier"
     },
+    selectedShippingProvider: {
+      type: String,
+      default: ""
+    },
     // ----------------------------------------------------
 
     subtotalAmount: {

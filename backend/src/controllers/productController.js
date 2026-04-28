@@ -287,6 +287,7 @@ export const importProductsCsv = async (req, res) => {
         const stock = sanitizeNum(getValIgnoreCase(["stock", "qty"]));
         const gstRate = sanitizeNum(getValIgnoreCase(["gst", "gst_rate", "gst_percent", "tax"]));
         const shippingCharge = sanitizeNum(getValIgnoreCase(["shipping", "shipping_charge", "delivery", "delivery_charge"]));
+        const weightKg = sanitizeNum(getValIgnoreCase(["weight", "weight_kg", "weight_kg", "weight(kg)", "weight (kg)"]));
         
         const description = String(getValIgnoreCase(["description", "desc", "detail"]) || "").trim();
         const brand = String(getValIgnoreCase(["brand", "brand_name"]) || "").trim();
@@ -367,6 +368,7 @@ export const importProductsCsv = async (req, res) => {
             status: status,       
             gstRate: gstRate,
             shippingCharge: shippingCharge, 
+            weightKg: weightKg,
             category: mainCategory,
             categories: categories,
             image: mainImage,

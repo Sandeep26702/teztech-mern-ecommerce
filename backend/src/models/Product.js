@@ -127,6 +127,11 @@ const productSchema = new mongoose.Schema(
       default: 0,
     },
 
+    weightKg: {
+      type: Number,
+      default: 0,
+    },
+
     // 🔥 ONLY FOR NON-VARIANT PRODUCTS
     stock: {
       type: Number,

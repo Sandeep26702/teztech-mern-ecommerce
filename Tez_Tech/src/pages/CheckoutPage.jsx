@@ -35,6 +35,11 @@ const CheckoutPage = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [deliveryType, setDeliveryType] = useState('ship'); 
 
+  // Shipping Providers State
+  const [providersLoading, setProvidersLoading] = useState(true);
+  const [baseProviders, setBaseProviders] = useState([]);
+  const [courierOptions, setCourierOptions] = useState([]);
+
   // Payment States
   const [paymentMethod, setPaymentMethod] = useState("MANUAL");
   const [orderNotes, setOrderNotes] = useState("");
@@ -55,16 +60,39 @@ const CheckoutPage = () => {
     pickupTime: "", 
   });
 
-  // 🔥 FIX 1: Exact wahi naam rakha hai jo ShippingMethod list ka pehla option hai
-  const [selectedCourier, setSelectedCourier] = useState({
-    name: "COURIER", 
-    price: 1350
-  });
+  const [selectedCourier, setSelectedCourier] = useState(null);
 
-  // 🔥 DOUBLE TAX FIX
+  // 🔥 DOUBLE TAX FIX & DYNAMIC SHIPPING FIX
   const cartTotal = getCartTotal();
-  const totalItemsCount = cartItems.reduce((total, item) => total + Number(item.quantity || 1), 0);
-  const shippingTotal = deliveryType === 'pickup' ? 0 : (selectedCourier.price * totalItemsCount); 
+  const totalWeight = useMemo(() => cartItems.reduce((acc, item) => acc + ((item.productId?.weightKg || item.weightKg || 0) * Number(item.quantity || 1)), 0), [cartItems]);
+  
+  useEffect(() => {
+    if (baseProviders.length > 0) {
+      const options = baseProviders.map(p => {
+        const cost = p.baseRate + (Math.max(0, totalWeight - 1) * p.extraRatePerKg);
+        return {
+          id: p._id,
+          name: p.name,
+          description: `Base: ₹${p.baseRate} (1st KG) + ₹${p.extraRatePerKg}/KG extra. Total Weight: ${totalWeight.toFixed(2)} KG`,
+          price: cost,
+          isDefault: p.isDefault
+        };
+      });
+      setCourierOptions(options);
+      
+      // Auto-select default if none selected
+      if (!selectedCourier) {
+        const defaultOption = options.find(o => o.isDefault) || options[0];
+        if (defaultOption) setSelectedCourier(defaultOption);
+      } else {
+        // Update price of already selected courier if weight changed
+        const updatedSelected = options.find(o => o.name === selectedCourier.name);
+        if (updatedSelected) setSelectedCourier(updatedSelected);
+      }
+    }
+  }, [baseProviders, totalWeight]);
+
+  const shippingTotal = deliveryType === 'pickup' ? 0 : (selectedCourier?.price || 0); 
   
   const grandTotal = Math.round((cartTotal + shippingTotal) * 100) / 100;
 
@@ -92,6 +120,20 @@ const CheckoutPage = () => {
       }
     };
     loadAddresses();
+
+    const fetchProviders = async () => {
+      try {
+        const { data } = await api.get("/shipping/active");
+        if (data.success) {
+          setBaseProviders(data.providers);
+        }
+      } catch (error) {
+        console.error("Failed to fetch shipping providers:", error);
+      } finally {
+        setProvidersLoading(false);
+      }
+    };
+    fetchProviders();
   }, [user]);
 
   const summaryRows = useMemo(() => cartItems.map((item) => ({
@@ -258,7 +300,12 @@ const CheckoutPage = () => {
                   <div className="animate-fade-in">
                     <h2 className="mb-6 text-xl font-bold text-slate-900">2. Shipping Method</h2>
                     {deliveryType === 'ship' ? (
-                      <ShippingMethod selectedCourier={selectedCourier} setSelectedCourier={setSelectedCourier} />
+                      <ShippingMethod 
+                        selectedCourier={selectedCourier} 
+                        setSelectedCourier={setSelectedCourier} 
+                        courierOptions={courierOptions}
+                        loading={providersLoading}
+                      />
                     ) : (
                       <div className="p-10 text-center border-2 border-dashed border-blue-100 bg-blue-50/30 rounded-[2rem]">
                         <h3 className="text-lg font-bold text-blue-900 uppercase">Store Pickup Selected</h3>
