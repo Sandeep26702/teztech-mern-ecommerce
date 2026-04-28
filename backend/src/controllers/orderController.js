@@ -81,6 +81,7 @@ export const createOrder = async (req, res) => {
     let calcSubtotal = 0;
     let calcGst = 0;
     let calcWeight = 0;
+    let calcLegacyShipping = 0;
 
     for (const rawItem of items) {
       const productId = rawItem.productId?._id || rawItem.productId;
@@ -129,7 +130,13 @@ export const createOrder = async (req, res) => {
 
       calcSubtotal += round2(basePrice * quantity);
       calcGst += round2(unitGst * quantity);
-      calcWeight += (product.weightKg || 0) * quantity;
+      
+      const productWeight = product.weightKg || 0;
+      calcWeight += productWeight * quantity;
+      
+      if (productWeight === 0) {
+        calcLegacyShipping += shippingCharge * quantity;
+      }
 
       // Stock update
       product.stock -= quantity;
@@ -151,7 +158,7 @@ export const createOrder = async (req, res) => {
 
       if (provider) {
         actualCourierPartner = provider.name;
-        secureShippingCost = provider.baseRate + (Math.max(0, calcWeight - 1) * provider.extraRatePerKg);
+        secureShippingCost = provider.baseRate + (Math.max(0, calcWeight - 1) * provider.extraRatePerKg) + calcLegacyShipping;
       } else {
         // Fallback agar koi provider na mile (though client frontend validation rok lega)
         secureShippingCost = toSafeNumber(shippingCost, 0); 

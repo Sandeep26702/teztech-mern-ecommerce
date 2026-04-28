@@ -71,15 +71,27 @@ const CheckoutPage = () => {
       return acc + (w * q);
     }, 0);
   }, [cartItems]);
+
+  const legacyShippingTotal = useMemo(() => {
+    return cartItems.reduce((acc, item) => {
+      const w = Number(item?.productId?.weightKg) || Number(item?.weightKg) || 0;
+      if (w === 0) {
+        const sc = Number(item?.productId?.shippingCharge) || Number(item?.shippingCharge) || 0;
+        const q = Number(item?.quantity) || 1;
+        return acc + (sc * q);
+      }
+      return acc;
+    }, 0);
+  }, [cartItems]);
   
   useEffect(() => {
     if (baseProviders.length > 0) {
       const options = baseProviders.map(p => {
-        const cost = p.baseRate + (Math.max(0, totalWeight - 1) * p.extraRatePerKg);
+        const cost = p.baseRate + (Math.max(0, totalWeight - 1) * p.extraRatePerKg) + legacyShippingTotal;
         return {
           id: p._id,
           name: p.name,
-          description: `Base: ₹${p.baseRate} (1st KG) + ₹${p.extraRatePerKg}/KG extra. Total Weight: ${totalWeight.toFixed(2)} KG`,
+          description: `Base: ₹${p.baseRate} (1st KG) + ₹${p.extraRatePerKg}/KG extra.${totalWeight > 0 ? ` Total Weight: ${totalWeight.toFixed(2)} KG.` : ''}${legacyShippingTotal > 0 ? ` Additional Freight: ₹${legacyShippingTotal}.` : ''}`,
           price: cost,
           isDefault: p.isDefault
         };

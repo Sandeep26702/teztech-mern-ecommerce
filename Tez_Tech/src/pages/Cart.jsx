@@ -4,7 +4,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCart, getTrueUnitPrice } from "../context/CartContext";
 
 const getItemKey = (item) => item._id || item.localItemId || item.productId?._id || item.productId;
-const getItemShippingCharge = (item) => Number(item?.productId?.shippingCharge || item?.shippingCharge || 0);
 
 const renderSelectedOptions = (item) => {
   const options = [];
@@ -34,8 +33,7 @@ const Cart = () => {
     totalGstAmount += itemTotal - (itemTotal / (1 + (gstRate / 100)));
   });
 
-  const shippingTotal = (cartItems || []).reduce((sum, item) => sum + getItemShippingCharge(item) * Number(item.quantity || 0), 0);
-  const grandTotal = cartTotal + shippingTotal;
+  const grandTotal = cartTotal; // Shipping calculated at checkout
 
   if (!cartItems || cartItems.length === 0) {
     return (
@@ -90,10 +88,10 @@ const Cart = () => {
               <h2 className="mb-8 text-2xl font-black">Order Summary</h2>
               <div className="space-y-5 text-sm font-medium">
                 <div className="flex justify-between"><span>Subtotal</span><span className="font-bold">₹{cartTotal.toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between"><span>Shipping Charge</span><span className="font-bold">₹{shippingTotal.toLocaleString("en-IN")}</span></div>
+                <div className="flex justify-between"><span>Shipping Charge</span><span className="font-bold text-slate-500">Calculated at checkout</span></div>
                 <div className="flex justify-between pb-4 text-xs italic border-b text-slate-400"><span>* Total includes GST of ₹{Math.round(totalGstAmount).toLocaleString("en-IN")}</span></div>
                 <div className="flex items-end justify-between pt-2 mt-2">
-                  <span className="text-xl font-black">Total Amount</span>
+                  <span className="text-xl font-black">Subtotal</span>
                   <span className="text-2xl font-black text-blue-600">₹{grandTotal.toLocaleString("en-IN")}</span>
                 </div>
               </div>
