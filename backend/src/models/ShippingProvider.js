@@ -31,18 +31,17 @@ const shippingProviderSchema = new mongoose.Schema(
 );
 
 // Pre-save hook to ensure only one default provider exists
-shippingProviderSchema.pre("save", async function (next) {
+shippingProviderSchema.pre("save", async function () {
   if (this.isDefault) {
     await this.constructor.updateMany(
       { _id: { $ne: this._id } },
       { $set: { isDefault: false } }
     );
   }
-  next();
 });
 
 // Pre-update hook for findOneAndUpdate etc.
-shippingProviderSchema.pre("findOneAndUpdate", async function (next) {
+shippingProviderSchema.pre("findOneAndUpdate", async function () {
   const update = this.getUpdate();
   if (update.isDefault || (update.$set && update.$set.isDefault)) {
     const query = this.getQuery();
@@ -51,7 +50,6 @@ shippingProviderSchema.pre("findOneAndUpdate", async function (next) {
       { $set: { isDefault: false } }
     );
   }
-  next();
 });
 
 const ShippingProvider = mongoose.models.ShippingProvider || mongoose.model("ShippingProvider", shippingProviderSchema);
