@@ -65,21 +65,23 @@ const CheckoutPage = () => {
   // 🔥 DOUBLE TAX FIX & DYNAMIC SHIPPING FIX
   const cartTotal = getCartTotal();
   const totalWeight = useMemo(() => {
-    return cartItems.reduce((acc, item) => {
+    const rawWeight = cartItems.reduce((acc, item) => {
       const w = Number(item?.productId?.weightKg) || Number(item?.weightKg) || 0;
       const q = Number(item?.quantity) || 1;
       return acc + (w * q);
     }, 0);
+    return rawWeight === 0 && cartItems.length > 0 ? 1 : rawWeight;
   }, [cartItems]);
   
   useEffect(() => {
     if (baseProviders.length > 0) {
       const options = baseProviders.map(p => {
-        const cost = totalWeight * (p.ratePerKg || 0);
+        const rate = p.ratePerKg ?? p.baseRate ?? 0; // Migration fallback
+        const cost = totalWeight * rate;
         return {
           id: p._id,
           name: p.name,
-          description: `₹${p.ratePerKg}/KG. Total Weight: ${totalWeight.toFixed(2)} KG.`,
+          description: `₹${rate}/KG. Total Weight: ${totalWeight.toFixed(2)} KG.`,
           price: cost,
           isDefault: p.isDefault
         };

@@ -137,6 +137,9 @@ export const createOrder = async (req, res) => {
       product.stock -= quantity;
       await product.save();
     }
+    
+    // Default to minimum 1 KG to prevent free shipping for products missing weight
+    if (calcWeight === 0 && items.length > 0) calcWeight = 1;
 
     // 🚀 SECURE SHIPPING RECALCULATION
     let secureShippingCost = 0;
@@ -153,7 +156,8 @@ export const createOrder = async (req, res) => {
 
       if (provider) {
         actualCourierPartner = provider.name;
-        secureShippingCost = calcWeight * provider.ratePerKg;
+        const rate = provider.ratePerKg ?? provider.baseRate ?? 0;
+        secureShippingCost = calcWeight * rate;
       } else {
         // Fallback agar koi provider na mile (though client frontend validation rok lega)
         secureShippingCost = toSafeNumber(shippingCost, 0); 

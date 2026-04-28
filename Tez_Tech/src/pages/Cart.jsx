@@ -1,7 +1,8 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { FaMinus, FaPlus, FaShoppingCart, FaTrashAlt } from "react-icons/fa";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart, getTrueUnitPrice } from "../context/CartContext";
+import api from "../utils/api";
 
 const getItemKey = (item) => item._id || item.localItemId || item.productId?._id || item.productId;
 
@@ -19,6 +20,39 @@ const renderSelectedOptions = (item) => {
 const Cart = () => {
   const { cartItems, removeFromCart, updateQuantity } = useCart();
   const navigate = useNavigate();
+  const [defaultShipping, setDefaultShipping] = useState(0);
+  const [isShippingLoading, setIsShippingLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDefaultShipping = async () => {
+      try {
+        const { data } = await api.get("/shipping/active");
+        if (data.success && data.providers?.length > 0) {
+          const defaultProvider = data.providers.find(p => p.isDefault) || data.providers[0];
+          
+          let totalWeight = cartItems.reduce((acc, item) => {
+            const w = Number(item?.productId?.weightKg) || Number(item?.weightKg) || 0;
+            const q = Number(item?.quantity) || 1;
+            return acc + (w * q);
+          }, 0);
+
+          if (totalWeight === 0 && cartItems.length > 0) totalWeight = 1; // Default to 1 KG minimum
+          const rate = defaultProvider.ratePerKg ?? defaultProvider.baseRate ?? 0;
+          setDefaultShipping(totalWeight * rate);
+        }
+      } catch (err) {
+        console.error("Failed to fetch shipping", err);
+      } finally {
+        setIsShippingLoading(false);
+      }
+    };
+    
+    if (cartItems?.length > 0) {
+      fetchDefaultShipping();
+    } else {
+      setIsShippingLoading(false);
+    }
+  }, [cartItems]);
 
   let cartTotal = 0;
   let totalGstAmount = 0;
@@ -33,7 +67,7 @@ const Cart = () => {
     totalGstAmount += itemTotal - (itemTotal / (1 + (gstRate / 100)));
   });
 
-  const grandTotal = cartTotal; // Shipping calculated at checkout
+  const grandTotal = cartTotal + defaultShipping;
 
   if (!cartItems || cartItems.length === 0) {
     return (
@@ -88,10 +122,15 @@ const Cart = () => {
               <h2 className="mb-8 text-2xl font-black">Order Summary</h2>
               <div className="space-y-5 text-sm font-medium">
                 <div className="flex justify-between"><span>Subtotal</span><span className="font-bold">₹{cartTotal.toLocaleString("en-IN")}</span></div>
-                <div className="flex justify-between"><span>Shipping Charge</span><span className="font-bold text-slate-500">Calculated at checkout</span></div>
+                <div className="flex justify-between">
+                  <span>Shipping Charge (By Default)</span>
+                  <span className="font-bold text-slate-700">
+                    {isShippingLoading ? "Calculating..." : `₹${defaultShipping.toLocaleString("en-IN")}`}
+                  </span>
+                </div>
                 <div className="flex justify-between pb-4 text-xs italic border-b text-slate-400"><span>* Total includes GST of ₹{Math.round(totalGstAmount).toLocaleString("en-IN")}</span></div>
                 <div className="flex items-end justify-between pt-2 mt-2">
-                  <span className="text-xl font-black">Subtotal</span>
+                  <span className="text-xl font-black">Total Amount</span>
                   <span className="text-2xl font-black text-blue-600">₹{grandTotal.toLocaleString("en-IN")}</span>
                 </div>
               </div>
