@@ -56,19 +56,9 @@ export const createOrder = async (req, res) => {
     
     const paymentScreenshot = req.file ? req.file.path : null;
 
-    if (!items || items.length === 0) return res.status(400).json({ success: false, message: "Cart is empty." });
-
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    // Address Logic
-    let finalShippingInfo = shippingInfo;
-    if (addressId) {
-      const savedAddress = user.addresses.id(addressId);
-      if (savedAddress) {
-        finalShippingInfo = {
-          fullName: savedAddress.fullName, 
-          phone: savedAddress.phone,
           address: `${savedAddress.address}, ${savedAddress.locality || ""}`.trim(),
           city: savedAddress.city, 
           state: savedAddress.state || "", 

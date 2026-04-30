@@ -19,6 +19,7 @@ const orderItemSchema = new mongoose.Schema(
     size: { type: String },
     color: { type: String },
     attributes: { type: mongoose.Schema.Types.Mixed, default: {} },
+    priceOverride: { type: Boolean, default: false }, // true if admin set custom price
     // ---------------------------------------------------------
 
     optionAdjustment: { type: Number, default: 0 },
@@ -133,6 +134,10 @@ const orderSchema = new mongoose.Schema(
       default: 0,
       min: [0, "Shipping amount cannot be negative"],
     },
+    shippingCostOverride: { type: Boolean, default: false }, // admin manually changed shipping cost
+    discount: { type: Number, default: 0, min: 0 }, // flat discount amount
+    taxType: { type: String, enum: ["IGST", "CGST_SGST"], default: "CGST_SGST" }, // tax mode
+    shippingWeightKg: { type: Number, default: 0, min: 0 },
     totalAmount: {
       type: Number,
       required: true,
