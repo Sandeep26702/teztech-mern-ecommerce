@@ -41,31 +41,42 @@ const buildOrderCode = (orderNumber) => `TZ-${String(orderNumber).padStart(6, "0
 export const createOrder = async (req, res) => {
   try {
     let orderPayload = req.body.orderData ? JSON.parse(req.body.orderData) : req.body;
-    
-    const { 
-      items, 
-      shippingInfo, 
-      paymentMethod, 
-      addressId, 
-      utrNumber, 
+
+    const {
+      items,
+      shippingInfo,
+      paymentMethod,
+      addressId,
+      utrNumber,
       orderNotes,
-      shippingCost, 
+      shippingCost,
       totalAmount,
       courierPartner // 👈 Frontend se direct courier name
     } = orderPayload;
-    
+
     const paymentScreenshot = req.file ? req.file.path : null;
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
+    // 🛠️ YAHAN FIX KIYA GAYA HAI - Missing logic restored
+    let finalShippingInfo = shippingInfo || {};
+
+    if (addressId) {
+      // Note: Agar aapka Address alag model me hai toh yahan await Address.findById(addressId) aayega
+      const savedAddress = user.addresses ? user.addresses.id(addressId) : null;
+      if (savedAddress) {
+        finalShippingInfo = {
+          fullName: savedAddress.fullName || user.name,
+          phone: savedAddress.phone || user.phone,
           address: `${savedAddress.address}, ${savedAddress.locality || ""}`.trim(),
-          city: savedAddress.city, 
-          state: savedAddress.state || "", 
+          city: savedAddress.city,
+          state: savedAddress.state || "",
           pincode: savedAddress.pincode,
         };
       }
     }
+    // 🛠️ FIX ENDS HERE
 
     const finalOrderItems = [];
     let calcSubtotal = 0;
@@ -84,8 +95,8 @@ export const createOrder = async (req, res) => {
       const selectedVariant = rawItem.variant || rawItem.selectedVariant || null;
 
       if (selectedVariant) {
-         if (selectedVariant.sku) itemSku = selectedVariant.sku;
-         if (selectedVariant.image) itemImage = selectedVariant.image;
+        if (selectedVariant.sku) itemSku = selectedVariant.sku;
+        if (selectedVariant.image) itemImage = selectedVariant.image;
       }
 
       // Math Fix: Price logic for Admin Dashboard alignment
@@ -93,33 +104,33 @@ export const createOrder = async (req, res) => {
       const gstRate = toSafeNumber(product.gstRate || product.GST, 18);
       const basePrice = round2(unitPrice / (1 + (gstRate / 100)));
       const unitGst = round2(unitPrice - basePrice);
-      
+
       const lineTotal = round2(unitPrice * quantity);
       const shippingCharge = toSafeNumber(product.shippingCharge, 0);
 
       finalOrderItems.push({
         productId: product._id,
-        sku: itemSku, 
+        sku: itemSku,
         name: product.name,
-        image: itemImage, 
-        quantity, 
-        basePrice, 
-        gstRate, 
-        unitPrice, 
-        gstAmount: unitGst, 
-        price: unitPrice, 
+        image: itemImage,
+        quantity,
+        basePrice,
+        gstRate,
+        unitPrice,
+        gstAmount: unitGst,
+        price: unitPrice,
         shippingCharge,
-        lineSubtotal: round2(basePrice * quantity), 
-        lineGstTotal: round2(unitGst * quantity), 
-        lineShippingTotal: round2(shippingCharge * quantity), 
+        lineSubtotal: round2(basePrice * quantity),
+        lineGstTotal: round2(unitGst * quantity),
+        lineShippingTotal: round2(shippingCharge * quantity),
         lineTotal,
         selectedCustomFields: rawItem.selectedCustomFields || {},
-        variant: selectedVariant, 
+        variant: selectedVariant,
       });
 
       calcSubtotal += round2(basePrice * quantity);
       calcGst += round2(unitGst * quantity);
-      
+
       const productWeight = product.weightKg || 0;
       calcWeight += productWeight * quantity;
 
@@ -127,18 +138,18 @@ export const createOrder = async (req, res) => {
       product.stock -= quantity;
       await product.save();
     }
-    
+
     // Default to minimum 1 KG to prevent free shipping for products missing weight
     if (calcWeight === 0 && items.length > 0) calcWeight = 1;
 
     // 🚀 SECURE SHIPPING RECALCULATION
     let secureShippingCost = 0;
     let actualCourierPartner = courierPartner || orderPayload.selectedCourier?.name || "Standard Courier";
-    
+
     // Sirf ship mode me shipping cost charge hoga
     if (orderPayload.deliveryType !== 'pickup') {
       let provider = await ShippingProvider.findOne({ name: actualCourierPartner });
-      
+
       // Agar provider delete ho gaya ho, toh default uthao
       if (!provider) {
         provider = await ShippingProvider.findOne({ isDefault: true }) || await ShippingProvider.findOne({ isActive: true });
@@ -149,16 +160,16 @@ export const createOrder = async (req, res) => {
         const rate = provider.ratePerKg ?? provider.baseRate ?? 0;
         secureShippingCost = Math.round(calcWeight * rate);
       } else {
-        // Fallback agar koi provider na mile (though client frontend validation rok lega)
-        secureShippingCost = toSafeNumber(shippingCost, 0); 
+        // Fallback agar koi provider na mile
+        secureShippingCost = toSafeNumber(shippingCost, 0);
       }
     }
-    
+
     // Secure Total Calculation
     const secureTotalAmount = round2(calcSubtotal + calcGst + secureShippingCost);
 
     const orderNumber = await getNextOrderNumber();
-    
+
     // Order Object creation
     const order = new Order({
       orderNumber,
@@ -169,23 +180,22 @@ export const createOrder = async (req, res) => {
       paymentMethod,
       paymentStatus: (paymentMethod === "COD" || paymentMethod === "MANUAL") ? "Pending" : "Paid",
       utrNumber: utrNumber || "",
-      paymentScreenshot: paymentScreenshot || "", 
+      paymentScreenshot: paymentScreenshot || "",
       orderNotes: orderNotes || "",
-      
+
       // 🔥 THE COURIER FIX: 
-      // Pehle orderPayload.courierPartner check karega, fir selectedCourier.name
       courierPartner: actualCourierPartner,
       selectedShippingProvider: actualCourierPartner,
-      
-      subtotalAmount: round2(calcSubtotal), 
-      gstAmount: round2(calcGst), 
-      shippingAmount: round2(secureShippingCost), 
+
+      subtotalAmount: round2(calcSubtotal),
+      gstAmount: round2(calcGst),
+      shippingAmount: round2(secureShippingCost),
       totalAmount: secureTotalAmount, // 👈 Backend se fully secured total
     });
 
     const savedOrder = await order.save();
     await Cart.findOneAndUpdate({ user: req.user._id }, { items: [] });
-    
+
     res.status(201).json({ success: true, message: "Order placed successfully", order: savedOrder });
   } catch (error) {
     console.error("Order Creation Error:", error);
@@ -193,7 +203,6 @@ export const createOrder = async (req, res) => {
   }
 };
 
-// ... baaki functions (getOrderDetail, updateOrderStatus) same rahenge
 export const getMyOrders = async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user._id }).sort({ createdAt: -1 });
@@ -223,7 +232,7 @@ export const updateOrderStatus = async (req, res) => {
     const updatePayload = {};
     if (orderStatus) updatePayload.orderStatus = orderStatus;
     if (paymentStatus) updatePayload.paymentStatus = paymentStatus;
-    
+
     const order = await Order.findByIdAndUpdate(req.params.orderId, updatePayload, { new: true });
     res.status(200).json({ success: true, order });
   } catch (error) { res.status(500).json({ success: false }); }
