@@ -7,7 +7,8 @@ import {
     getAllOrdersForAdmin, 
     updateOrderStatus, 
     getOrderDetail,
-    getMyOrders 
+    getMyOrders,
+    createAdminOrder // 🟢 NAYA ADD KIYA: Admin Order Controller
 } from '../controllers/orderController.js';
 import { protect, authorize } from '../middleware/auth.Middleware.js'; 
 
@@ -41,5 +42,8 @@ router.get('/detail/:id', protect, getOrderDetail);
 // --- ADMIN ROUTES ---
 router.get('/admin/all', protect, authorize("admin", "subadmin"), getAllOrdersForAdmin);
 router.put('/admin/update/:orderId', protect, authorize("admin", "subadmin"), updateOrderStatus);
+
+// 🟢 NAYA ROUTE: Admin Order Create karne ke liye (Secure with authorize)
+router.post('/admin/create', protect, authorize("admin", "subadmin"), createAdminOrder);
 
 export default router;

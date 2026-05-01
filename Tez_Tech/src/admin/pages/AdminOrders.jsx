@@ -205,13 +205,18 @@ const AdminOrders = () => {
 
       <div className="print:hidden mx-auto font-sans bg-[#f4f6f8] min-h-screen p-4 sm:p-6 lg:p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
 
-      {/* HEADER */}
-      <div className="mb-4">
-        <h2 className="text-[28px] font-semibold text-[#1a1a1a] mb-4">Orders</h2>
-        <button className="bg-[#2463d1] hover:bg-[#1c51b0] text-white text-[13px] font-semibold py-1.5 px-4 rounded flex items-center gap-1 transition-colors">
-          <span className="text-lg leading-none">+</span> Create Order
-        </button>
-      </div>
+    {/* HEADER */}
+        <div className="mb-4">
+          <h2 className="text-[28px] font-semibold text-[#1a1a1a] mb-4">Orders</h2>
+          <button
+            type="button"
+            onClick={() => navigate('/admin/orders/create')}
+            className="bg-[#2463d1] hover:bg-[#1c51b0] text-white text-[13px] font-semibold py-2 px-6 rounded flex items-center gap-1 transition-all shadow-md active:scale-95"
+          >
+            <span className="text-lg leading-none">+</span> Create Order
+          </button>
+        </div>
+      
 
       {error && <div className="p-4 mb-4 text-sm font-bold text-red-700 border-l-4 border-red-500 bg-red-50">{error}</div>}
 
@@ -275,7 +280,7 @@ const AdminOrders = () => {
                 <div key={order._id} className="relative flex p-4 border-b border-[#d5dce4] hover:bg-[#f9fafb] transition-colors group">
                   
                   {/* Left Checkbox */}
-                  <div className="pr-4 pt-1">
+                  <div className="pt-1 pr-4">
                     <input 
                       type="checkbox" 
                       className="w-[14px] h-[14px] rounded-sm border-[#c4cdd5] text-[#2463d1] focus:ring-0 cursor-pointer"
@@ -398,7 +403,7 @@ const AdminOrders = () => {
                           {order.items.slice(0, 5).map((item, idx) => (
                             <div key={idx} className="w-[32px] h-[32px] border border-[#d5dce4] rounded bg-white overflow-hidden flex items-center justify-center p-0.5">
                               {item.image ? (
-                                <img src={item.image} alt="" className="max-w-full max-h-full object-contain" />
+                                <img src={item.image} alt="" className="object-contain max-w-full max-h-full" />
                               ) : (
                                 <div className="w-full h-full bg-gray-100 text-[6px] text-gray-400 flex items-center justify-center">IMG</div>
                               )}
@@ -414,7 +419,7 @@ const AdminOrders = () => {
                             <div key={index} className="flex items-start gap-3">
                               <div className="w-[42px] h-[42px] border border-[#d5dce4] rounded bg-white overflow-hidden shrink-0 flex items-center justify-center p-0.5 mt-1">
                                 {item.image ? (
-                                  <img src={item.image} alt="" className="max-w-full max-h-full object-contain" />
+                                  <img src={item.image} alt="" className="object-contain max-w-full max-h-full" />
                                 ) : (
                                   <div className="w-full h-full bg-gray-100 flex items-center justify-center text-[8px] text-gray-400">NO IMG</div>
                                 )}
@@ -451,7 +456,7 @@ const AdminOrders = () => {
                   </div>
 
                   {/* Right Actions & Amount */}
-                  <div className="absolute right-4 top-4 flex gap-2 items-start custom-dropdown-container">
+                  <div className="absolute flex items-start gap-2 right-4 top-4 custom-dropdown-container">
                     <div className="text-[16px] font-bold text-[#202223] mr-2">
                       {formatCurrency(order.totalAmount)}
                     </div>

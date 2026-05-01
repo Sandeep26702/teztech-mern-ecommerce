@@ -64,8 +64,13 @@ const orderSchema = new mongoose.Schema(
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false, // 🟡 UPDATED: Made false so Admin can create offline orders without a registered user
       index: true,
+    },
+    createdBy: {
+      // 🟢 NEWLY ADDED: To track which Admin created this order from the panel
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User", // Assuming your admins are in the User collection
     },
     items: [orderItemSchema],
     shippingInfo: {
@@ -76,17 +81,28 @@ const orderSchema = new mongoose.Schema(
       state: { type: String, default: "" },
       pincode: { type: String, required: true },
     },
+    billingInfo: {
+      // 🟢 NEWLY ADDED: To support the "Billing Address" section in your UI
+      fullName: { type: String, trim: true },
+      phone: { type: String },
+      companyName: { type: String, default: "" },
+      address: { type: String },
+      city: { type: String },
+      state: { type: String, default: "" },
+      pincode: { type: String },
+      country: { type: String, default: "India" },
+    },
     paymentMethod: {
       type: String,
       required: true,
-      enum: ['ONLINE', 'COD', 'Card', 'MANUAL', 'STORE_PICKUP'], 
-      default: 'MANUAL'
+      enum: ['ONLINE', 'COD', 'Card', 'MANUAL TRANSFER', 'STORE_PICKUP'], 
+      default: 'MANUAL TRANSFER'
     },
     paymentStatus: {
       type: String,
       required: true,
-      enum: ["Pending", "Paid", "Failed", "Refunded"],
-      default: "Pending",
+      enum: ["Awaiting Payment", "Paid", "Cancel", "Refunded", "Partially Refunded" ,"Failed" ],
+      default: "Awaiting Payment",
     },
     
     // 🔥 Manual Payment & Delivery fields
@@ -111,7 +127,7 @@ const orderSchema = new mongoose.Schema(
     // 🚀 THE ULTIMATE FIX: Courier Partner Database Field 🚀
     courierPartner: {
       type: String,
-      default: "Standard Courier"
+      default: ""
     },
     selectedShippingProvider: {
       type: String,
@@ -135,7 +151,13 @@ const orderSchema = new mongoose.Schema(
       min: [0, "Shipping amount cannot be negative"],
     },
     shippingCostOverride: { type: Boolean, default: false }, // admin manually changed shipping cost
-    discount: { type: Number, default: 0, min: 0 }, // flat discount amount
+    
+    // 🟢 NEWLY ADDED: Discount Type, Tax Exemption, and Invoice Flags
+    discount: { type: Number, default: 0, min: 0 }, 
+    discountType: { type: String, enum: ['FLAT', 'PERCENTAGE'], default: 'FLAT' }, 
+    isTaxExempt: { type: Boolean, default: false }, 
+    generateTaxInvoice: { type: Boolean, default: true }, 
+
     taxType: { type: String, enum: ["IGST", "CGST_SGST"], default: "CGST_SGST" }, // tax mode
     shippingWeightKg: { type: Number, default: 0, min: 0 },
     totalAmount: {
@@ -146,8 +168,8 @@ const orderSchema = new mongoose.Schema(
     orderStatus: {
       type: String,
       required: true,
-      enum: ["Confirmed", "Processing", "Shipping", "Out for Delivery", "Delivered", "Cancelled", "Returned", "Shipped"],
-      default: "Confirmed",
+      enum: ["Ready For Pickup", "Processing", "Awaiting Processing", "Out for Delivery", "Delivered", "Cancelled", "Returned", "Shipped"],
+      default: "Awaiting Processing",
     },
     deliveredAt: { type: Date },
     shippedAt: { type: Date },

@@ -1,5 +1,6 @@
 import { Routes, Route, Outlet } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
+import 'react-toastify/dist/ReactToastify.css';
 
 // ✅ Custom Route Guard
 import PrivateRoute from "./routes/PrivateRoute";

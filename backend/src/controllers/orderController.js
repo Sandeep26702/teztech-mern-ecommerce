@@ -36,7 +36,7 @@ const getNextOrderNumber = async () => {
 const buildOrderCode = (orderNumber) => `TZ-${String(orderNumber).padStart(6, "0")}`;
 
 // ==========================================
-// 🔥 CREATE ORDER (FIXED COURIER & MATH)
+// 🛒 ORIGINAL: USER CREATE ORDER 
 // ==========================================
 export const createOrder = async (req, res) => {
   try {
@@ -51,7 +51,7 @@ export const createOrder = async (req, res) => {
       orderNotes,
       shippingCost,
       totalAmount,
-      courierPartner // 👈 Frontend se direct courier name
+      courierPartner 
     } = orderPayload;
 
     const paymentScreenshot = req.file ? req.file.path : null;
@@ -59,11 +59,9 @@ export const createOrder = async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ success: false, message: "User not found" });
 
-    // 🛠️ YAHAN FIX KIYA GAYA HAI - Missing logic restored
     let finalShippingInfo = shippingInfo || {};
 
     if (addressId) {
-      // Note: Agar aapka Address alag model me hai toh yahan await Address.findById(addressId) aayega
       const savedAddress = user.addresses ? user.addresses.id(addressId) : null;
       if (savedAddress) {
         finalShippingInfo = {
@@ -76,7 +74,6 @@ export const createOrder = async (req, res) => {
         };
       }
     }
-    // 🛠️ FIX ENDS HERE
 
     const finalOrderItems = [];
     let calcSubtotal = 0;
@@ -99,7 +96,6 @@ export const createOrder = async (req, res) => {
         if (selectedVariant.image) itemImage = selectedVariant.image;
       }
 
-      // Math Fix: Price logic for Admin Dashboard alignment
       const unitPrice = toSafeNumber(rawItem.unitPrice || rawItem.price || rawItem.selectedCustomFields?._finalPrice, product.price);
       const gstRate = toSafeNumber(product.gstRate || product.GST, 18);
       const basePrice = round2(unitPrice / (1 + (gstRate / 100)));
@@ -134,23 +130,18 @@ export const createOrder = async (req, res) => {
       const productWeight = product.weightKg || 0;
       calcWeight += productWeight * quantity;
 
-      // Stock update
       product.stock -= quantity;
       await product.save();
     }
 
-    // Default to minimum 1 KG to prevent free shipping for products missing weight
     if (calcWeight === 0 && items.length > 0) calcWeight = 1;
 
-    // 🚀 SECURE SHIPPING RECALCULATION
     let secureShippingCost = 0;
     let actualCourierPartner = courierPartner || orderPayload.selectedCourier?.name || "Standard Courier";
 
-    // Sirf ship mode me shipping cost charge hoga
     if (orderPayload.deliveryType !== 'pickup') {
       let provider = await ShippingProvider.findOne({ name: actualCourierPartner });
 
-      // Agar provider delete ho gaya ho, toh default uthao
       if (!provider) {
         provider = await ShippingProvider.findOne({ isDefault: true }) || await ShippingProvider.findOne({ isActive: true });
       }
@@ -160,17 +151,13 @@ export const createOrder = async (req, res) => {
         const rate = provider.ratePerKg ?? provider.baseRate ?? 0;
         secureShippingCost = Math.round(calcWeight * rate);
       } else {
-        // Fallback agar koi provider na mile
         secureShippingCost = toSafeNumber(shippingCost, 0);
       }
     }
 
-    // Secure Total Calculation
     const secureTotalAmount = round2(calcSubtotal + calcGst + secureShippingCost);
-
     const orderNumber = await getNextOrderNumber();
 
-    // Order Object creation
     const order = new Order({
       orderNumber,
       orderCode: buildOrderCode(orderNumber),
@@ -182,15 +169,12 @@ export const createOrder = async (req, res) => {
       utrNumber: utrNumber || "",
       paymentScreenshot: paymentScreenshot || "",
       orderNotes: orderNotes || "",
-
-      // 🔥 THE COURIER FIX: 
       courierPartner: actualCourierPartner,
       selectedShippingProvider: actualCourierPartner,
-
       subtotalAmount: round2(calcSubtotal),
       gstAmount: round2(calcGst),
       shippingAmount: round2(secureShippingCost),
-      totalAmount: secureTotalAmount, // 👈 Backend se fully secured total
+      totalAmount: secureTotalAmount, 
     });
 
     const savedOrder = await order.save();
@@ -236,4 +220,124 @@ export const updateOrderStatus = async (req, res) => {
     const order = await Order.findByIdAndUpdate(req.params.orderId, updatePayload, { new: true });
     res.status(200).json({ success: true, order });
   } catch (error) { res.status(500).json({ success: false }); }
+};
+
+
+// ==========================================
+// 🚀 NEW: CREATE ADMIN ORDER (Custom Logic)
+// ==========================================
+export const createAdminOrder = async (req, res) => {
+  try {
+    const {
+      user, // Optional (offline customer ID)
+      items,
+      shippingInfo,
+      billingInfo,
+      paymentMethod,
+      paymentStatus,
+      deliveryType,
+      selectedShippingProvider,
+      ratePerKg, 
+      shippingWeightKg,
+      discount,
+      discountType,
+      isTaxExempt,
+      generateTaxInvoice,
+      orderNotes
+    } = req.body;
+
+    // 1. Calculate Subtotal from Items
+    let subtotalAmount = 0;
+    const processedItems = items.map(item => {
+      // In admin orders, we trust the unitPrice sent by the admin (custom price override)
+      const lineSubtotal = item.unitPrice * item.quantity;
+      subtotalAmount += lineSubtotal;
+      return { ...item, lineSubtotal, lineTotal: lineSubtotal };
+    });
+
+    // 2. Apply Discount
+    let discountAmount = 0;
+    if (discount > 0) {
+      if (discountType === 'PERCENTAGE') {
+        discountAmount = (subtotalAmount * discount) / 100;
+      } else {
+        discountAmount = discount; // FLAT discount
+      }
+    }
+    let discountedSubtotal = subtotalAmount - discountAmount;
+    if (discountedSubtotal < 0) discountedSubtotal = 0;
+
+    // 3. Tax Calculation (Gujarat State Logic)
+    let gstAmount = 0;
+    let taxType = "IGST";
+    
+    if (!isTaxExempt) {
+      const stateStr = shippingInfo?.state ? shippingInfo.state.toLowerCase().trim() : "";
+      
+      // If state is Gujarat, split into CGST & SGST. Otherwise IGST.
+      if (stateStr === 'gujarat' || stateStr === 'gj') {
+        gstAmount = discountedSubtotal * 0.18; // 9% CGST + 9% SGST = 18% Total
+        taxType = "CGST_SGST";
+      } else {
+        gstAmount = discountedSubtotal * 0.18; // 18% IGST
+        taxType = "IGST";
+      }
+    }
+
+    // 4. Shipping Calculation (Weight * ratePerKg)
+    let shippingAmount = 0;
+    if (paymentMethod === 'STORE_PICKUP' || deliveryType === 'pickup') {
+      shippingAmount = 0; // Free shipping for pickup
+    } else if (ratePerKg && shippingWeightKg) {
+      shippingAmount = shippingWeightKg * ratePerKg; // The agreed formula!
+    } else {
+      shippingAmount = req.body.shippingAmount || 0; // Fallback
+    }
+
+    // 5. Final Total Calculation
+    const totalAmount = discountedSubtotal + gstAmount + shippingAmount;
+
+    // 6. Generate Unique Order Code (#TZ-XXXXXX)
+    const orderNumber = await getNextOrderNumber(); 
+    const orderCode = buildOrderCode(orderNumber);
+
+    // 7. Save to Database
+    const newOrder = new Order({
+      orderNumber,
+      orderCode,
+      user: user || null,
+      createdBy: req.user ? req.user._id : null, // Track the admin who created this
+      items: processedItems,
+      shippingInfo: shippingInfo || {},
+      billingInfo: billingInfo || {},
+      paymentMethod,
+      paymentStatus: paymentStatus || "Paid",
+      deliveryType: deliveryType || 'ship',
+      selectedShippingProvider,
+      courierPartner: selectedShippingProvider,
+      shippingWeightKg,
+      subtotalAmount: round2(subtotalAmount),
+      discount,
+      discountType,
+      isTaxExempt,
+      generateTaxInvoice,
+      gstAmount: round2(gstAmount),
+      taxType,
+      shippingAmount: round2(shippingAmount),
+      totalAmount: round2(totalAmount),
+      orderNotes: orderNotes || ""
+    });
+
+    const savedOrder = await newOrder.save();
+
+    res.status(201).json({
+      success: true,
+      message: "Admin Order created successfully!",
+      order: savedOrder
+    });
+
+  } catch (error) {
+    console.error("Admin Create Order Error:", error);
+    res.status(500).json({ success: false, message: "Failed to create admin order", error: error.message });
+  }
 };
