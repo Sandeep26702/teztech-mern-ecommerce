@@ -10,7 +10,7 @@ const ORDER_NUMBER_START = 100000;
 const round2 = (value) => Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 const toSafeNumber = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 
-// 🔢 Safe Order Number Generator (Fixed logic)
+// 🔢 Safe Order Number Generator
 const getNextOrderNumber = async () => {
   const counters = mongoose.connection.collection("counters");
   const result = await counters.findOneAndUpdate(
@@ -227,6 +227,7 @@ export const updateOrderStatus = async (req, res) => {
 // 🚀 BULLETPROOF: CREATE ADMIN ORDER
 // ==========================================
 export const createAdminOrder = async (req, res) => {
+  console.log("🔥 ALARM: NAYA WALA ADMIN ORDER CODE CHAL RAHA HAI! 🔥");
   try {
     const {
       user, 
@@ -248,12 +249,11 @@ export const createAdminOrder = async (req, res) => {
 
     let subtotalAmount = 0;
     
-    // 🔥 FIX: Added basePrice, gstAmount, and lineGstTotal calculations for Schema validation!
+    // 🔥 FIX: Mapping all fields strictly according to Schema
     const processedItems = items.map(item => {
       const safePrice = Number(item.unitPrice) || 0;
       const safeQty = Number(item.quantity) || 1;
       
-      // Calculate GST for the item (Assuming 18% standard, or 0% if tax exempt)
       const itemGstRate = isTaxExempt ? 0 : 18;
       const basePrice = Number((safePrice / (1 + (itemGstRate / 100))).toFixed(2));
       const gstAmount = Number((safePrice - basePrice).toFixed(2));
@@ -266,11 +266,11 @@ export const createAdminOrder = async (req, res) => {
       return { 
           ...item, 
           price: safePrice, 
-          basePrice: basePrice,       // REQUIRED BY SCHEMA
+          basePrice: basePrice,       
           unitPrice: safePrice,
-          gstAmount: gstAmount,       // REQUIRED BY SCHEMA
+          gstAmount: gstAmount,       
           gstRate: itemGstRate,
-          lineGstTotal: lineGstTotal, // REQUIRED BY SCHEMA
+          lineGstTotal: lineGstTotal, 
           lineSubtotal: Number((basePrice * safeQty).toFixed(2)), 
           lineTotal: lineTotal 
       };
@@ -322,7 +322,7 @@ export const createAdminOrder = async (req, res) => {
       orderCode,
       user: customerId, 
       createdBy: adminId,
-      items: processedItems, // 🔥 Ab ye array ekdum perfect hai Schema ke liye
+      items: processedItems, 
       shippingInfo: shippingInfo || {},
       billingInfo: billingInfo || {},
       paymentMethod: safePaymentMethod,
