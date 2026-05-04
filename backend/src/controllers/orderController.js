@@ -39,7 +39,7 @@ const buildOrderCode = (orderNumber) => `TZ-${String(orderNumber).padStart(6, "0
 // 🛒 FIXED: USER CREATE ORDER 
 // ==========================================
 export const createOrder = async (req, res) => {
-  console.log("🔥 ALARM: USER WALA ORDER CODE CHAL RAHA HAI! 🔥");
+  console.log("🔥 ALARM: USER ORDER CODE IS RUNNING! 🔥");
   try {
     let orderPayload = req.body.orderData ? JSON.parse(req.body.orderData) : req.body;
 
@@ -171,7 +171,7 @@ export const createOrder = async (req, res) => {
       items: finalOrderItems, // Pushing updated strict array
       shippingInfo: finalShippingInfo,
       paymentMethod,
-      paymentStatus: (paymentMethod === "COD" || paymentMethod === "MANUAL" || paymentMethod === "MANUAL TRANSFER") ? "Pending" : "Paid",
+     paymentStatus: (paymentMethod === "COD" || paymentMethod === "MANUAL" || paymentMethod === "MANUAL TRANSFER") ? "Awaiting Payment" : "Paid",
       utrNumber: utrNumber || "",
       paymentScreenshot: paymentScreenshot || "",
       orderNotes: orderNotes || "",
@@ -338,7 +338,7 @@ export const createAdminOrder = async (req, res) => {
       shippingInfo: shippingInfo || {},
       billingInfo: billingInfo || {},
       paymentMethod: safePaymentMethod,
-      paymentStatus: paymentStatus || "Paid",
+     paymentStatus: paymentStatus === "Pending" ? "Awaiting Payment" : (paymentStatus || "Paid"),
       deliveryType: deliveryType || 'ship',
       selectedShippingProvider: selectedShippingProvider || "Manual",
       courierPartner: selectedShippingProvider || "Manual",
