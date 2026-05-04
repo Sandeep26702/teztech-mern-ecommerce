@@ -224,12 +224,12 @@ export const updateOrderStatus = async (req, res) => {
 
 
 // ==========================================
-// 🚀 NEW: CREATE ADMIN ORDER (Custom Logic)
+// 🚀 BULLETPROOF: CREATE ADMIN ORDER
 // ==========================================
 export const createAdminOrder = async (req, res) => {
   try {
     const {
-      user, // Optional (offline customer ID)
+      user, 
       items,
       shippingInfo,
       billingInfo,
@@ -246,86 +246,101 @@ export const createAdminOrder = async (req, res) => {
       orderNotes
     } = req.body;
 
-    // 1. Calculate Subtotal from Items
     let subtotalAmount = 0;
+    
+    // 🔥 FIX: Added basePrice, gstAmount, and lineGstTotal calculations for Schema validation!
     const processedItems = items.map(item => {
-      // In admin orders, we trust the unitPrice sent by the admin (custom price override)
-      const lineSubtotal = item.unitPrice * item.quantity;
-      subtotalAmount += lineSubtotal;
-      return { ...item, lineSubtotal, lineTotal: lineSubtotal };
+      const safePrice = Number(item.unitPrice) || 0;
+      const safeQty = Number(item.quantity) || 1;
+      
+      // Calculate GST for the item (Assuming 18% standard, or 0% if tax exempt)
+      const itemGstRate = isTaxExempt ? 0 : 18;
+      const basePrice = Number((safePrice / (1 + (itemGstRate / 100))).toFixed(2));
+      const gstAmount = Number((safePrice - basePrice).toFixed(2));
+      
+      const lineTotal = safePrice * safeQty;
+      const lineGstTotal = Number((gstAmount * safeQty).toFixed(2));
+      
+      subtotalAmount += lineTotal;
+      
+      return { 
+          ...item, 
+          price: safePrice, 
+          basePrice: basePrice,       // REQUIRED BY SCHEMA
+          unitPrice: safePrice,
+          gstAmount: gstAmount,       // REQUIRED BY SCHEMA
+          gstRate: itemGstRate,
+          lineGstTotal: lineGstTotal, // REQUIRED BY SCHEMA
+          lineSubtotal: Number((basePrice * safeQty).toFixed(2)), 
+          lineTotal: lineTotal 
+      };
     });
 
-    // 2. Apply Discount
     let discountAmount = 0;
     if (discount > 0) {
-      if (discountType === 'PERCENTAGE') {
-        discountAmount = (subtotalAmount * discount) / 100;
-      } else {
-        discountAmount = discount; // FLAT discount
-      }
+      discountAmount = discountType === 'PERCENTAGE' ? (subtotalAmount * discount) / 100 : discount;
     }
-    let discountedSubtotal = subtotalAmount - discountAmount;
-    if (discountedSubtotal < 0) discountedSubtotal = 0;
+    let discountedSubtotal = Math.max(0, subtotalAmount - discountAmount);
 
-    // 3. Tax Calculation (Gujarat State Logic)
     let gstAmount = 0;
     let taxType = "IGST";
     
     if (!isTaxExempt) {
       const stateStr = shippingInfo?.state ? shippingInfo.state.toLowerCase().trim() : "";
-      
-      // If state is Gujarat, split into CGST & SGST. Otherwise IGST.
       if (stateStr === 'gujarat' || stateStr === 'gj') {
-        gstAmount = discountedSubtotal * 0.18; // 9% CGST + 9% SGST = 18% Total
+        gstAmount = discountedSubtotal * 0.18; 
         taxType = "CGST_SGST";
       } else {
-        gstAmount = discountedSubtotal * 0.18; // 18% IGST
+        gstAmount = discountedSubtotal * 0.18; 
         taxType = "IGST";
       }
     }
 
-    // 4. Shipping Calculation (Weight * ratePerKg)
     let shippingAmount = 0;
     if (paymentMethod === 'STORE_PICKUP' || deliveryType === 'pickup') {
-      shippingAmount = 0; // Free shipping for pickup
+      shippingAmount = 0; 
     } else if (ratePerKg && shippingWeightKg) {
-      shippingAmount = shippingWeightKg * ratePerKg; // The agreed formula!
+      shippingAmount = shippingWeightKg * ratePerKg; 
     } else {
-      shippingAmount = req.body.shippingAmount || 0; // Fallback
+      shippingAmount = req.body.shippingAmount || 0; 
     }
 
-    // 5. Final Total Calculation
     const totalAmount = discountedSubtotal + gstAmount + shippingAmount;
 
-    // 6. Generate Unique Order Code (#TZ-XXXXXX)
     const orderNumber = await getNextOrderNumber(); 
     const orderCode = buildOrderCode(orderNumber);
 
-    // 7. Save to Database
+    let safePaymentMethod = paymentMethod;
+    if(paymentMethod === "MANUAL TRANSFER") safePaymentMethod = "MANUAL";
+    if(paymentMethod === "STORE PICK-UP (THIS IS NOT CASH ON DELIVERY OPTION)") safePaymentMethod = "STORE_PICKUP";
+
+    const adminId = req.user && req.user._id ? req.user._id : null;
+    const customerId = user || adminId; 
+
     const newOrder = new Order({
       orderNumber,
       orderCode,
-      user: user || null,
-      createdBy: req.user ? req.user._id : null, // Track the admin who created this
-      items: processedItems,
+      user: customerId, 
+      createdBy: adminId,
+      items: processedItems, // 🔥 Ab ye array ekdum perfect hai Schema ke liye
       shippingInfo: shippingInfo || {},
       billingInfo: billingInfo || {},
-      paymentMethod,
+      paymentMethod: safePaymentMethod,
       paymentStatus: paymentStatus || "Paid",
       deliveryType: deliveryType || 'ship',
-      selectedShippingProvider,
-      courierPartner: selectedShippingProvider,
-      shippingWeightKg,
+      selectedShippingProvider: selectedShippingProvider || "Manual",
+      courierPartner: selectedShippingProvider || "Manual",
+      shippingWeightKg: shippingWeightKg || 1,
       subtotalAmount: round2(subtotalAmount),
-      discount,
-      discountType,
-      isTaxExempt,
-      generateTaxInvoice,
+      discount: discount || 0,
+      discountType: discountType || "FLAT",
+      isTaxExempt: isTaxExempt || false,
+      generateTaxInvoice: generateTaxInvoice || false,
       gstAmount: round2(gstAmount),
       taxType,
       shippingAmount: round2(shippingAmount),
       totalAmount: round2(totalAmount),
-      orderNotes: orderNotes || ""
+      orderNotes: orderNotes || "Created via Admin Panel"
     });
 
     const savedOrder = await newOrder.save();
@@ -337,7 +352,11 @@ export const createAdminOrder = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Admin Create Order Error:", error);
-    res.status(500).json({ success: false, message: "Failed to create admin order", error: error.message });
+    console.error("❌ CRASH HUA HAI YAHAN ->", error);
+    res.status(500).json({ 
+        success: false, 
+        message: "Database Save Failed", 
+        error: error.message
+    });
   }
 };
