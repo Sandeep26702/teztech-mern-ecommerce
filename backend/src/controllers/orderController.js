@@ -35,11 +35,21 @@ const getNextOrderNumber = async () => {
 
 const buildOrderCode = (orderNumber) => `TZ-${String(orderNumber).padStart(6, "0")}`;
 
+// 🛠️ UNIVERSAL PAYMENT FORMATTER (Frontend ko Database ke hisaab se theek karega)
+const formatPaymentMethod = (method) => {
+  if (!method) return "ONLINE";
+  const pmUpper = method.toUpperCase();
+  if (pmUpper.includes("COD") || pmUpper.includes("CASH")) return "COD";
+  if (pmUpper.includes("MANUAL")) return "MANUAL TRANSFER";
+  if (pmUpper.includes("STORE") || pmUpper.includes("PICK")) return "STORE_PICKUP";
+  if (pmUpper.includes("CARD")) return "Card";
+  return "ONLINE";
+};
+
 // ==========================================
-// 🛒 FIXED: USER CREATE ORDER 
+// 🛒 USER CREATE ORDER (FRONTEND CHECKOUT)
 // ==========================================
 export const createOrder = async (req, res) => {
-  console.log("🔥 ALARM: USER ORDER CODE IS RUNNING! 🔥");
   try {
     let orderPayload = req.body.orderData ? JSON.parse(req.body.orderData) : req.body;
 
@@ -105,21 +115,20 @@ export const createOrder = async (req, res) => {
       const lineTotal = round2(unitPrice * quantity);
       const shippingCharge = toSafeNumber(product.shippingCharge, 0);
 
-      // 🔥 FIX: Added all Schema required fields here
       finalOrderItems.push({
         productId: product._id,
         sku: itemSku,
         name: product.name,
         image: itemImage,
         quantity,
-        basePrice: basePrice,             // REQUIRED
+        basePrice,            
         gstRate,
         unitPrice,
-        gstAmount: unitGst,               // REQUIRED
-        price: unitPrice,                 // REQUIRED
+        gstAmount: unitGst,   
+        price: unitPrice,     
         shippingCharge,
         lineSubtotal: round2(basePrice * quantity),
-        lineGstTotal: round2(unitGst * quantity), // REQUIRED
+        lineGstTotal: round2(unitGst * quantity), 
         lineShippingTotal: round2(shippingCharge * quantity),
         lineTotal,
         selectedCustomFields: rawItem.selectedCustomFields || {},
@@ -160,18 +169,22 @@ export const createOrder = async (req, res) => {
     const secureTotalAmount = round2(calcSubtotal + calcGst + secureShippingCost);
     const orderNumber = await getNextOrderNumber();
 
-    // 🔥 FIX: Define taxType to avoid root schema errors
     const stateStr = finalShippingInfo?.state ? finalShippingInfo.state.toLowerCase().trim() : "";
     const taxType = (stateStr === 'gujarat' || stateStr === 'gj') ? "CGST_SGST" : "IGST";
+
+    // 🔥 FIX: Safe Payment Mapping
+    const safeMethod = formatPaymentMethod(paymentMethod);
+    const safeStatus = (safeMethod === "COD" || safeMethod === "MANUAL TRANSFER" || safeMethod === "STORE_PICKUP") 
+                        ? "Awaiting Payment" : "Paid";
 
     const order = new Order({
       orderNumber,
       orderCode: buildOrderCode(orderNumber),
       user: req.user._id,
-      items: finalOrderItems, // Pushing updated strict array
+      items: finalOrderItems,
       shippingInfo: finalShippingInfo,
-      paymentMethod,
-     paymentStatus: (paymentMethod === "COD" || paymentMethod === "MANUAL" || paymentMethod === "MANUAL TRANSFER") ? "Awaiting Payment" : "Paid",
+      paymentMethod: safeMethod, // Mapped according to Schema
+      paymentStatus: safeStatus, // Mapped according to Schema
       utrNumber: utrNumber || "",
       paymentScreenshot: paymentScreenshot || "",
       orderNotes: orderNotes || "",
@@ -181,7 +194,6 @@ export const createOrder = async (req, res) => {
       gstAmount: round2(calcGst),
       shippingAmount: round2(secureShippingCost),
       totalAmount: secureTotalAmount,
-      // 👉 Schema required root fields
       taxType: taxType,
       discount: 0,
       discountType: "FLAT",
@@ -236,10 +248,9 @@ export const updateOrderStatus = async (req, res) => {
 
 
 // ==========================================
-// 🚀 FIXED: CREATE ADMIN ORDER
+// 🚀 ADMIN CREATE ORDER
 // ==========================================
 export const createAdminOrder = async (req, res) => {
-  console.log("🔥 ALARM: NAYA WALA ADMIN ORDER CODE CHAL RAHA HAI! 🔥");
   try {
     const {
       user, 
@@ -261,7 +272,6 @@ export const createAdminOrder = async (req, res) => {
 
     let subtotalAmount = 0;
     
-    // 🔥 FIX: Mapping all fields strictly according to Schema
     const processedItems = items.map(item => {
       const safePrice = Number(item.unitPrice) || 0;
       const safeQty = Number(item.quantity) || 1;
@@ -318,13 +328,13 @@ export const createAdminOrder = async (req, res) => {
     }
 
     const totalAmount = discountedSubtotal + gstAmount + shippingAmount;
-
     const orderNumber = await getNextOrderNumber(); 
     const orderCode = buildOrderCode(orderNumber);
 
-    let safePaymentMethod = paymentMethod;
-    if(paymentMethod === "MANUAL TRANSFER") safePaymentMethod = "MANUAL";
-    if(paymentMethod === "STORE PICK-UP (THIS IS NOT CASH ON DELIVERY OPTION)") safePaymentMethod = "STORE_PICKUP";
+    // 🔥 FIX: Safe Payment Mapping for Admin too
+    const safeMethod = formatPaymentMethod(paymentMethod);
+    let safeStatus = paymentStatus || "Paid";
+    if (safeStatus === "Pending") safeStatus = "Awaiting Payment";
 
     const adminId = req.user && req.user._id ? req.user._id : null;
     const customerId = user || adminId; 
@@ -337,8 +347,8 @@ export const createAdminOrder = async (req, res) => {
       items: processedItems, 
       shippingInfo: shippingInfo || {},
       billingInfo: billingInfo || {},
-      paymentMethod: safePaymentMethod,
-     paymentStatus: paymentStatus === "Pending" ? "Awaiting Payment" : (paymentStatus || "Paid"),
+      paymentMethod: safeMethod,
+      paymentStatus: safeStatus,
       deliveryType: deliveryType || 'ship',
       selectedShippingProvider: selectedShippingProvider || "Manual",
       courierPartner: selectedShippingProvider || "Manual",
@@ -357,18 +367,9 @@ export const createAdminOrder = async (req, res) => {
 
     const savedOrder = await newOrder.save();
 
-    res.status(201).json({
-      success: true,
-      message: "Admin Order created successfully!",
-      order: savedOrder
-    });
-
+    res.status(201).json({ success: true, message: "Admin Order created successfully!", order: savedOrder });
   } catch (error) {
-    console.error("❌ CRASH HUA HAI YAHAN ->", error);
-    res.status(500).json({ 
-        success: false, 
-        message: "Database Save Failed", 
-        error: error.message
-    });
+    console.error("❌ ADMIN Order Creation Error:", error);
+    res.status(500).json({ success: false, message: "Database Save Failed", error: error.message });
   }
 };
