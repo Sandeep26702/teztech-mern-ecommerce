@@ -36,9 +36,10 @@ const getNextOrderNumber = async () => {
 const buildOrderCode = (orderNumber) => `TZ-${String(orderNumber).padStart(6, "0")}`;
 
 // ==========================================
-// 🛒 ORIGINAL: USER CREATE ORDER 
+// 🛒 FIXED: USER CREATE ORDER 
 // ==========================================
 export const createOrder = async (req, res) => {
+  console.log("🔥 ALARM: USER WALA ORDER CODE CHAL RAHA HAI! 🔥");
   try {
     let orderPayload = req.body.orderData ? JSON.parse(req.body.orderData) : req.body;
 
@@ -104,20 +105,21 @@ export const createOrder = async (req, res) => {
       const lineTotal = round2(unitPrice * quantity);
       const shippingCharge = toSafeNumber(product.shippingCharge, 0);
 
+      // 🔥 FIX: Added all Schema required fields here
       finalOrderItems.push({
         productId: product._id,
         sku: itemSku,
         name: product.name,
         image: itemImage,
         quantity,
-        basePrice,
+        basePrice: basePrice,             // REQUIRED
         gstRate,
         unitPrice,
-        gstAmount: unitGst,
-        price: unitPrice,
+        gstAmount: unitGst,               // REQUIRED
+        price: unitPrice,                 // REQUIRED
         shippingCharge,
         lineSubtotal: round2(basePrice * quantity),
-        lineGstTotal: round2(unitGst * quantity),
+        lineGstTotal: round2(unitGst * quantity), // REQUIRED
         lineShippingTotal: round2(shippingCharge * quantity),
         lineTotal,
         selectedCustomFields: rawItem.selectedCustomFields || {},
@@ -158,14 +160,18 @@ export const createOrder = async (req, res) => {
     const secureTotalAmount = round2(calcSubtotal + calcGst + secureShippingCost);
     const orderNumber = await getNextOrderNumber();
 
+    // 🔥 FIX: Define taxType to avoid root schema errors
+    const stateStr = finalShippingInfo?.state ? finalShippingInfo.state.toLowerCase().trim() : "";
+    const taxType = (stateStr === 'gujarat' || stateStr === 'gj') ? "CGST_SGST" : "IGST";
+
     const order = new Order({
       orderNumber,
       orderCode: buildOrderCode(orderNumber),
       user: req.user._id,
-      items: finalOrderItems,
+      items: finalOrderItems, // Pushing updated strict array
       shippingInfo: finalShippingInfo,
       paymentMethod,
-      paymentStatus: (paymentMethod === "COD" || paymentMethod === "MANUAL") ? "Pending" : "Paid",
+      paymentStatus: (paymentMethod === "COD" || paymentMethod === "MANUAL" || paymentMethod === "MANUAL TRANSFER") ? "Pending" : "Paid",
       utrNumber: utrNumber || "",
       paymentScreenshot: paymentScreenshot || "",
       orderNotes: orderNotes || "",
@@ -174,7 +180,13 @@ export const createOrder = async (req, res) => {
       subtotalAmount: round2(calcSubtotal),
       gstAmount: round2(calcGst),
       shippingAmount: round2(secureShippingCost),
-      totalAmount: secureTotalAmount, 
+      totalAmount: secureTotalAmount,
+      // 👉 Schema required root fields
+      taxType: taxType,
+      discount: 0,
+      discountType: "FLAT",
+      isTaxExempt: false,
+      generateTaxInvoice: false
     });
 
     const savedOrder = await order.save();
@@ -182,8 +194,8 @@ export const createOrder = async (req, res) => {
 
     res.status(201).json({ success: true, message: "Order placed successfully", order: savedOrder });
   } catch (error) {
-    console.error("Order Creation Error:", error);
-    res.status(500).json({ success: false, message: "Server error while placing order" });
+    console.error("❌ USER Order Creation Error:", error);
+    res.status(500).json({ success: false, message: "Server error while placing order", error: error.message });
   }
 };
 
@@ -224,7 +236,7 @@ export const updateOrderStatus = async (req, res) => {
 
 
 // ==========================================
-// 🚀 BULLETPROOF: CREATE ADMIN ORDER
+// 🚀 FIXED: CREATE ADMIN ORDER
 // ==========================================
 export const createAdminOrder = async (req, res) => {
   console.log("🔥 ALARM: NAYA WALA ADMIN ORDER CODE CHAL RAHA HAI! 🔥");
