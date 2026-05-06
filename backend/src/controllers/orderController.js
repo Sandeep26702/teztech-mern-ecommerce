@@ -220,9 +220,82 @@ export const getMyOrders = async (req, res) => {
 
 export const getAllOrdersForAdmin = async (req, res) => {
   try {
-    const orders = await Order.find().populate("user", "name email phone").sort({ createdAt: -1 });
-    res.status(200).json({ success: true, orders });
-  } catch (error) { res.status(500).json({ success: false, message: "Error" }); }
+    const {
+      paymentStatus,
+      orderStatus,
+      paymentMethod,
+      courierPartner,
+      startDate,
+      endDate,
+      search,
+      minTotal,
+      maxTotal
+    } = req.query;
+
+    const query = {};
+
+    if (paymentStatus) query.paymentStatus = paymentStatus;
+    if (orderStatus) query.orderStatus = orderStatus;
+    if (paymentMethod) query.paymentMethod = paymentMethod;
+    if (courierPartner) query.courierPartner = courierPartner;
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = end;
+      }
+    }
+
+    if (minTotal || maxTotal) {
+      query.totalAmount = {};
+      if (minTotal) query.totalAmount.$gte = Number(minTotal);
+      if (maxTotal) query.totalAmount.$lte = Number(maxTotal);
+    }
+
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { orderCode: searchRegex },
+        { "items.name": searchRegex },
+        { "items.sku": searchRegex },
+        { "shippingInfo.fullName": searchRegex },
+        { "shippingInfo.email": searchRegex },
+        { "shippingInfo.phone": searchRegex }
+      ];
+      if (!isNaN(search)) {
+        query.$or.push({ orderNumber: Number(search) });
+      }
+    }
+
+    const [orders, totalOrders, unpaidUnshipped, paidUnshipped, inProcess, shippingMethods] = await Promise.all([
+      Order.find(query).populate("user", "name email phone").sort({ createdAt: -1 }),
+      Order.countDocuments({}),
+      Order.countDocuments({ paymentStatus: 'Awaiting Payment', orderStatus: 'Awaiting Processing' }),
+      Order.countDocuments({ paymentStatus: 'Paid', orderStatus: 'Awaiting Processing' }),
+      Order.countDocuments({ orderStatus: { $in: ['Processing', 'Ready For Pickup'] } }),
+      Order.distinct('courierPartner')
+    ]);
+
+    const counts = {
+      all: totalOrders,
+      unpaid_unshipped: unpaidUnshipped,
+      paid_unshipped: paidUnshipped,
+      fulfillment: inProcess
+    };
+
+    res.status(200).json({ 
+      success: true, 
+      counts, 
+      shippingMethods: shippingMethods.filter(Boolean), 
+      orders 
+    });
+  } catch (error) { 
+    console.error("Error in getAllOrdersForAdmin:", error);
+    res.status(500).json({ success: false, message: "Error fetching orders", error: error.message }); 
+  }
 };
 
 export const getOrderDetail = async (req, res) => {

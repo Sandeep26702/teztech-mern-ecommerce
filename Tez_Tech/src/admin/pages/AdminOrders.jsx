@@ -21,8 +21,39 @@ const AdminOrders = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
-  // UI States
-  const [searchTerm, setSearchTerm] = useState("");
+  // Filter States
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [counts, setCounts] = useState({ all: 0, unpaid_unshipped: 0, paid_unshipped: 0, fulfillment: 0 });
+  const [shippingMethods, setShippingMethods] = useState([]);
+  
+  const initialFilterState = {
+    paymentStatus: "",
+    orderStatus: "",
+    paymentMethod: "",
+    courierPartner: "",
+    startDate: "",
+    endDate: "",
+    deliveryDateFrom: "",
+    deliveryDateTo: "",
+    productSearch: "",
+    minTotal: "",
+    maxTotal: "",
+    search: ""
+  };
+  const [filterState, setFilterState] = useState(initialFilterState);
+  const [debouncedFilter, setDebouncedFilter] = useState(initialFilterState);
+
+  // Expanded filter accordions
+  const [openFilterAccordions, setOpenFilterAccordions] = useState({
+    date: false,
+    paymentStatus: false,
+    fulfillmentStatus: false,
+    paymentMethod: false,
+    shippingMethod: false,
+    deliveryDate: false,
+    products: false,
+    amount: false,
+  });
   
   // New States
   const [selectedOrders, setSelectedOrders] = useState([]);
@@ -48,10 +79,20 @@ const AdminOrders = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-      const res = await axios.get("https://sonani-backend.onrender.com/api/admin/orders", config);
+      const config = { 
+        headers: { Authorization: `Bearer ${token}` },
+        params: debouncedFilter
+      };
+      const API_URL = import.meta.env.VITE_API_URL || "https://sonani-backend.onrender.com/api";
+      const res = await axios.get(`${API_URL}/admin/orders`, config);
       if (res.data.success) {
         setOrders(res.data.orders);
+        if (res.data.counts) {
+          setCounts(res.data.counts);
+        }
+        if (res.data.shippingMethods) {
+          setShippingMethods(res.data.shippingMethods);
+        }
       }
     } catch (err) {
       console.error("Error fetching orders:", err);
@@ -61,13 +102,77 @@ const AdminOrders = () => {
     }
   };
 
+  const handleClearFilters = () => {
+    setFilterState(initialFilterState);
+  };
+
+  const removeFilter = (key) => {
+    if (key === 'date') {
+      setFilterState({ ...filterState, startDate: "", endDate: "" });
+    } else if (key === 'total') {
+      setFilterState({ ...filterState, minTotal: "", maxTotal: "" });
+    } else {
+      setFilterState({ ...filterState, [key]: "" });
+    }
+  };
+
+  const handleDatePreset = (preset) => {
+    const today = new Date();
+    let startDate = "";
+    let endDate = today.toISOString().split('T')[0];
+
+    switch (preset) {
+      case 'today':
+        startDate = endDate;
+        break;
+      case 'yesterday':
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        startDate = yesterday.toISOString().split('T')[0];
+        endDate = startDate;
+        break;
+      case 'last7':
+        const last7 = new Date(today);
+        last7.setDate(last7.getDate() - 7);
+        startDate = last7.toISOString().split('T')[0];
+        break;
+      case 'last30':
+        const last30 = new Date(today);
+        last30.setDate(last30.getDate() - 30);
+        startDate = last30.toISOString().split('T')[0];
+        break;
+      case 'thisMonth':
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1).toISOString().split('T')[0];
+        break;
+      case 'thisYear':
+        startDate = new Date(today.getFullYear(), 0, 1).toISOString().split('T')[0];
+        break;
+      default:
+        startDate = "";
+        endDate = "";
+    }
+    setFilterState({ ...filterState, startDate, endDate });
+  };
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedFilter(filterState);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [filterState]);
+
   useEffect(() => {
     fetchOrders();
-    
+  }, [debouncedFilter]);
+
+  useEffect(() => {
     // Close dropdowns on outside click
     const handleClickOutside = (e) => {
       if (!e.target.closest('.custom-dropdown-container')) {
         setActiveDropdown(null);
+      }
+      if (!e.target.closest('.filter-dropdown-container') && !e.target.closest('.filter-button')) {
+        setIsFilterOpen(false);
       }
     };
     document.addEventListener('click', handleClickOutside);
@@ -93,7 +198,8 @@ const AdminOrders = () => {
           : o
       ));
 
-      const res = await axios.put(`https://sonani-backend.onrender.com/api/admin/orders/${orderId}/status`, payload, config);
+      const API_URL = import.meta.env.VITE_API_URL || "https://sonani-backend.onrender.com/api";
+      const res = await axios.put(`${API_URL}/admin/orders/${orderId}/status`, payload, config);
       if (!res.data.success) {
         fetchOrders();
         alert("Failed to update status.");
@@ -104,18 +210,9 @@ const AdminOrders = () => {
     }
   };
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch = 
-      order.orderCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.orderNumber?.toString().includes(searchTerm.toLowerCase()) ||
-      order.shippingInfo?.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.shippingInfo?.phone?.includes(searchTerm);
-    return matchesSearch;
-  });
-
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedOrders(filteredOrders.map(o => o._id));
+      setSelectedOrders(orders.map(o => o._id));
     } else {
       setSelectedOrders([]);
     }
@@ -139,7 +236,7 @@ const AdminOrders = () => {
     setAllExpanded(nextState);
     if (nextState) {
       const newExpanded = {};
-      filteredOrders.forEach(o => newExpanded[o._id] = true);
+      orders.forEach(o => newExpanded[o._id] = true);
       setExpandedOrders(newExpanded);
     } else {
       setExpandedOrders({});
@@ -220,25 +317,188 @@ const AdminOrders = () => {
 
       {error && <div className="p-4 mb-4 text-sm font-bold text-red-700 border-l-4 border-red-500 bg-red-50">{error}</div>}
 
-      {/* FILTERS & LIST CONTAINER */}
-      <div className="bg-white border border-[#d5dce4] rounded-sm shadow-sm overflow-hidden">
+      {/* TWO-COLUMN LAYOUT WRAPPER */}
+      <div className="flex flex-col gap-4">
         
-        {/* Top Filter Bar */}
-        <div className="p-3 border-b border-[#d5dce4] flex gap-2">
-          <button className="flex items-center gap-2 px-3 py-1.5 text-[13px] font-semibold text-[#4a5568] bg-white border border-[#c4cdd5] rounded hover:bg-gray-50 transition-colors h-9">
-            <FaFilter className="text-xs text-[#5c6ac4]" /> Filter
-          </button>
+        {/* Top Filter & Search */}
+        <div className="flex gap-2 mb-2 relative z-[100]">
+          <div className="relative">
+            <button 
+              onClick={() => setIsFilterOpen(!isFilterOpen)}
+              className="flex items-center gap-2 px-4 py-2 text-[14px] font-semibold text-[#4a5568] bg-white border border-[#c4cdd5] hover:bg-gray-50 rounded shadow-sm transition-colors filter-button"
+            >
+              <FaFilter className="text-xs" /> Filter
+            </button>
+            
+            {/* FILTER DROPDOWN */}
+            {isFilterOpen && (
+              <div className="absolute top-[100%] left-0 mt-2 w-[320px] bg-white border border-[#d5dce4] rounded-md shadow-xl z-50 flex flex-col max-h-[70vh] overflow-y-auto p-4 filter-dropdown-container">
+                <div className="flex flex-col gap-2">
+              <button onClick={() => setFilterState(initialFilterState)} className="text-left text-[14px] text-[#202223] hover:text-[#2463d1] flex justify-between items-center py-1">
+                All Orders <span className="text-[#202223] font-semibold">{counts?.all || 0}</span>
+              </button>
+              <button onClick={() => setFilterState({...initialFilterState, paymentStatus: 'Awaiting Payment', orderStatus: 'Awaiting Processing'})} className="text-left text-[14px] text-[#2463d1] hover:underline flex justify-between items-center py-1">
+                Not paid. Needs to be shipped <span className="text-[#2463d1] font-semibold">{counts?.unpaid_unshipped || 0}</span>
+              </button>
+              <button onClick={() => setFilterState({...initialFilterState, paymentStatus: 'Paid', orderStatus: 'Awaiting Processing'})} className="text-left text-[14px] text-[#2463d1] hover:underline flex justify-between items-center py-1">
+                Paid. Needs to be shipped <span className="text-[#2463d1] font-semibold">{counts?.paid_unshipped || 0}</span>
+              </button>
+              <button onClick={() => setFilterState({...initialFilterState, orderStatus: 'Processing'})} className="text-left text-[14px] text-[#2463d1] hover:underline flex justify-between items-center py-1">
+                Fulfillment in process <span className="text-[#2463d1] font-semibold">{counts?.fulfillment || 0}</span>
+              </button>
+            </div>
+            
+            <hr className="border-[#d5dce4]" />
+
+            {/* Date */}
+            <div>
+              <button onClick={() => setOpenFilterAccordions({...openFilterAccordions, date: !openFilterAccordions.date})} className="flex justify-between items-center w-full text-left text-[14px] font-semibold text-[#202223] py-2">
+                Date {openFilterAccordions.date ? <FaChevronUp className="text-[10px]" /> : <FaChevronDown className="text-[10px]" />}
+              </button>
+              {openFilterAccordions.date && (
+                <div className="mt-2 flex flex-col gap-3">
+                  <div className="flex gap-2 items-center">
+                    <input type="date" value={filterState.startDate} onChange={(e) => setFilterState({...filterState, startDate: e.target.value})} className="w-full border border-[#c4cdd5] rounded px-2 py-1.5 text-[13px]" />
+                    <span className="text-[#8a94a6] text-[12px]">to</span>
+                    <input type="date" value={filterState.endDate} onChange={(e) => setFilterState({...filterState, endDate: e.target.value})} className="w-full border border-[#c4cdd5] rounded px-2 py-1.5 text-[13px]" />
+                  </div>
+                </div>
+              )}
+            </div>
+            <hr className="border-[#d5dce4]" />
+
+            {/* Payment Status */}
+            <div>
+              <button onClick={() => setOpenFilterAccordions({...openFilterAccordions, paymentStatus: !openFilterAccordions.paymentStatus})} className="flex justify-between items-center w-full text-left text-[14px] font-semibold text-[#202223] py-2">
+                Payment Status {openFilterAccordions.paymentStatus ? <FaChevronUp className="text-[10px]" /> : <FaChevronDown className="text-[10px]" />}
+              </button>
+              {openFilterAccordions.paymentStatus && (
+                <div className="mt-2">
+                  <select value={filterState.paymentStatus} onChange={(e) => setFilterState({...filterState, paymentStatus: e.target.value})} className="w-full border border-[#c4cdd5] rounded px-2 py-1.5 text-[13px]">
+                    <option value="">Any</option>
+                    {paymentOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+            <hr className="border-[#d5dce4]" />
+
+            {/* Fulfillment Status */}
+            <div>
+              <button onClick={() => setOpenFilterAccordions({...openFilterAccordions, fulfillmentStatus: !openFilterAccordions.fulfillmentStatus})} className="flex justify-between items-center w-full text-left text-[14px] font-semibold text-[#202223] py-2">
+                Fulfillment Status {openFilterAccordions.fulfillmentStatus ? <FaChevronUp className="text-[10px]" /> : <FaChevronDown className="text-[10px]" />}
+              </button>
+              {openFilterAccordions.fulfillmentStatus && (
+                <div className="mt-2">
+                  <select value={filterState.orderStatus} onChange={(e) => setFilterState({...filterState, orderStatus: e.target.value})} className="w-full border border-[#c4cdd5] rounded px-2 py-1.5 text-[13px]">
+                    <option value="">Any</option>
+                    {fulfillmentOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+            <hr className="border-[#d5dce4]" />
+
+            {/* Payment Method */}
+            <div>
+              <button onClick={() => setOpenFilterAccordions({...openFilterAccordions, paymentMethod: !openFilterAccordions.paymentMethod})} className="flex justify-between items-center w-full text-left text-[14px] font-semibold text-[#202223] py-2">
+                Payment Method {openFilterAccordions.paymentMethod ? <FaChevronUp className="text-[10px]" /> : <FaChevronDown className="text-[10px]" />}
+              </button>
+              {openFilterAccordions.paymentMethod && (
+                <div className="mt-2">
+                  <select value={filterState.paymentMethod} onChange={(e) => setFilterState({...filterState, paymentMethod: e.target.value})} className="w-full border border-[#c4cdd5] rounded px-2 py-1.5 text-[13px]">
+                    <option value="">Any</option>
+                    <option value="ONLINE">ONLINE</option>
+                    <option value="COD">COD</option>
+                    <option value="Card">Card</option>
+                    <option value="MANUAL TRANSFER">MANUAL TRANSFER</option>
+                    <option value="STORE_PICKUP">STORE_PICKUP</option>
+                  </select>
+                </div>
+              )}
+            </div>
+            <hr className="border-[#d5dce4]" />
+
+            {/* Shipping Method */}
+            <div>
+              <button onClick={() => setOpenFilterAccordions({...openFilterAccordions, shippingMethod: !openFilterAccordions.shippingMethod})} className="flex justify-between items-center w-full text-left text-[14px] font-semibold text-[#202223] py-2">
+                Shipping Method {openFilterAccordions.shippingMethod ? <FaChevronUp className="text-[10px]" /> : <FaChevronDown className="text-[10px]" />}
+              </button>
+              {openFilterAccordions.shippingMethod && (
+                <div className="mt-2">
+                  <select value={filterState.courierPartner} onChange={(e) => setFilterState({...filterState, courierPartner: e.target.value})} className="w-full border border-[#c4cdd5] rounded px-2 py-1.5 text-[13px]">
+                    <option value="">Any</option>
+                    {shippingMethods.map(method => <option key={method} value={method}>{method}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+            <hr className="border-[#d5dce4]" />
+
+            {/* Pickup or delivery date and time */}
+            <div>
+              <button onClick={() => setOpenFilterAccordions({...openFilterAccordions, deliveryDate: !openFilterAccordions.deliveryDate})} className="flex justify-between items-center w-full text-left text-[14px] font-semibold text-[#202223] py-2">
+                Pickup or delivery date and time {openFilterAccordions.deliveryDate ? <FaChevronUp className="text-[10px]" /> : <FaChevronDown className="text-[10px]" />}
+              </button>
+              {openFilterAccordions.deliveryDate && (
+                <div className="mt-2 flex gap-2 items-center">
+                  <input type="date" value={filterState.deliveryDateFrom} onChange={(e) => setFilterState({...filterState, deliveryDateFrom: e.target.value})} className="w-full border border-[#c4cdd5] rounded px-2 py-1.5 text-[13px]" />
+                  <span className="text-[#8a94a6] text-[12px]">to</span>
+                  <input type="date" value={filterState.deliveryDateTo} onChange={(e) => setFilterState({...filterState, deliveryDateTo: e.target.value})} className="w-full border border-[#c4cdd5] rounded px-2 py-1.5 text-[13px]" />
+                </div>
+              )}
+            </div>
+            <hr className="border-[#d5dce4]" />
+
+            {/* Products */}
+            <div>
+              <button onClick={() => setOpenFilterAccordions({...openFilterAccordions, products: !openFilterAccordions.products})} className="flex justify-between items-center w-full text-left text-[14px] font-semibold text-[#202223] py-2">
+                Products {openFilterAccordions.products ? <FaChevronUp className="text-[10px]" /> : <FaChevronDown className="text-[10px]" />}
+              </button>
+              {openFilterAccordions.products && (
+                <div className="mt-2">
+                  <input type="text" placeholder="Search product name or SKU" value={filterState.productSearch} onChange={(e) => setFilterState({...filterState, productSearch: e.target.value})} className="w-full border border-[#c4cdd5] rounded px-2 py-1.5 text-[13px]" />
+                </div>
+              )}
+            </div>
+            <hr className="border-[#d5dce4]" />
+
+            {/* Order Total */}
+            <div>
+              <button onClick={() => setOpenFilterAccordions({...openFilterAccordions, amount: !openFilterAccordions.amount})} className="flex justify-between items-center w-full text-left text-[14px] font-semibold text-[#202223] py-2">
+                Order Total {openFilterAccordions.amount ? <FaChevronUp className="text-[10px]" /> : <FaChevronDown className="text-[10px]" />}
+              </button>
+              {openFilterAccordions.amount && (
+                <div className="mt-2 flex gap-2 items-center">
+                  <input type="number" placeholder="Min ₹" value={filterState.minTotal} onChange={(e) => setFilterState({...filterState, minTotal: e.target.value})} className="w-full border border-[#c4cdd5] rounded px-2 py-1.5 text-[13px]" />
+                  <span className="text-[#8a94a6] text-[12px]">-</span>
+                  <input type="number" placeholder="Max ₹" value={filterState.maxTotal} onChange={(e) => setFilterState({...filterState, maxTotal: e.target.value})} className="w-full border border-[#c4cdd5] rounded px-2 py-1.5 text-[13px]" />
+                </div>
+              )}
+            </div>
+            <hr className="border-[#d5dce4]" />
+            
+            <button onClick={handleClearFilters} className="text-center text-[13px] font-semibold text-[#4a5568] hover:underline py-2">Clear all filters</button>
+
+              </div>
+            )}
+          </div>
+
           <div className="relative flex-1">
             <FaSearch className="absolute text-[#8a94a6] left-3 top-1/2 -translate-y-1/2 text-sm" />
             <input 
               type="text" 
               placeholder="Order #, customer details, company name, phone number, address, items ordered, tax invoice #" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full h-9 pl-9 pr-3 text-[13px] border border-[#c4cdd5] rounded focus:outline-none focus:border-[#5c6ac4] focus:ring-1 focus:ring-[#5c6ac4] transition-all placeholder-[#8a94a6] text-[#202223]"
+              value={filterState.search}
+              onChange={(e) => setFilterState({ ...filterState, search: e.target.value })}
+              className="w-full h-full min-h-[36px] pl-9 pr-3 text-[14px] border border-[#c4cdd5] rounded focus:outline-none focus:border-[#5c6ac4] focus:ring-1 focus:ring-[#5c6ac4] transition-all placeholder-[#8a94a6] text-[#202223] shadow-sm bg-white"
             />
           </div>
         </div>
+
+        <div className="flex flex-col items-start gap-6">
+          {/* MAIN LIST CONTAINER */}
+          <div className="w-full min-w-0 bg-white border border-[#d5dce4] rounded-sm shadow-sm overflow-hidden">
 
         {/* Mass Actions Bar */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-[#d5dce4] bg-[#f9fafb]">
@@ -246,7 +506,7 @@ const AdminOrders = () => {
             <input 
               type="checkbox" 
               className="w-[14px] h-[14px] rounded-sm border-[#c4cdd5] text-[#2463d1] focus:ring-0 cursor-pointer"
-              checked={selectedOrders.length === filteredOrders.length && filteredOrders.length > 0}
+              checked={selectedOrders.length === orders.length && orders.length > 0}
               onChange={handleSelectAll}
             />
             <div className="flex items-center gap-2 custom-dropdown-container">
@@ -257,7 +517,7 @@ const AdminOrders = () => {
                 <option value="delete">Delete Selected</option>
               </select>
             </div>
-            <span className="text-[11px] font-semibold text-[#5c6ac4] uppercase tracking-wider ml-2 cursor-pointer" onClick={() => setSearchTerm("")}>Viewing all orders</span>
+            <span className="text-[11px] font-semibold text-[#5c6ac4] uppercase tracking-wider ml-2 cursor-pointer" onClick={() => setFilterState({ ...filterState, search: "" })}>Viewing all orders</span>
             <span className="text-[11px] font-semibold text-[#5c6ac4] uppercase tracking-wider ml-1 cursor-pointer" onClick={() => fetchOrders()}>Refresh</span>
           </div>
           <button onClick={toggleAllExpanded} className="text-[11px] font-semibold text-[#5c6ac4] uppercase tracking-wider flex items-center gap-1 cursor-pointer">
@@ -265,14 +525,65 @@ const AdminOrders = () => {
           </button>
         </div>
 
+        {/* Active Filters Chips */}
+        {(filterState.paymentStatus || filterState.orderStatus || filterState.paymentMethod || filterState.courierPartner || filterState.startDate || filterState.endDate || filterState.minTotal || filterState.maxTotal) && (
+          <div className="px-3 py-2 border-b border-[#d5dce4] bg-white flex flex-wrap gap-2 items-center">
+            <span className="text-[12px] font-semibold text-[#4a5568] mr-1">Active filters:</span>
+            
+            {filterState.paymentStatus && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#f4f6f8] border border-[#c4cdd5] rounded-full text-[12px] text-[#202223]">
+                Payment: {filterState.paymentStatus}
+                <button onClick={() => removeFilter('paymentStatus')} className="text-[#8a94a6] hover:text-[#202223] ml-1">&times;</button>
+              </span>
+            )}
+            
+            {filterState.orderStatus && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#f4f6f8] border border-[#c4cdd5] rounded-full text-[12px] text-[#202223]">
+                Status: {filterState.orderStatus}
+                <button onClick={() => removeFilter('orderStatus')} className="text-[#8a94a6] hover:text-[#202223] ml-1">&times;</button>
+              </span>
+            )}
+
+            {filterState.paymentMethod && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#f4f6f8] border border-[#c4cdd5] rounded-full text-[12px] text-[#202223]">
+                Method: {filterState.paymentMethod}
+                <button onClick={() => removeFilter('paymentMethod')} className="text-[#8a94a6] hover:text-[#202223] ml-1">&times;</button>
+              </span>
+            )}
+
+            {filterState.courierPartner && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#f4f6f8] border border-[#c4cdd5] rounded-full text-[12px] text-[#202223]">
+                Courier: {filterState.courierPartner}
+                <button onClick={() => removeFilter('courierPartner')} className="text-[#8a94a6] hover:text-[#202223] ml-1">&times;</button>
+              </span>
+            )}
+
+            {(filterState.startDate || filterState.endDate) && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#f4f6f8] border border-[#c4cdd5] rounded-full text-[12px] text-[#202223]">
+                Date: {filterState.startDate || 'Any'} to {filterState.endDate || 'Any'}
+                <button onClick={() => removeFilter('date')} className="text-[#8a94a6] hover:text-[#202223] ml-1">&times;</button>
+              </span>
+            )}
+
+            {(filterState.minTotal || filterState.maxTotal) && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 bg-[#f4f6f8] border border-[#c4cdd5] rounded-full text-[12px] text-[#202223]">
+                Total: {filterState.minTotal ? `₹${filterState.minTotal}` : 'Min'} - {filterState.maxTotal ? `₹${filterState.maxTotal}` : 'Max'}
+                <button onClick={() => removeFilter('total')} className="text-[#8a94a6] hover:text-[#202223] ml-1">&times;</button>
+              </span>
+            )}
+
+            <button onClick={handleClearFilters} className="text-[12px] text-[#2463d1] hover:underline ml-2">Clear all</button>
+          </div>
+        )}
+
         {/* Orders List */}
         <div className="flex flex-col">
-          {filteredOrders.length === 0 ? (
+          {orders.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-[14px] text-[#6d7175]">No orders found.</p>
             </div>
           ) : (
-            filteredOrders.map((order) => {
+            orders.map((order) => {
               const isExpanded = expandedOrders[order._id];
               const paymentColor = (order.paymentStatus === 'Paid' || order.paymentStatus === 'paid') ? '#008060' : '#e38a00';
 
@@ -502,6 +813,8 @@ const AdminOrders = () => {
         </div>
 
       </div>
+    </div>
+    </div>
     </div>
     </>
   );
