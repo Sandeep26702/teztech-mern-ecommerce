@@ -189,47 +189,57 @@ const AdminCategoryManagement = () => {
           <div className="p-6 text-sm text-gray-500 bg-white border border-gray-200 rounded-xl col-span-full text-center">No categories found. Create a new one!</div>
         ) : (
           filteredCategories.map((category) => (
-            <div key={category._id} className={`p-5 bg-white border rounded-xl shadow-sm transition-all hover:shadow-md ${category.level === 1 ? 'border-blue-200' : category.level === 2 ? 'border-amber-200' : 'border-gray-200'}`}>
-              <div className="flex items-start gap-4">
-                <div className="relative">
-                  <img src={category.image} alt={category.name} className="object-cover w-16 h-16 border border-gray-100 rounded-xl bg-gray-50" />
-                  {/* Level Badge Icon */}
-                  <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-1 shadow-sm border border-gray-100">
-                    {category.level === 1 ? <FaFolder className="text-blue-500" /> : category.level === 2 ? <FaFolderOpen className="text-amber-500" /> : <FaFileAlt className="text-gray-400" />}
-                  </div>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-bold text-gray-900 truncate text-lg">{category.name}</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className={`px-2 py-0.5 text-[10px] font-black tracking-widest uppercase rounded bg-gray-100 text-gray-600`}>
-                      Level {category.level || 1}
-                    </span>
-                    {category.level > 1 && (
-                      <span className="text-xs font-semibold text-gray-500 truncate">
-                        in: <span className="text-blue-600">{getParentName(category.parentCategory)}</span>
-                      </span>
-                    )}
-                  </div>
-                  <p className="mt-2 text-xs text-gray-500 line-clamp-1">{category.description || "No description"}</p>
-                </div>
-              </div>
+            <div key={category._id} className={`relative p-5 border rounded-xl shadow-sm transition-all hover:shadow-md overflow-hidden min-h-[160px] flex flex-col justify-between group ${category.level === 1 ? 'border-blue-200' : category.level === 2 ? 'border-amber-200' : 'border-gray-200'}`}>
               
-              <div className="flex items-center justify-between mt-5 pt-4 border-t border-gray-50">
-                <span className={`px-2 py-1 text-xs font-semibold rounded-md ${category.isActive ? "bg-emerald-50 text-emerald-700 border border-emerald-100" : "bg-red-50 text-red-600 border border-red-100"}`}>
+              {/* Full Background Image */}
+              {category.image ? (
+                <img src={category.image} alt={category.name} className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-500 group-hover:scale-105" />
+              ) : (
+                <div className="absolute inset-0 w-full h-full bg-gray-50 z-0"></div>
+              )}
+              
+              {/* Dark Overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10 z-10"></div>
+              
+              <div className="relative z-20 flex flex-col h-full text-white">
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-bold truncate text-xl drop-shadow-md">{category.name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`px-2 py-0.5 text-[10px] font-black tracking-widest uppercase rounded bg-white/20 text-white backdrop-blur-sm`}>
+                        Level {category.level || 1}
+                      </span>
+                      {category.level > 1 && (
+                        <span className="text-xs font-semibold text-gray-300 truncate">
+                          in: <span className="text-blue-300">{getParentName(category.parentCategory)}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/* Level Badge Icon */}
+                  <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 shadow-sm border border-white/10 ml-2">
+                    {category.level === 1 ? <FaFolder className="text-blue-300" /> : category.level === 2 ? <FaFolderOpen className="text-amber-300" /> : <FaFileAlt className="text-gray-300" />}
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-gray-300 line-clamp-1 flex-1">{category.description || "No description"}</p>
+              
+              <div className="relative z-20 flex items-center justify-between mt-4 pt-3 border-t border-white/20">
+                <span className={`px-2 py-1 text-xs font-semibold rounded-md ${category.isActive ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-red-500/20 text-red-300 border border-red-500/30"}`}>
                   {category.isActive ? "Active" : "Inactive"}
                 </span>
                 <span className="text-xs font-bold text-gray-400">ID: {category._id.slice(-6)}</span>
               </div>
               
-              <div className="flex gap-2 mt-4">
-                <button onClick={() => openEdit(category)} className="inline-flex items-center justify-center flex-1 gap-1 px-3 py-2 text-sm font-bold text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 transition-colors">
+              <div className="relative z-20 flex gap-2 mt-4">
+                <button onClick={() => openEdit(category)} className="inline-flex items-center justify-center flex-1 gap-1 px-3 py-2 text-sm font-bold text-white bg-white/20 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/30 transition-colors">
                   <FaEdit /> Edit
                 </button>
-                <button onClick={() => handleDelete(category._id, category.productCount || 0)} className="inline-flex items-center justify-center flex-1 gap-1 px-3 py-2 text-sm font-bold text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors">
+                <button onClick={() => handleDelete(category._id, category.productCount || 0)} className="inline-flex items-center justify-center flex-1 gap-1 px-3 py-2 text-sm font-bold text-white bg-red-500/40 backdrop-blur-sm border border-red-500/30 rounded-lg hover:bg-red-500/60 transition-colors">
                   <FaTrash /> Delete
                 </button>
               </div>
             </div>
+          </div>
           ))
         )}
       </div>
@@ -275,7 +285,7 @@ const AdminCategoryManagement = () => {
                       >
                         <option value="">-- Select Parent --</option>
                         {categories
-                          .filter(c => c.level === formData.level - 1)
+                          .filter(c => (c.level || 1) === formData.level - 1)
                           .map(c => (
                             <option key={c._id} value={c._id}>{c.name}</option>
                           ))
@@ -284,7 +294,7 @@ const AdminCategoryManagement = () => {
                     </div>
                   )}
                 </div>
-                {formData.level > 1 && categories.filter(c => c.level === formData.level - 1).length === 0 && (
+                {formData.level > 1 && categories.filter(c => (c.level || 1) === formData.level - 1).length === 0 && (
                   <p className="text-xs font-bold text-red-500 mt-1">Warning: No valid parent categories found. Create a Level {formData.level - 1} category first.</p>
                 )}
               </div>
@@ -339,7 +349,19 @@ const AdminCategoryManagement = () => {
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => setFormData({ ...formData, imageFile: e.target.files?.[0] || null })}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 1024 * 1024) {
+                        alert("Maximum file size allowed is 1MB.");
+                        e.target.value = null;
+                        return;
+                      }
+                      setFormData({ ...formData, imageFile: file });
+                    } else {
+                      setFormData({ ...formData, imageFile: null });
+                    }
+                  }}
                   className="w-full px-3 py-2 text-sm font-medium border border-gray-300 rounded-xl file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                 />
               </div>

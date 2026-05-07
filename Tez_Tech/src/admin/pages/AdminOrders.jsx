@@ -171,9 +171,6 @@ const AdminOrders = () => {
       if (!e.target.closest('.custom-dropdown-container')) {
         setActiveDropdown(null);
       }
-      if (!e.target.closest('.filter-dropdown-container') && !e.target.closest('.filter-button')) {
-        setIsFilterOpen(false);
-      }
     };
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
@@ -300,11 +297,11 @@ const AdminOrders = () => {
         {printingOrder && <TaxInvoice order={printingOrder} />}
       </div>
 
-      <div className="print:hidden mx-auto font-sans bg-[#f4f6f8] min-h-screen p-4 sm:p-6 lg:p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
+      <div className="print:hidden mx-auto font-sans bg-[#f4f6f8] flex flex-col h-[calc(100vh-64px)] -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 lg:p-8" style={{ fontFamily: 'Arial, sans-serif' }}>
 
-    {/* HEADER */}
-        <div className="mb-4">
-          <h2 className="text-[28px] font-semibold text-[#1a1a1a] mb-4">Orders</h2>
+        {/* HEADER */}
+        <div className="mb-4 shrink-0 flex justify-between items-center">
+          <h2 className="text-[28px] font-semibold text-[#1a1a1a]">Orders</h2>
           <button
             type="button"
             onClick={() => navigate('/admin/orders/create')}
@@ -314,26 +311,36 @@ const AdminOrders = () => {
           </button>
         </div>
       
+        {error && <div className="p-4 mb-4 text-sm font-bold text-red-700 border-l-4 border-red-500 bg-red-50 shrink-0">{error}</div>}
 
-      {error && <div className="p-4 mb-4 text-sm font-bold text-red-700 border-l-4 border-red-500 bg-red-50">{error}</div>}
+        {/* TWO-COLUMN LAYOUT WRAPPER */}
+        <div className="flex flex-col gap-4 flex-1 min-h-0">
+          
+          {/* Top Filter & Search */}
+          <div className="flex gap-2 mb-2 shrink-0">
+          <button 
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            className="flex items-center gap-2 px-4 py-2 text-[14px] font-semibold text-[#4a5568] bg-white border border-[#c4cdd5] hover:bg-gray-50 rounded shadow-sm transition-colors filter-button"
+          >
+            <FaFilter className="text-xs" /> Filter
+          </button>
+          <div className="relative flex-1">
+            <FaSearch className="absolute text-[#8a94a6] left-3 top-1/2 -translate-y-1/2 text-sm" />
+            <input 
+              type="text" 
+              placeholder="Order #, customer details, company name, phone number, address, items ordered, tax invoice #" 
+              value={filterState.search}
+              onChange={(e) => setFilterState({ ...filterState, search: e.target.value })}
+              className="w-full h-full min-h-[36px] pl-9 pr-3 text-[14px] border border-[#c4cdd5] rounded focus:outline-none focus:border-[#5c6ac4] focus:ring-1 focus:ring-[#5c6ac4] transition-all placeholder-[#8a94a6] text-[#202223] shadow-sm bg-white"
+            />
+          </div>
+        </div>
 
-      {/* TWO-COLUMN LAYOUT WRAPPER */}
-      <div className="flex flex-col gap-4">
-        
-        {/* Top Filter & Search */}
-        <div className="flex gap-2 mb-2 relative z-[100]">
-          <div className="relative">
-            <button 
-              onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className="flex items-center gap-2 px-4 py-2 text-[14px] font-semibold text-[#4a5568] bg-white border border-[#c4cdd5] hover:bg-gray-50 rounded shadow-sm transition-colors filter-button"
-            >
-              <FaFilter className="text-xs" /> Filter
-            </button>
-            
-            {/* FILTER DROPDOWN */}
-            {isFilterOpen && (
-              <div className="absolute top-[100%] left-0 mt-2 w-[320px] bg-white border border-[#d5dce4] rounded-md shadow-xl z-50 flex flex-col max-h-[70vh] overflow-y-auto p-4 filter-dropdown-container">
-                <div className="flex flex-col gap-2">
+        <div className="flex flex-col md:flex-row items-start gap-6 flex-1 min-h-0">
+
+          {/* LEFT SIDEBAR (Filters) */}
+          <div className={`w-full md:w-[280px] shrink-0 flex flex-col gap-4 bg-white border border-[#d5dce4] rounded-sm shadow-sm p-4 overflow-y-auto custom-scrollbar h-full ${isFilterOpen ? 'block' : 'hidden'}`}>
+            <div className="flex flex-col gap-2">
               <button onClick={() => setFilterState(initialFilterState)} className="text-left text-[14px] text-[#202223] hover:text-[#2463d1] flex justify-between items-center py-1">
                 All Orders <span className="text-[#202223] font-semibold">{counts?.all || 0}</span>
               </button>
@@ -480,28 +487,13 @@ const AdminOrders = () => {
             
             <button onClick={handleClearFilters} className="text-center text-[13px] font-semibold text-[#4a5568] hover:underline py-2">Clear all filters</button>
 
-              </div>
-            )}
           </div>
 
-          <div className="relative flex-1">
-            <FaSearch className="absolute text-[#8a94a6] left-3 top-1/2 -translate-y-1/2 text-sm" />
-            <input 
-              type="text" 
-              placeholder="Order #, customer details, company name, phone number, address, items ordered, tax invoice #" 
-              value={filterState.search}
-              onChange={(e) => setFilterState({ ...filterState, search: e.target.value })}
-              className="w-full h-full min-h-[36px] pl-9 pr-3 text-[14px] border border-[#c4cdd5] rounded focus:outline-none focus:border-[#5c6ac4] focus:ring-1 focus:ring-[#5c6ac4] transition-all placeholder-[#8a94a6] text-[#202223] shadow-sm bg-white"
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col items-start gap-6">
           {/* MAIN LIST CONTAINER */}
-          <div className="w-full min-w-0 bg-white border border-[#d5dce4] rounded-sm shadow-sm overflow-hidden">
+          <div className="flex-1 min-w-0 bg-white border border-[#d5dce4] rounded-sm shadow-sm overflow-hidden flex flex-col h-full">
 
         {/* Mass Actions Bar */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-[#d5dce4] bg-[#f9fafb]">
+        <div className="flex items-center justify-between px-3 py-2 border-b border-[#d5dce4] bg-[#f9fafb] shrink-0">
           <div className="flex items-center gap-3">
             <input 
               type="checkbox" 
@@ -577,7 +569,7 @@ const AdminOrders = () => {
         )}
 
         {/* Orders List */}
-        <div className="flex flex-col">
+        <div className="flex flex-col flex-1 overflow-y-auto custom-scrollbar relative">
           {orders.length === 0 ? (
             <div className="py-12 text-center">
               <p className="text-[14px] text-[#6d7175]">No orders found.</p>

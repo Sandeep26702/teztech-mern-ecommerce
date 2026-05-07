@@ -86,19 +86,21 @@ const CategoriesPage = () => {
           </p>
 
           {/* Search Box */}
-          <div className="relative max-w-2xl mx-auto">
-            <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
-              <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
+          <div className="sticky top-0 z-20 py-4 bg-gray-50/95 backdrop-blur-md">
+            <div className="relative max-w-2xl mx-auto">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none">
+                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <input
+                type="text"
+                placeholder="Search categories (e.g., Hindu, Lamp, Ganesh)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full py-4 pl-12 pr-4 text-gray-900 transition-all duration-300 bg-white border border-gray-200 shadow-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400"
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Search categories (e.g., Hindu, Lamp, Ganesh)..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full py-4 pl-12 pr-4 text-gray-900 transition-all duration-300 bg-white border border-gray-200 shadow-sm rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder:text-gray-400"
-            />
           </div>
         </div>
 
@@ -136,39 +138,44 @@ const CategoriesPage = () => {
                   key={category._id}
                   to={`/category/${category.slug}`}
                   onClick={(e) => handleCategoryClick(category, e)}
-                  className="flex flex-col p-6 transition-all duration-300 bg-white border border-gray-100 shadow-sm group rounded-2xl hover:shadow-lg hover:-translate-y-1 hover:border-blue-100 relative overflow-hidden"
+                  className="flex flex-col p-6 transition-all duration-300 border border-gray-100 shadow-sm group rounded-2xl hover:shadow-lg hover:-translate-y-1 hover:border-blue-300 relative overflow-hidden min-h-[220px]"
                 >
+                  {/* Full Background Image */}
+                  {category.image ? (
+                    <img src={category.image} alt={category.name} className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-500 group-hover:scale-105" />
+                  ) : (
+                    <div className="absolute inset-0 w-full h-full bg-gray-100 z-0"></div>
+                  )}
+
+                  {/* Dark overlay for readable text */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10 z-10 transition-opacity duration-300 group-hover:opacity-90"></div>
+
                   {/* Folder Indicator Badge */}
                   {isFolder && (
-                    <div className="absolute top-0 right-0 bg-blue-100 text-blue-700 text-[10px] font-black px-3 py-1 rounded-bl-xl tracking-widest uppercase">
+                    <div className="absolute top-0 right-0 z-20 bg-blue-500/90 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1 rounded-bl-xl tracking-widest uppercase shadow-sm">
                       Sub-categories
                     </div>
                   )}
 
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-14 h-14 overflow-hidden border rounded-xl">
-                      <img src={category.image} alt={category.name} className="object-cover w-full h-full" />
+                  <div className="relative z-20 flex items-start justify-between mb-4 mt-auto w-full">
+                    <div className="mt-auto pt-6">
+                      <h2 className="mb-2 text-xl font-bold text-white transition-colors group-hover:text-blue-300 drop-shadow-md">
+                        {category.name}
+                      </h2>
+                      <p className="text-sm text-gray-300 line-clamp-2 drop-shadow-sm">{category.description || "Browse designs and products"}</p>
                     </div>
-                    <div className={`p-2 transition-colors duration-300 rounded-full ${isFolder ? 'text-blue-400 bg-blue-50' : 'text-gray-300 group-hover:bg-green-50 group-hover:text-green-600'}`}>
+
+                    <div className={`p-3 transition-colors duration-300 rounded-full shadow-lg ${isFolder ? 'text-white bg-blue-500/80 backdrop-blur-sm' : 'text-gray-900 bg-white/90 backdrop-blur-sm group-hover:bg-green-400 group-hover:text-white'}`}>
                       {isFolder ? (
-                        // Folder Icon
                         <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                         </svg>
                       ) : (
-                        // Link / Product Icon
                         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                         </svg>
                       )}
                     </div>
-                  </div>
-
-                  <div className="mt-auto">
-                    <h2 className="mb-2 text-lg font-bold text-gray-900 transition-colors group-hover:text-blue-600">
-                      {category.name}
-                    </h2>
-                    <p className="text-sm text-gray-500 line-clamp-2">{category.description || "Browse designs and products"}</p>
                   </div>
                 </Link>
               );

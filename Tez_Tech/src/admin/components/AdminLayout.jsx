@@ -3,7 +3,7 @@ import { Link, useNavigate, Outlet, useLocation } from "react-router-dom";
 import { 
   FaBox, FaUsers, FaClipboardList, FaChartLine, 
   FaSignOutAlt, FaBars, FaTimes, FaUserShield, FaFileInvoiceDollar, FaLayerGroup,
-  FaCog, FaTruck // 👈 1. Yahan FaTruck (Shipping Icon) import kiya
+  FaCog, FaTruck, FaDesktop
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 
@@ -27,7 +27,8 @@ const AdminLayout = () => {
     { name: "Orders", path: "/admin/orders", icon: <FaClipboardList size={20} /> },
     { name: "Users", path: "/admin/users", icon: <FaUsers size={20} /> },
     { name: "Sub Admins", path: "/admin/subadmins", icon: <FaUserShield size={20} /> },
-    { name: "Shipping", path: "/admin/shipping", icon: <FaTruck size={20} /> }, // 🔥 Naya Shipping Button
+    { name: "Shipping", path: "/admin/shipping", icon: <FaTruck size={20} /> },
+    { name: "Layout", path: "/admin/layout", icon: <FaDesktop size={20} /> },
   ];
 
   return (

@@ -58,6 +58,7 @@ import QuoteEditor from "./admin/pages/QuoteEditor";
 import AdminOrderDetail from './admin/pages/OrderDetail';
 import ShippingManagement from './admin/pages/ShippingManagement';
 import AdminCreateOrder from './admin/pages/AdminCreateOrder';
+import UserView from './admin/pages/UserView';
 
 /**
  * 🌟 PUBLIC LAYOUT WRAPPER
@@ -117,6 +118,7 @@ function App() {
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="shipping" element={<ShippingManagement />} />
+            <Route path="layout" element={<UserView />} />
           </Route>
         </Route>
 
