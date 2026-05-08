@@ -36,9 +36,6 @@ const Home = () => {
     navigate('/products');
   };
 
-  // ==========================================
-  // YOUTUBE ID EXTRACTOR (YouTube link se ID nikalne ke liye)
-  // ==========================================
   const getYouTubeId = (url) => {
     if (!url) return null;
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
@@ -46,30 +43,30 @@ const Home = () => {
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
-  // ==========================================
-  // MEDIA RENDERER LOGIC (Video, Image ya YouTube)
-  // ==========================================
   const renderSlideMedia = (slide) => {
     if (slide.mediaType === "video") {
       if (slide.sourceType === "link") {
         const ytId = getYouTubeId(slide.mediaUrl);
         if (ytId) {
-          // YouTube iFrame (Autoplay, Muted, No Controls, Loop)
-          // pointer-events-none lagaya hai taaki video par click na ho (pause na ho)
+          const ytSrc = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&showinfo=0&rel=0`;
           return (
             <iframe
               className="absolute top-0 left-0 w-full h-[150%] -translate-y-[15%] object-cover z-0 pointer-events-none scale-110"
-              src={`https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&showinfo=0&rel=0`}
+              src={ytSrc}
               frameBorder="0"
               allow="autoplay; encrypted-media"
               allowFullScreen
             ></iframe>
           );
         }
-        // Agar link YouTube ka nahi, direct MP4 URL hai
-        return <video autoPlay loop muted playsInline className="absolute top-0 left-0 w-full h-full object-cover z-0" src={slide.mediaUrl} />;
+        return (
+          <video
+            autoPlay loop muted playsInline
+            className="absolute top-0 left-0 w-full h-full object-cover z-0"
+            src={slide.mediaUrl}
+          />
+        );
       } else {
-        // Cloudinary Uploaded Video
         return (
           <video autoPlay loop muted playsInline className="absolute top-0 left-0 w-full h-full object-cover z-0">
             <source src={slide.mediaUrl} type="video/mp4" />
@@ -77,14 +74,16 @@ const Home = () => {
         );
       }
     } else {
-      // Direct Image
-      return <img src={slide.mediaUrl} alt="Hero Slide" className="absolute top-0 left-0 w-full h-full object-cover z-0" />;
+      return (
+        <img
+          src={slide.mediaUrl}
+          alt="Hero Slide"
+          className="absolute top-0 left-0 w-full h-full object-cover z-0"
+        />
+      );
     }
   };
 
-  // ==========================================
-  // FALLBACK DATA
-  // ==========================================
   const slides = layout?.heroSlides?.length > 0 ? layout.heroSlides : [];
   const features = layout?.featureCards?.length > 0 ? layout.featureCards : [];
   const backGradients = ["from-indigo-600 to-violet-900", "from-teal-600 to-emerald-900", "from-purple-600 to-pink-900"];
@@ -100,9 +99,9 @@ const Home = () => {
   return (
     <div className="flex flex-col min-h-screen font-sans bg-gray-50">
 
-      {/* 🚀 DYNAMIC HERO SLIDER SECTION */}
+      {/* 🚀 HERO SLIDER SECTION */}
       <section className="relative w-full h-[600px] sm:h-[700px] lg:h-[80vh] overflow-hidden bg-gray-900 z-10">
-        
+
         {slides.length > 0 ? (
           <Swiper
             spaceBetween={0}
@@ -117,14 +116,11 @@ const Home = () => {
           >
             {slides.map((slide, index) => (
               <SwiperSlide key={index} className="relative w-full h-full">
-                
-                {/* 1. Background Media */}
+
                 {renderSlideMedia(slide)}
 
-                {/* 2. Dark Overlay */}
                 <div className="absolute top-0 left-0 w-full h-full bg-black/50 z-0"></div>
 
-                {/* 3. Text Content */}
                 <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-4 text-center max-w-7xl mx-auto sm:px-6 lg:px-8">
                   <h1 className="mb-6 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-7xl drop-shadow-lg">
                     {slide.title || "Sonani Electronics"}
@@ -137,7 +133,9 @@ const Home = () => {
 
                   <button
                     onClick={handleExploreProducts}
-                    className="group relative inline-flex items-center justify-center px-8 py-3.5 text-base sm:text-lg font-bold text-gray-900 bg-white rounded-full overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-[0_0_40px_rgba(59,130,246,0.6)] focus:outline-none"
+                    className="group relative inline-flex items-center justify-center px-8 py-3.5 text-base sm:text-lg font-bold text-gray-900 bg-white rounded-full overflow-hidden transition-all duration-300 hover:scale-105 focus:outline-none"
+                    onMouseEnter={(e) => e.currentTarget.style.boxShadow = "0 0 40px rgba(59,130,246,0.6)"}
+                    onMouseLeave={(e) => e.currentTarget.style.boxShadow = "none"}
                   >
                     <span className="relative z-10 flex items-center gap-2">
                       Explore Products
@@ -147,16 +145,16 @@ const Home = () => {
                     </span>
                   </button>
                 </div>
+
               </SwiperSlide>
             ))}
           </Swiper>
         ) : (
-          // Agar database completely khali hai
           <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 z-0"></div>
         )}
       </section>
 
-      {/* ✨ Features Section (3D Flip Cards) - Unchanged */}
+      {/* ✨ FEATURES SECTION */}
       <section className="relative z-20 py-20 -mt-10 sm:-mt-16">
         <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
           <div className="mb-16 text-center">
@@ -167,8 +165,8 @@ const Home = () => {
             {features.map((feature, index) => (
               <div key={feature._id || index} tabIndex="0" className="group relative h-80 w-full max-w-[320px] [perspective:1000px] cursor-pointer focus:outline-none">
                 <div className="absolute duration-1000 w-full h-full [transform-style:preserve-3d] group-hover:[transform:rotateX(180deg)] group-focus:[transform:rotateX(180deg)]">
-                  {/* Front Side */}
-                  <div className={`absolute w-full h-full rounded-2xl bg-gray-800 text-white [backface-visibility:hidden] shadow-xl overflow-hidden`}>
+                  {/* Front */}
+                  <div className="absolute w-full h-full rounded-2xl bg-gray-800 text-white [backface-visibility:hidden] shadow-xl overflow-hidden">
                     {feature.image ? (
                       <img src={feature.image} alt={feature.title} className="absolute inset-0 w-full h-full object-cover z-0" />
                     ) : (
@@ -182,7 +180,7 @@ const Home = () => {
                       </div>
                     </div>
                   </div>
-                  {/* Back Side */}
+                  {/* Back */}
                   <div className={`absolute w-full h-full rounded-2xl bg-gradient-to-br ${backGradients[index % 3]} p-8 text-white [transform:rotateX(180deg)] [backface-visibility:hidden] shadow-2xl flex flex-col`}>
                     <div className="flex flex-col h-full">
                       <div className="mb-4 text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-300">Explore Catalog</div>
@@ -190,7 +188,10 @@ const Home = () => {
                         <p className="text-lg text-white/90">{feature.description}</p>
                       </div>
                       <div className="flex items-center justify-between mt-auto">
-                        <button onClick={() => navigate('/products')} className="px-5 py-2.5 bg-white text-gray-900 rounded-lg font-bold hover:bg-gray-100 hover:scale-105 transition-transform shadow-md">
+                        <button
+                          onClick={() => navigate('/products')}
+                          className="px-5 py-2.5 bg-white text-gray-900 rounded-lg font-bold hover:bg-gray-100 hover:scale-105 transition-transform shadow-md"
+                        >
                           Read more
                         </button>
                         <span className="text-3xl drop-shadow-md">✨</span>
@@ -208,4 +209,4 @@ const Home = () => {
   );
 };
 
-export default Home;git status
+export default Home;
