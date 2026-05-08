@@ -43,6 +43,9 @@ const Home = () => {
     return (match && match[2].length === 11) ? match[2] : null;
   };
 
+  // ==========================================
+  // 🔥 UPDATED MEDIA RENDERER (NO CROPPING)
+  // ==========================================
   const renderSlideMedia = (slide) => {
     if (slide.mediaType === "video") {
       if (slide.sourceType === "link") {
@@ -50,36 +53,52 @@ const Home = () => {
         if (ytId) {
           const ytSrc = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&showinfo=0&rel=0`;
           return (
-            <iframe
-              className="absolute top-0 left-0 w-full h-[150%] -translate-y-[15%] object-cover z-0 pointer-events-none scale-110"
-              src={ytSrc}
-              frameBorder="0"
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-            ></iframe>
+            <div className="absolute inset-0 w-full h-full bg-black z-0">
+              <iframe
+                className="w-full h-full pointer-events-none"
+                src={ytSrc}
+                frameBorder="0"
+                allow="autoplay; encrypted-media"
+                allowFullScreen
+              ></iframe>
+            </div>
           );
         }
         return (
-          <video
-            autoPlay loop muted playsInline
-            className="absolute top-0 left-0 w-full h-full object-cover z-0"
-            src={slide.mediaUrl}
-          />
+          <div className="absolute inset-0 w-full h-full bg-black z-0">
+            <video
+              autoPlay loop muted playsInline
+              className="w-full h-full object-contain"
+              src={slide.mediaUrl}
+            />
+          </div>
         );
       } else {
         return (
-          <video autoPlay loop muted playsInline className="absolute top-0 left-0 w-full h-full object-cover z-0">
-            <source src={slide.mediaUrl} type="video/mp4" />
-          </video>
+          <div className="absolute inset-0 w-full h-full bg-black z-0">
+            <video autoPlay loop muted playsInline className="w-full h-full object-contain">
+              <source src={slide.mediaUrl} type="video/mp4" />
+            </video>
+          </div>
         );
       }
     } else {
+      // Images ke liye Premium Blurred Background Effect
       return (
-        <img
-          src={slide.mediaUrl}
-          alt="Hero Slide"
-          className="absolute top-0 left-0 w-full h-full object-cover z-0"
-        />
+        <div className="absolute inset-0 w-full h-full bg-gray-900 z-0 overflow-hidden">
+          {/* 1. Background Blur (Khali jagah bharne ke liye) */}
+          <img
+            src={slide.mediaUrl}
+            alt="blur-bg"
+            className="absolute inset-0 w-full h-full object-cover opacity-40 blur-2xl scale-110"
+          />
+          {/* 2. Main Crisp Image (Puri dikhegi, katega nahi) */}
+          <img
+            src={slide.mediaUrl}
+            alt="Hero Slide"
+            className="absolute inset-0 w-full h-full object-contain z-10"
+          />
+        </div>
       );
     }
   };
@@ -117,23 +136,25 @@ const Home = () => {
             {slides.map((slide, index) => (
               <SwiperSlide key={index} className="relative w-full h-full">
 
+                {/* Media Render Hoga */}
                 {renderSlideMedia(slide)}
 
-                <div className="absolute top-0 left-0 w-full h-full bg-black/50 z-0"></div>
+                {/* Dark Overlay Taki Text Padhne Mein Aaye */}
+                <div className="absolute top-0 left-0 w-full h-full bg-black/40 z-10 pointer-events-none"></div>
 
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center px-4 text-center max-w-7xl mx-auto sm:px-6 lg:px-8">
-                  <h1 className="mb-6 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-7xl drop-shadow-lg">
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center px-4 text-center max-w-7xl mx-auto sm:px-6 lg:px-8 pointer-events-none">
+                  <h1 className="mb-6 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-7xl drop-shadow-lg pointer-events-auto">
                     {slide.title || "Sonani Electronics"}
                   </h1>
                   {slide.subtitle && (
-                    <p className="max-w-2xl mx-auto mt-4 mb-10 text-lg leading-relaxed sm:text-xl text-blue-100/90 drop-shadow">
+                    <p className="max-w-2xl mx-auto mt-4 mb-10 text-lg leading-relaxed sm:text-xl text-blue-100/90 drop-shadow pointer-events-auto">
                       {slide.subtitle}
                     </p>
                   )}
 
                   <button
                     onClick={handleExploreProducts}
-                    className="group relative inline-flex items-center justify-center px-8 py-3.5 text-base sm:text-lg font-bold text-gray-900 bg-white rounded-full overflow-hidden transition-all duration-300 hover:scale-105 focus:outline-none"
+                    className="group relative inline-flex items-center justify-center px-8 py-3.5 text-base sm:text-lg font-bold text-gray-900 bg-white rounded-full overflow-hidden transition-all duration-300 hover:scale-105 focus:outline-none pointer-events-auto"
                     onMouseEnter={(e) => e.currentTarget.style.boxShadow = "0 0 40px rgba(59,130,246,0.6)"}
                     onMouseLeave={(e) => e.currentTarget.style.boxShadow = "none"}
                   >
@@ -154,7 +175,7 @@ const Home = () => {
         )}
       </section>
 
-      {/* ✨ FEATURES SECTION */}
+      {/* ✨ FEATURES SECTION (Waise ka waisa hi chhod diya) */}
       <section className="relative z-20 py-20 -mt-10 sm:-mt-16">
         <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
           <div className="mb-16 text-center">
@@ -165,7 +186,6 @@ const Home = () => {
             {features.map((feature, index) => (
               <div key={feature._id || index} tabIndex="0" className="group relative h-80 w-full max-w-[320px] [perspective:1000px] cursor-pointer focus:outline-none">
                 <div className="absolute duration-1000 w-full h-full [transform-style:preserve-3d] group-hover:[transform:rotateX(180deg)] group-focus:[transform:rotateX(180deg)]">
-                  {/* Front */}
                   <div className="absolute w-full h-full rounded-2xl bg-gray-800 text-white [backface-visibility:hidden] shadow-xl overflow-hidden">
                     {feature.image ? (
                       <img src={feature.image} alt={feature.title} className="absolute inset-0 w-full h-full object-cover z-0" />
@@ -180,7 +200,6 @@ const Home = () => {
                       </div>
                     </div>
                   </div>
-                  {/* Back */}
                   <div className={`absolute w-full h-full rounded-2xl bg-gradient-to-br ${backGradients[index % 3]} p-8 text-white [transform:rotateX(180deg)] [backface-visibility:hidden] shadow-2xl flex flex-col`}>
                     <div className="flex flex-col h-full">
                       <div className="mb-4 text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-white to-gray-300">Explore Catalog</div>
