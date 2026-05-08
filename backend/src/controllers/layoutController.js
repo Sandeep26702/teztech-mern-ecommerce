@@ -9,13 +9,18 @@ export const getHomeLayout = async (req, res) => {
   try {
     let layout = await HomeLayout.findOne();
 
-    // If no layout exists, return a default template
+    // Agar database khali hai, toh ek Default Slider aur Cards bhejenge
     if (!layout) {
       layout = {
-        heroVideo: "",
-        heroTitle: "Welcome to Sonani Electronics",
-        heroSubtitle:
-          "Your trusted partner for premium electronic components and cutting-edge solutions. Built for innovators, by experts.",
+        heroSlides: [
+          {
+            mediaType: "image",
+            sourceType: "upload",
+            mediaUrl: "", // Admin aakar update karega
+            title: "Welcome to Sonani Electronics",
+            subtitle: "Your trusted partner for premium electronic components and cutting-edge solutions. Built for innovators, by experts.",
+          }
+        ],
         featureCards: [
           {
             title: "Quality Products",
@@ -50,55 +55,70 @@ export const getHomeLayout = async (req, res) => {
  */
 export const updateHomeLayout = async (req, res) => {
   try {
-    const { heroTitle, heroSubtitle, featureCards } = req.body;
+    // Ab frontend se heroSlides array aur featureCards array JSON string banke aayegi
+    const { heroSlides, featureCards } = req.body;
     let layout = await HomeLayout.findOne();
 
     if (!layout) {
       layout = new HomeLayout();
     }
 
-    // Parse featureCards from string if sent as JSON string via FormData
-    let parsedFeatureCards = [];
-    if (typeof featureCards === "string") {
-      try {
-        parsedFeatureCards = JSON.parse(featureCards);
-      } catch (e) {
-        return res.status(400).json({ message: "Invalid feature cards data format" });
-      }
-    } else if (Array.isArray(featureCards)) {
-      parsedFeatureCards = featureCards;
+    // 1. JSON Strings ko wapas Arrays mein convert karna
+    let parsedSlides = [];
+    let parsedCards = [];
+
+    try {
+      if (heroSlides) parsedSlides = JSON.parse(heroSlides);
+      if (featureCards) parsedCards = JSON.parse(featureCards);
+    } catch (e) {
+      return res.status(400).json({ message: "Invalid data format sent from frontend" });
     }
 
-    // Handle File Uploads
-    // 🔥 NEW LOGIC: Cloudinary ne file automatically upload kar di hai.
-    // URL ab directly `req.files` array ke andar `path` property me mil jayega!
+    // Cloudinary se upload hui files yahan milengi
     const files = req.files || [];
 
-    // 1. Get Hero Video URL if provided
-    const videoFile = files.find(file => file.fieldname === 'heroVideo');
-    if (videoFile) {
-      layout.heroVideo = videoFile.path; // Ye Cloudinary ka secure_url hai
-    }
+    // ==========================================
+    // 2. HERO SLIDES LOGIC (Upload vs Link)
+    // ==========================================
+    for (let i = 0; i < parsedSlides.length; i++) {
+      const slide = parsedSlides[i];
 
-    // 2. Get Feature Card Images URLs if provided
-    for (let i = 0; i < parsedFeatureCards.length; i++) {
-      const fieldName = `featureCards_${i}_image`;
-      const imageFile = files.find(file => file.fieldname === fieldName);
+      // Agar admin ne PC se file "upload" ki hai
+      if (slide.sourceType === "upload") {
+        const fieldName = `slide_${i}_file`; // Frontend se yeh naam aayega
+        const uploadedFile = files.find((file) => file.fieldname === fieldName);
 
-      if (imageFile) {
-        parsedFeatureCards[i].image = imageFile.path; // Ye Cloudinary ka secure_url hai
-      } else {
-        // Retain existing image if not uploaded new one
-        if (layout.featureCards && layout.featureCards[i]) {
-          parsedFeatureCards[i].image = parsedFeatureCards[i].image || layout.featureCards[i].image;
+        if (uploadedFile) {
+          slide.mediaUrl = uploadedFile.path; // Naya Cloudinary URL set kar do
+        } else {
+          // Agar file update nahi ki, toh purani wali (existingUrl) use kar lo
+          slide.mediaUrl = slide.existingUrl || slide.mediaUrl || "";
         }
+      } 
+      // Agar admin ne "link" select kiya hai, toh frontend seedha mediaUrl bhej dega
+      else if (slide.sourceType === "link") {
+        slide.mediaUrl = slide.mediaUrl || "";
       }
     }
 
-    // Update Text Fields
-    if (heroTitle) layout.heroTitle = heroTitle;
-    if (heroSubtitle) layout.heroSubtitle = heroSubtitle;
-    if (parsedFeatureCards.length > 0) layout.featureCards = parsedFeatureCards;
+    // ==========================================
+    // 3. FEATURE CARDS LOGIC
+    // ==========================================
+    for (let i = 0; i < parsedCards.length; i++) {
+      const fieldName = `featureCards_${i}_image`;
+      const uploadedImage = files.find((file) => file.fieldname === fieldName);
+
+      if (uploadedImage) {
+        parsedCards[i].image = uploadedImage.path; // Naya Cloudinary URL
+      } else {
+        // Agar image badli nahi, toh purani retain karo
+        parsedCards[i].image = parsedCards[i].existingImage || parsedCards[i].image || "";
+      }
+    }
+
+    // Database mein update karo
+    layout.heroSlides = parsedSlides;
+    layout.featureCards = parsedCards;
 
     await layout.save();
 

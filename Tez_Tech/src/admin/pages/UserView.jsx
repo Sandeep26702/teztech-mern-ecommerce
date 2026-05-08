@@ -3,7 +3,6 @@ import axios from "axios";
 import { toast } from "react-hot-toast";
 
 // 🌐 SMART API URL LOGIC
-// Agar Vite me VITE_BACKEND_URL set hai toh wo lega, warna aapka live Render URL lega.
 const API_URL = import.meta.env.VITE_BACKEND_URL || "https://sonani-backend.onrender.com";
 
 const UserView = () => {
@@ -11,17 +10,23 @@ const UserView = () => {
   const [fetching, setFetching] = useState(true);
 
   const [formData, setFormData] = useState({
-    heroTitle: "",
-    heroSubtitle: "",
-    heroVideo: null,
+    heroSlides: [
+      {
+        mediaType: "image",
+        sourceType: "upload",
+        mediaUrl: "",
+        title: "",
+        subtitle: "",
+        file: null,
+        existingUrl: "",
+      }
+    ],
     featureCards: [
       { title: "", description: "", image: null, existingImage: "" },
       { title: "", description: "", image: null, existingImage: "" },
       { title: "", description: "", image: null, existingImage: "" },
     ],
   });
-
-  const [existingVideo, setExistingVideo] = useState("");
 
   useEffect(() => {
     fetchLayoutData();
@@ -30,13 +35,21 @@ const UserView = () => {
   const fetchLayoutData = async () => {
     try {
       setFetching(true);
-      // 🔥 Localhost ki jagah dynamic API_URL lagaya hai
       const { data } = await axios.get(`${API_URL}/api/layout/home`);
       if (data) {
         setFormData({
-          heroTitle: data.heroTitle || "",
-          heroSubtitle: data.heroSubtitle || "",
-          heroVideo: null,
+          heroSlides: data.heroSlides && data.heroSlides.length > 0
+            ? data.heroSlides.map(slide => ({
+              mediaType: slide.mediaType || "image",
+              sourceType: slide.sourceType || "upload",
+              mediaUrl: slide.sourceType === "link" ? slide.mediaUrl : "",
+              title: slide.title || "",
+              subtitle: slide.subtitle || "",
+              file: null,
+              existingUrl: slide.sourceType === "upload" ? slide.mediaUrl : "",
+            }))
+            : [{ mediaType: "image", sourceType: "upload", mediaUrl: "", title: "", subtitle: "", file: null, existingUrl: "" }],
+          
           featureCards: data.featureCards && data.featureCards.length > 0
             ? data.featureCards.map(card => ({
               title: card.title,
@@ -50,7 +63,6 @@ const UserView = () => {
               { title: "", description: "", image: null, existingImage: "" },
             ],
         });
-        setExistingVideo(data.heroVideo || "");
       }
     } catch (error) {
       console.error("Error fetching layout:", error);
@@ -60,16 +72,54 @@ const UserView = () => {
     }
   };
 
-  const handleTextChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  const handleVideoChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      setFormData({ ...formData, heroVideo: e.target.files[0] });
+  // ==========================================
+  // SLIDER HANDLERS
+  // ==========================================
+  const handleSlideChange = (index, field, value) => {
+    const updatedSlides = [...formData.heroSlides];
+    updatedSlides[index][field] = value;
+    
+    // Agar source type change ho raha hai, toh purana data clear kar do
+    if (field === "sourceType") {
+      updatedSlides[index].file = null;
+      updatedSlides[index].mediaUrl = "";
     }
+    
+    setFormData({ ...formData, heroSlides: updatedSlides });
   };
 
+  const handleSlideFileChange = (index, file) => {
+    const updatedSlides = [...formData.heroSlides];
+    updatedSlides[index].file = file;
+    setFormData({ ...formData, heroSlides: updatedSlides });
+  };
+
+  const addSlide = () => {
+    if (formData.heroSlides.length >= 5) {
+      toast.error("Maximum 5 slides allowed!");
+      return;
+    }
+    setFormData({
+      ...formData,
+      heroSlides: [
+        ...formData.heroSlides,
+        { mediaType: "image", sourceType: "upload", mediaUrl: "", title: "", subtitle: "", file: null, existingUrl: "" }
+      ]
+    });
+  };
+
+  const removeSlide = (index) => {
+    if (formData.heroSlides.length === 1) {
+      toast.error("You must have at least 1 slide!");
+      return;
+    }
+    const updatedSlides = formData.heroSlides.filter((_, i) => i !== index);
+    setFormData({ ...formData, heroSlides: updatedSlides });
+  };
+
+  // ==========================================
+  // CARD HANDLERS
+  // ==========================================
   const handleCardChange = (index, field, value) => {
     const updatedCards = [...formData.featureCards];
     updatedCards[index][field] = value;
@@ -82,29 +132,43 @@ const UserView = () => {
     setFormData({ ...formData, featureCards: updatedCards });
   };
 
+  // ==========================================
+  // SUBMIT FORM
+  // ==========================================
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
       const data = new FormData();
-      data.append("heroTitle", formData.heroTitle);
-      data.append("heroSubtitle", formData.heroSubtitle);
 
-      // Hero Video File append
-      if (formData.heroVideo) {
-        data.append("heroVideo", formData.heroVideo);
-      }
+      // 1. Prepare JSON structure for Slides
+      const slidesToSubmit = formData.heroSlides.map(slide => ({
+        mediaType: slide.mediaType,
+        sourceType: slide.sourceType,
+        mediaUrl: slide.sourceType === "link" ? slide.mediaUrl : "", // Link wala UI input se aayega
+        existingUrl: slide.existingUrl, // Upload wali existing file
+        title: slide.title,
+        subtitle: slide.subtitle
+      }));
+      data.append("heroSlides", JSON.stringify(slidesToSubmit));
 
-      // Feature cards texts as JSON string
+      // 2. Prepare JSON structure for Cards
       const featureCardsText = formData.featureCards.map(card => ({
         title: card.title,
         description: card.description,
-        image: card.existingImage
+        existingImage: card.existingImage
       }));
       data.append("featureCards", JSON.stringify(featureCardsText));
 
-      // Append image files individually with exact field names that backend expects
+      // 3. Append Slide Files
+      formData.heroSlides.forEach((slide, index) => {
+        if (slide.sourceType === "upload" && slide.file) {
+          data.append(`slide_${index}_file`, slide.file);
+        }
+      });
+
+      // 4. Append Card Files
       formData.featureCards.forEach((card, index) => {
         if (card.image) {
           data.append(`featureCards_${index}_image`, card.image);
@@ -112,7 +176,6 @@ const UserView = () => {
       });
 
       const token = localStorage.getItem("token");
-      // 🔥 Send update request
       await axios.put(`${API_URL}/api/layout/home`, data, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -121,7 +184,7 @@ const UserView = () => {
       });
 
       toast.success("Home Layout updated successfully!");
-      fetchLayoutData(); // Refresh the data to show new Cloudinary images/videos
+      fetchLayoutData();
     } catch (error) {
       console.error("Error updating layout:", error);
       toast.error("Failed to update layout. Please try again.");
@@ -140,75 +203,155 @@ const UserView = () => {
 
   return (
     <div className="min-h-screen px-4 py-8 mx-auto font-sans sm:px-6 lg:px-8 max-w-5xl sm:py-10 bg-slate-50">
-      <div className="mb-8">
-        <h2 className="text-2xl font-black tracking-tight sm:text-3xl text-slate-900">Home Page Layout</h2>
-        <p className="mt-1 text-sm text-slate-500">Manage the dynamic content on your Home Page.</p>
+      <div className="mb-8 flex justify-between items-end">
+        <div>
+          <h2 className="text-2xl font-black tracking-tight sm:text-3xl text-slate-900">Home Page Layout</h2>
+          <p className="mt-1 text-sm text-slate-500">Manage Dynamic Hero Slider & Feature Cards.</p>
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
 
-        {/* HERO SECTION */}
+        {/* ================= HERO SLIDER SECTION ================= */}
         <div className="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
-          <h3 className="mb-4 text-xl font-bold text-slate-800">Hero Section</h3>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-slate-800">Hero Slider Configuration</h3>
+            <button
+              type="button"
+              onClick={addSlide}
+              disabled={formData.heroSlides.length >= 5}
+              className="px-4 py-2 bg-slate-800 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 disabled:opacity-50"
+            >
+              + Add Slide ({formData.heroSlides.length}/5)
+            </button>
+          </div>
 
-          <div className="grid grid-cols-1 gap-6">
-            <div>
-              <label className="block mb-2 text-sm font-semibold text-slate-700">Hero Title</label>
-              <input
-                type="text"
-                name="heroTitle"
-                value={formData.heroTitle}
-                onChange={handleTextChange}
-                required
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="e.g. Welcome to Sonani Electronics"
-              />
-            </div>
+          <div className="space-y-6">
+            {formData.heroSlides.map((slide, index) => (
+              <div key={index} className="p-5 border border-slate-200 rounded-xl bg-slate-50 relative">
+                
+                {/* Remove Button */}
+                {formData.heroSlides.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeSlide(index)}
+                    className="absolute top-4 right-4 text-red-500 hover:text-red-700 text-sm font-bold"
+                  >
+                    ✕ Remove
+                  </button>
+                )}
 
-            <div>
-              <label className="block mb-2 text-sm font-semibold text-slate-700">Hero Subtitle</label>
-              <textarea
-                name="heroSubtitle"
-                value={formData.heroSubtitle}
-                onChange={handleTextChange}
-                required
-                rows="3"
-                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Subtitle text..."
-              />
-            </div>
-
-            <div>
-              <label className="block mb-2 text-sm font-semibold text-slate-700">Hero Background Video</label>
-              {existingVideo && (
-                <div className="mb-3">
-                  <p className="text-xs text-green-600 font-semibold mb-1">Current Video Active</p>
-                  {/* Added controls for admin to preview video */}
-                  <video src={existingVideo} className="w-48 rounded-lg shadow" muted controls />
+                <h4 className="mb-4 font-bold text-slate-700">Slide {index + 1}</h4>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+                  {/* Dropdowns */}
+                  <div>
+                    <label className="block mb-1 text-xs font-semibold text-slate-600">Media Type</label>
+                    <select
+                      value={slide.mediaType}
+                      onChange={(e) => handleSlideChange(index, "mediaType", e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="image">Image</option>
+                      <option value="video">Video</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs font-semibold text-slate-600">Source Type</label>
+                    <select
+                      value={slide.sourceType}
+                      onChange={(e) => handleSlideChange(index, "sourceType", e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="upload">Upload File (Cloudinary)</option>
+                      <option value="link">External URL (YouTube / Image Link)</option>
+                    </select>
+                  </div>
                 </div>
-              )}
-              <input
-                type="file"
-                accept="video/mp4,video/webm"
-                onChange={handleVideoChange}
-                className="w-full px-3 py-2 text-sm text-slate-500 border border-slate-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-              <p className="mt-2 text-xs text-slate-500 italic">Recommended size: 1920x1080, Max video size: 50MB (MP4/WEBM)</p>
-            </div>
+
+                {/* File Upload OR Link Input based on Source Type */}
+                <div className="mb-4 p-4 border border-blue-100 bg-blue-50/50 rounded-lg">
+                  {slide.sourceType === "upload" ? (
+                    <div>
+                      <label className="block mb-2 text-sm font-semibold text-slate-700">Upload {slide.mediaType === "video" ? "Video" : "Image"}</label>
+                      {slide.existingUrl && !slide.file && (
+                        <div className="mb-3">
+                          <p className="text-xs text-green-600 font-semibold mb-1">Current Active {slide.mediaType}</p>
+                          {slide.mediaType === "video" ? (
+                            <video src={slide.existingUrl} className="w-32 rounded shadow" controls muted />
+                          ) : (
+                            <img src={slide.existingUrl} className="w-32 rounded shadow object-cover" alt="slide preview" />
+                          )}
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept={slide.mediaType === "video" ? "video/mp4,video/webm" : "image/png, image/jpeg, image/jpg"}
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            handleSlideFileChange(index, e.target.files[0]);
+                          }
+                        }}
+                        required={!slide.existingUrl && !slide.file}
+                        className="w-full px-3 py-2 text-sm text-slate-500 border border-slate-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700"
+                      />
+                      <p className="mt-1 text-xs text-slate-500 italic">
+                        {slide.mediaType === "video" ? "Max size: 50MB (MP4/WEBM)" : "Max size: 2MB (JPG/PNG)"}
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block mb-2 text-sm font-semibold text-slate-700">Paste {slide.mediaType === "video" ? "YouTube/Video" : "Image"} Link</label>
+                      <input
+                        type="url"
+                        value={slide.mediaUrl}
+                        onChange={(e) => handleSlideChange(index, "mediaUrl", e.target.value)}
+                        required
+                        placeholder={slide.mediaType === "video" ? "https://www.youtube.com/watch?v=..." : "https://example.com/image.jpg"}
+                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Slide Text */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block mb-1 text-xs font-semibold text-slate-600">Slide Title (Optional)</label>
+                    <input
+                      type="text"
+                      value={slide.title}
+                      onChange={(e) => handleSlideChange(index, "title", e.target.value)}
+                      placeholder="e.g. Welcome to Sonani Electronics"
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-xs font-semibold text-slate-600">Slide Subtitle (Optional)</label>
+                    <textarea
+                      value={slide.subtitle}
+                      onChange={(e) => handleSlideChange(index, "subtitle", e.target.value)}
+                      rows="2"
+                      placeholder="Subtitle text..."
+                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* FEATURE CARDS SECTION */}
+        {/* ================= FEATURE CARDS SECTION ================= */}
+        {/* Isko maine bilkul nahi chheda, yeh aapka purana perfectly working code hai */}
         <div className="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
           <h3 className="mb-4 text-xl font-bold text-slate-800">"Why Choose Us" Feature Cards</h3>
-
           <div className="space-y-6">
             {formData.featureCards.map((card, index) => (
               <div key={index} className="p-5 border border-slate-200 rounded-xl bg-slate-50">
                 <h4 className="mb-4 font-bold text-slate-700">Card {index + 1}</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-                  {/* Text Inputs */}
                   <div className="space-y-4">
                     <div>
                       <label className="block mb-1 text-xs font-semibold text-slate-600">Title</label>
@@ -217,7 +360,7 @@ const UserView = () => {
                         value={card.title}
                         onChange={(e) => handleCardChange(index, "title", e.target.value)}
                         required
-                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                     <div>
@@ -227,12 +370,10 @@ const UserView = () => {
                         onChange={(e) => handleCardChange(index, "description", e.target.value)}
                         required
                         rows="2"
-                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
                   </div>
-
-                  {/* Image Input */}
                   <div>
                     <label className="block mb-1 text-xs font-semibold text-slate-600">Card Image</label>
                     {card.existingImage && !card.image && (
@@ -250,9 +391,7 @@ const UserView = () => {
                       }}
                       className="w-full px-3 py-2 text-xs text-slate-500 border border-slate-300 rounded-lg file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700"
                     />
-                    <p className="mt-1 text-xs text-slate-500 italic">Recommended size: 400x300px, Max file size: 2MB (JPG/PNG)</p>
                   </div>
-
                 </div>
               </div>
             ))}
