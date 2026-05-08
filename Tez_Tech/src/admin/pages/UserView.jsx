@@ -91,10 +91,12 @@ const UserView = () => {
       data.append("heroTitle", formData.heroTitle);
       data.append("heroSubtitle", formData.heroSubtitle);
 
+      // Hero Video File append
       if (formData.heroVideo) {
         data.append("heroVideo", formData.heroVideo);
       }
 
+      // Feature cards texts as JSON string
       const featureCardsText = formData.featureCards.map(card => ({
         title: card.title,
         description: card.description,
@@ -102,6 +104,7 @@ const UserView = () => {
       }));
       data.append("featureCards", JSON.stringify(featureCardsText));
 
+      // Append image files individually with exact field names that backend expects
       formData.featureCards.forEach((card, index) => {
         if (card.image) {
           data.append(`featureCards_${index}_image`, card.image);
@@ -109,7 +112,7 @@ const UserView = () => {
       });
 
       const token = localStorage.getItem("token");
-      // 🔥 Localhost ki jagah dynamic API_URL lagaya hai
+      // 🔥 Send update request
       await axios.put(`${API_URL}/api/layout/home`, data, {
         headers: {
           "Content-Type": "multipart/form-data",
@@ -118,7 +121,7 @@ const UserView = () => {
       });
 
       toast.success("Home Layout updated successfully!");
-      fetchLayoutData();
+      fetchLayoutData(); // Refresh the data to show new Cloudinary images/videos
     } catch (error) {
       console.error("Error updating layout:", error);
       toast.error("Failed to update layout. Please try again.");
@@ -180,7 +183,8 @@ const UserView = () => {
               {existingVideo && (
                 <div className="mb-3">
                   <p className="text-xs text-green-600 font-semibold mb-1">Current Video Active</p>
-                  <video src={existingVideo} className="w-48 rounded-lg shadow" muted loop autoPlay />
+                  {/* Added controls for admin to preview video */}
+                  <video src={existingVideo} className="w-48 rounded-lg shadow" muted controls />
                 </div>
               )}
               <input

@@ -1,43 +1,33 @@
+import { v2 as cloudinary } from 'cloudinary';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
-import path from 'path';
-import fs from 'fs';
+import dotenv from 'dotenv';
 
-// Create uploads directory
-const uploadDir = 'uploads';
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// Load environment variables (.env file se API keys lene ke liye)
+dotenv.config();
 
-// Configure storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-  }
+// 1. Cloudinary Credentials Setup
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// File filter
-const fileFilter = (req, file, cb) => {
-  const allowedTypes = /jpeg|jpg|png|gif/;
-  const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = allowedTypes.test(file.mimetype);
+// 2. Configure Cloudinary Storage
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'teztech_uploads', // Cloudinary mein is naam ka folder ban jayega
+    resource_type: 'auto', // 🔥 IMPORTANT: 'auto' isliye taaki Images aur Videos dono upload ho sakein
+    allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'mp4', 'webm'], // Video formats add kar diye
+  },
+});
 
-  if (mimetype && extname) {
-    return cb(null, true);
-  } else {
-    cb(new Error('Images only!'));
-  }
-};
-
-// Create multer instance
+// 3. Create Multer Instance
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 1024 * 1024 * 5 }, // 5MB
-  fileFilter: fileFilter
+  limits: { fileSize: 1024 * 1024 * 50 }, // 🔥 Limit 50MB kar di hai taaki hero video upload ho sake
 });
 
-// ✅ MUST HAVE DEFAULT EXPORT
+// ✅ MUST HAVE DEFAULT EXPORT (Jaisa aapne bataya tha)
 export default upload;

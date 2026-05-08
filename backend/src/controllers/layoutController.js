@@ -1,31 +1,4 @@
-import { v2 as cloudinary } from "cloudinary";
 import HomeLayout from "../models/HomeLayout.js";
-
-// Ensure cloudinary is configured
-const configureCloudinary = () => {
-  if (!cloudinary.config().cloud_name) {
-    cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
-    });
-  }
-};
-
-// Helper function to upload file buffer to Cloudinary
-const uploadToCloudinary = (fileBuffer, resourceType = "auto") => {
-  configureCloudinary();
-  return new Promise((resolve, reject) => {
-    const uploadStream = cloudinary.uploader.upload_stream(
-      { folder: "sonani_layout", resource_type: resourceType },
-      (error, result) => {
-        if (error) return reject(error);
-        resolve(result.secure_url);
-      }
-    );
-    uploadStream.end(fileBuffer);
-  });
-};
 
 /**
  * @desc    Get Home Layout Data
@@ -97,21 +70,23 @@ export const updateHomeLayout = async (req, res) => {
     }
 
     // Handle File Uploads
-    const files = req.files || {};
+    // 🔥 NEW LOGIC: Cloudinary ne file automatically upload kar di hai.
+    // URL ab directly `req.files` array ke andar `path` property me mil jayega!
+    const files = req.files || [];
 
-    // 1. Upload Hero Video if provided
-    if (files.heroVideo && files.heroVideo.length > 0) {
-      const videoUrl = await uploadToCloudinary(files.heroVideo[0].buffer, "video");
-      layout.heroVideo = videoUrl;
+    // 1. Get Hero Video URL if provided
+    const videoFile = files.find(file => file.fieldname === 'heroVideo');
+    if (videoFile) {
+      layout.heroVideo = videoFile.path; // Ye Cloudinary ka secure_url hai
     }
 
-    // 2. Upload Feature Card Images if provided
-    // Expected field names: featureCards_0_image, featureCards_1_image, featureCards_2_image
+    // 2. Get Feature Card Images URLs if provided
     for (let i = 0; i < parsedFeatureCards.length; i++) {
       const fieldName = `featureCards_${i}_image`;
-      if (files[fieldName] && files[fieldName].length > 0) {
-        const imageUrl = await uploadToCloudinary(files[fieldName][0].buffer, "image");
-        parsedFeatureCards[i].image = imageUrl;
+      const imageFile = files.find(file => file.fieldname === fieldName);
+
+      if (imageFile) {
+        parsedFeatureCards[i].image = imageFile.path; // Ye Cloudinary ka secure_url hai
       } else {
         // Retain existing image if not uploaded new one
         if (layout.featureCards && layout.featureCards[i]) {

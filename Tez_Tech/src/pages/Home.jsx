@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
+// 🌐 SMART API URL LOGIC (Local aur Live dono ke liye)
+const API_URL = import.meta.env.VITE_BACKEND_URL || "https://sonani-backend.onrender.com";
+
 const Home = () => {
   const navigate = useNavigate();
   const [layout, setLayout] = useState(null);
@@ -10,7 +13,8 @@ const Home = () => {
   useEffect(() => {
     const fetchLayout = async () => {
       try {
-        const { data } = await axios.get("http://localhost:5000/api/layout/home");
+        // 🔥 Localhost hata kar dynamic API_URL lagaya hai
+        const { data } = await axios.get(`${API_URL}/api/layout/home`);
         setLayout(data);
       } catch (error) {
         console.error("Error fetching home layout:", error);
@@ -129,18 +133,15 @@ const Home = () => {
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3 place-items-center">
             {features.map((feature, index) => (
 
-              /* 📱 MOBILE FIX: tabIndex="0", cursor-pointer, and focus:outline-none added */
               <div
                 key={feature._id || index}
                 tabIndex="0"
                 className="group relative h-80 w-full max-w-[320px] [perspective:1000px] cursor-pointer focus:outline-none"
               >
-                {/* 📱 MOBILE FIX: group-focus:[transform:rotateX(180deg)] added for touch devices */}
                 <div className="absolute duration-1000 w-full h-full [transform-style:preserve-3d] group-hover:[transform:rotateX(180deg)] group-focus:[transform:rotateX(180deg)]">
 
-                  {/* Front Side with Full Image */}
+                  {/* Front Side */}
                   <div className={`absolute w-full h-full rounded-2xl bg-gray-800 text-white [backface-visibility:hidden] shadow-xl overflow-hidden`}>
-                    {/* Background Image */}
                     {feature.image ? (
                       <img 
                         src={feature.image} 
@@ -151,10 +152,8 @@ const Home = () => {
                       <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 z-0"></div>
                     )}
                     
-                    {/* Dark Overlay for text readability */}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20 z-10"></div>
 
-                    {/* Content on top of image */}
                     <div className="relative z-20 flex flex-col h-full p-8">
                       <div className="flex items-start justify-between">
                         <div className="text-2xl font-bold leading-tight drop-shadow-md">{feature.title}</div>
@@ -177,7 +176,6 @@ const Home = () => {
                         </p>
                       </div>
 
-                      {/* Action Button */}
                       <div className="flex items-center justify-between mt-auto">
                         <button
                           onClick={() => navigate('/products')}
