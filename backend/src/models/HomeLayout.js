@@ -22,21 +22,20 @@ const slideSchema = new mongoose.Schema({
   },
   title: { 
     type: String, 
-    default: "Welcome to Sonani Electronics" 
+    default: "" // Admin aakar update karega, shuru mein blank rakhte hain taaki frontend pe placeholder dikh sake
   },
   subtitle: { 
     type: String, 
-    default: "Your trusted partner for premium electronic components and cutting-edge solutions." 
+    default: "" // Admin aakar update karega, shuru mein blank rakhte hain taaki frontend pe placeholder dikh sake  
   }
 });
-
 // ==========================================
 // 2. Feature Card Schema (Aapka purana wala)
 // ==========================================
 const featureCardSchema = new mongoose.Schema({
   image: {
     type: String, // Cloudinary URL
-    default: "",
+    default: "", // begin mein blank rakhte hain, admin aakar update karega
   },
   title: {
     type: String,

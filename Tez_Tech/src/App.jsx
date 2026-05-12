@@ -48,6 +48,7 @@ import TermsOfService from "./pages/Footer/TermsOfService";
 import AdminDashboard from "./admin/pages/AdminDashboard";
 import AdminProducts from "./admin/pages/AdminProducts";
 import AdminProductCsvManagement from "./admin/pages/AdminProductCsvManagement";
+import AddProductManually from "./admin/pages/AddProductManually"; // 🔥 NAYA IMPORT
 import AdminCategoryManagement from "./admin/pages/AdminCategoryManagement";
 import AdminOrders from "./admin/pages/AdminOrders";
 import AdminUsers from "./admin/pages/AdminUsers";
@@ -103,6 +104,8 @@ function App() {
 
             <Route path="products" element={<AdminProducts />} />
             <Route path="products/csv-management" element={<AdminProductCsvManagement />} />
+            {/* 🔥 NAYI ROUTE ADD KI GAYI HAI 👇 */}
+            <Route path="products/add" element={<AddProductManually />} />
             <Route path="categories" element={<AdminCategoryManagement />} />
 
             {/* ✅ ORDER ROUTES: 'create' hamesha ':id' se upar hona chahiye */}

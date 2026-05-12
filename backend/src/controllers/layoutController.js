@@ -17,8 +17,8 @@ export const getHomeLayout = async (req, res) => {
             mediaType: "image",
             sourceType: "upload",
             mediaUrl: "", // Admin aakar update karega
-            title: "Welcome to Sonani Electronics",
-            subtitle: "Your trusted partner for premium electronic components and cutting-edge solutions. Built for innovators, by experts.",
+            title: "",
+            subtitle: "",
           }
         ],
         featureCards: [

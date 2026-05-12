@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom"; // 🔥 Added Link for navigation
 import axios from "axios";
 import {
   FaCloudUploadAlt,
@@ -12,6 +13,8 @@ import {
   FaBoxOpen,
   FaCheckCircle,
   FaTimesCircle,
+  FaPlus,
+  FaDownload
 } from "react-icons/fa";
 
 const API = "https://sonani-backend.onrender.com/api/products";
@@ -46,6 +49,24 @@ const AdminProductCsvManagement = () => {
     fetchData();
   }, []);
 
+  // 🔥 NAYA: Download Demo CSV Logic
+  const handleDownloadDemo = () => {
+    // Apne backend schema ke hisaab se headers update kar lena agar zaroorat ho
+    const csvHeaders = "name,description,price,mrp,gst_percent,category,stock,images,variations\n";
+    const sampleData = "Sample Product,This is a test description,999,1499,18,Electronics,50,http://image1.jpg|http://image2.jpg,Size:M:Red|Size:L:Blue\n";
+    
+    const csvContent = csvHeaders + sampleData;
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = window.URL.createObjectURL(blob);
+    
+    link.setAttribute("href", url);
+    link.setAttribute("download", "TezTech_Demo_Template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -79,7 +100,7 @@ const AdminProductCsvManagement = () => {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "products.csv";
+      a.download = "teztech_all_products.csv";
       a.click();
     } catch {
       alert("❌ Export failed");
@@ -108,7 +129,6 @@ const AdminProductCsvManagement = () => {
     }
   };
 
-  // 🔥 Helper function for colorful status badges
   const getStatusBadge = (status) => {
     const statusStyles = {
       completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -127,41 +147,54 @@ const AdminProductCsvManagement = () => {
     <div className="min-h-screen p-6 font-sans text-gray-800 bg-gray-50/50 md:p-10">
       
       {/* 🚀 HEADER SECTION */}
-      <div className="flex flex-col justify-between gap-4 mb-8 md:flex-row md:items-center">
+      <div className="flex flex-col justify-between gap-4 mb-8 xl:flex-row xl:items-center">
         <div>
           <h1 className="flex items-center gap-3 text-3xl font-extrabold text-transparent md:text-4xl bg-clip-text bg-gradient-to-r from-violet-600 to-indigo-600">
             <FaHistory className="text-violet-600" /> CSV Manager Pro
           </h1>
-          <p className="mt-1 font-medium text-gray-500">Manage your product imports and exports like a boss 😎</p>
+          <p className="mt-1 font-medium text-gray-500">Manage your product imports, exports, and manual entries like a boss 😎</p>
         </div>
 
-        {/* ACTIONS */}
-        <div className="flex gap-4">
-          <input type="file" hidden ref={fileRef} onChange={handleUpload} accept=".csv" />
+        {/* 🔥 NEW ACTIONS GROUP */}
+        <div className="flex flex-wrap gap-3">
           
+          <Link 
+            to="/admin/products/add" 
+            className="flex items-center gap-2 px-5 py-2.5 font-semibold text-white transition-all duration-300 shadow-lg bg-blue-600 rounded-xl hover:bg-blue-700 hover:-translate-y-1"
+          >
+            <FaPlus /> Add Manually
+          </Link>
+
+          <button 
+            onClick={handleDownloadDemo}
+            className="flex items-center gap-2 px-5 py-2.5 font-semibold text-gray-700 bg-white border border-gray-300 transition-all duration-300 shadow-sm rounded-xl hover:bg-gray-50 hover:-translate-y-1"
+          >
+            <FaDownload /> Demo CSV
+          </button>
+
+          <input type="file" hidden ref={fileRef} onChange={handleUpload} accept=".csv" />
           <button 
             onClick={() => fileRef.current.click()} 
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-3 font-semibold text-white transition-all duration-300 shadow-lg group bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl hover:shadow-indigo-500/40 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-5 py-2.5 font-semibold text-white transition-all duration-300 shadow-lg bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl hover:shadow-indigo-500/40 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <FaCloudUploadAlt className="text-xl transition-transform group-hover:scale-110" /> 
+            <FaCloudUploadAlt className="text-lg" /> 
             {loading ? "Uploading..." : "Upload CSV"}
           </button>
 
           <button 
             onClick={handleExport} 
             disabled={loading}
-            className="flex items-center gap-2 px-6 py-3 font-semibold text-white transition-all duration-300 shadow-lg group bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:shadow-teal-500/40 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-5 py-2.5 font-semibold text-white transition-all duration-300 shadow-lg bg-gradient-to-r from-emerald-500 to-teal-500 rounded-xl hover:shadow-teal-500/40 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <FaFileExport className="text-xl transition-transform group-hover:scale-110" /> 
-            Export CSV
+            <FaFileExport className="text-lg" /> 
+            Export All
           </button>
         </div>
       </div>
 
-      {/* 📊 OVERVIEW CARDS (Tadkta Bhadkta Gradients) */}
+      {/* 📊 OVERVIEW CARDS */}
       <div className="grid grid-cols-1 gap-6 mb-10 md:grid-cols-3">
-        
         <div className="relative overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 p-6 rounded-2xl shadow-xl shadow-indigo-200 text-white group hover:scale-[1.02] transition-transform duration-300">
           <div className="absolute transition-transform duration-500 -right-6 -top-6 text-white/20 text-8xl group-hover:rotate-12"><FaBoxOpen /></div>
           <p className="mb-1 text-lg font-medium text-indigo-100">Total Jobs Run</p>
@@ -179,7 +212,6 @@ const AdminProductCsvManagement = () => {
           <p className="mb-1 text-lg font-medium text-red-100">Total Failed</p>
           <h3 className="text-5xl font-black tracking-tight">{overview.totalFailed || 0}</h3>
         </div>
-
       </div>
 
       {/* 📋 TABLE SECTION */}
@@ -248,7 +280,7 @@ const AdminProductCsvManagement = () => {
         </div>
       </div>
 
-      {/* 🔮 MODAL (Glassmorphism) */}
+      {/* 🔮 MODAL */}
       {selectedJob && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-md p-8 transition-all transform scale-100 bg-white shadow-2xl rounded-3xl">
