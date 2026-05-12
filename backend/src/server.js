@@ -29,7 +29,8 @@ app.use(
       "http://localhost:5000",
       "https://teztech-mern-ecommerce-ixig.vercel.app", 
       "https://www.sonanielectronics.in", 
-      "https://sonanielectronics.in"
+      "https://sonanielectronics.in",
+      "https://poly.teztech.in"
     ],
     credentials: true,
   })
