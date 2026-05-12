@@ -77,12 +77,12 @@ const MyOrders = () => {
                       {/* 🔥 THE FIX: Dynamic Payment Badge */}
                       <p className={`mt-1 inline-block px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide rounded ${
                         order.paymentMethod === "ONLINE" ? "bg-green-100 text-green-700" : 
-                        order.paymentMethod === "MANUAL" ? "bg-blue-100 text-blue-700" :
+                        order.paymentMethod === "MANUAL TRANSFER" ? "bg-blue-100 text-blue-700" :
                         order.paymentMethod === "STORE_PICKUP" ? "bg-purple-100 text-purple-700" :
                         "bg-yellow-100 text-yellow-800"
                       }`}>
                         {order.paymentMethod === "ONLINE" ? "ONLINE" : 
-                         order.paymentMethod === "MANUAL" ? "MANUAL (UPI)" : 
+                         order.paymentMethod === "MANUAL TRANSFER" ? "MANUAL (UPI)" : 
                          order.paymentMethod === "STORE_PICKUP" ? "STORE PICKUP" : 
                          "COD"}
                       </p>

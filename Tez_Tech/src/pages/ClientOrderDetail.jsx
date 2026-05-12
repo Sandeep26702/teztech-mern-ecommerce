@@ -57,8 +57,39 @@ const ClientOrderDetail = () => {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const trackingSteps = ["Confirmed", "Processing", "Shipping", "Out for Delivery", "Delivered"];
-  const currentStep = trackingSteps.indexOf(order?.orderStatus) !== -1 ? trackingSteps.indexOf(order?.orderStatus) : 0;
+  const getTrackingInfo = (status) => {
+    if (!status) return { steps: [], currentIndex: 0, isCancelled: false };
+    
+    const isCancelled = ["Cancelled", "Delivery Canceled", "Returned"].includes(status);
+    
+    let steps = [
+      { label: "Order Placed", key: "Awaiting Processing" },
+      { label: "Processing", key: "Processing" },
+      { label: "Shipped", key: "Shipped" },
+      { label: "Out for Delivery", key: "Out For Delivery" },
+      { label: "Delivered", key: "Delivered" },
+    ];
+
+    if (isCancelled) {
+      steps = [
+        { label: "Order Placed", key: "Awaiting Processing" },
+        { label: "Cancelled", key: status },
+      ];
+    }
+
+    let currentIndex = 0;
+    
+    if (status === "Awaiting Processing") currentIndex = 0;
+    else if (status === "Processing") currentIndex = 1;
+    else if (status === "Ready For Pickup" || status === "Shipped") currentIndex = 2;
+    else if (status === "Out For Delivery") currentIndex = 3;
+    else if (status === "Delivered") currentIndex = 4;
+    else if (isCancelled) currentIndex = 1;
+
+    return { steps, currentIndex, isCancelled };
+  };
+
+  const { steps: trackingSteps, currentIndex: currentStep, isCancelled } = getTrackingInfo(order?.orderStatus);
 
   useEffect(() => {
     const fetchOrder = async () => {
@@ -125,17 +156,32 @@ const ClientOrderDetail = () => {
               <h2 className="mb-6 text-lg font-bold text-slate-900">Track Order</h2>
               <div className="relative flex items-center justify-between w-full">
                 <div className="absolute left-0 w-full h-1 -translate-y-1/2 rounded-full bg-slate-100 top-1/2"></div>
-                <div className="absolute left-0 h-1 transition-all duration-500 -translate-y-1/2 bg-green-500 rounded-full top-1/2" style={{ width: `${(currentStep / (trackingSteps.length - 1)) * 100}%` }}></div>
+                <div className={`absolute left-0 h-1 transition-all duration-500 -translate-y-1/2 rounded-full top-1/2 ${isCancelled ? 'bg-red-500' : 'bg-green-500'}`} style={{ width: `${trackingSteps.length > 1 ? (currentStep / (trackingSteps.length - 1)) * 100 : 100}%` }}></div>
                 
                 {trackingSteps.map((step, index) => {
                   const isCompleted = index <= currentStep;
+                  const isCurrentCancelled = isCancelled && index === currentStep;
+                  
                   return (
-                    <div key={step} className="relative flex flex-col items-center group">
-                      <div className={`w-8 h-8 flex items-center justify-center rounded-full border-2 z-10 transition-all duration-300 ${isCompleted ? 'bg-green-500 border-green-500 text-white' : 'bg-white border-slate-200 text-slate-300'}`}>
-                        {isCompleted ? <FaCheckCircle className="w-4 h-4" /> : <div className="w-2.5 h-2.5 rounded-full bg-slate-200"></div>}
+                    <div key={step.label} className="relative flex flex-col items-center group">
+                      <div className={`w-8 h-8 flex items-center justify-center rounded-full border-2 z-10 transition-all duration-300 ${
+                        isCurrentCancelled ? 'bg-red-500 border-red-500 text-white' : 
+                        isCompleted ? 'bg-green-500 border-green-500 text-white' : 
+                        'bg-white border-slate-200 text-slate-300'
+                      }`}>
+                        {isCurrentCancelled ? (
+                          <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
+                        ) : isCompleted ? (
+                          <FaCheckCircle className="w-4 h-4" />
+                        ) : (
+                          <div className="w-2.5 h-2.5 rounded-full bg-slate-200"></div>
+                        )}
                       </div>
-                      <span className={`absolute top-10 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-center w-20 -ml-6 ${isCompleted ? 'text-slate-800' : 'text-slate-400'}`}>
-                        {step}
+                      <span className={`absolute top-10 text-[10px] sm:text-xs font-bold uppercase tracking-wider text-center w-24 -ml-8 ${
+                        isCurrentCancelled ? 'text-red-600' :
+                        isCompleted ? 'text-slate-800' : 'text-slate-400'
+                      }`}>
+                        {step.label}
                       </span>
                     </div>
                   );
@@ -213,15 +259,17 @@ const ClientOrderDetail = () => {
               <div className="mb-4">
                 <span className={`inline-block px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-md ${
                   order.paymentMethod === "ONLINE" ? "bg-green-100 text-green-700" :
-                  order.paymentMethod === "MANUAL" ? "bg-blue-100 text-blue-700" :
+                  order.paymentMethod === "MANUAL TRANSFER" ? "bg-blue-100 text-blue-700" :
                   order.paymentMethod === "STORE_PICKUP" ? "bg-purple-100 text-purple-700" :
                   "bg-yellow-100 text-yellow-800"
                 }`}>
                   {order.paymentMethod === "ONLINE" ? "Online Payment" : 
-                   order.paymentMethod === "MANUAL" ? "Manual Transfer (UPI)" : 
+                   order.paymentMethod === "MANUAL TRANSFER" ? "Manual Transfer (UPI)" : 
                    order.paymentMethod === "STORE_PICKUP" ? "Store Pickup" : "Cash on Delivery"}
                 </span>
-                <span className="ml-2 inline-block px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-md bg-slate-100 text-slate-700">
+                <span className={`ml-2 inline-block px-2.5 py-1 text-[10px] font-black uppercase tracking-widest rounded-md ${
+                  order.paymentStatus === "Paid" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                }`}>
                   {order.paymentStatus}
                 </span>
               </div>
