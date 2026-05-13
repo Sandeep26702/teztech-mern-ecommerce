@@ -9,7 +9,6 @@ import {
   createProduct,
   updateProduct,
   deleteProduct,
-  updateProductStatus,
   getProductCategories,
   getImportOverview,
   getImportHistory,
