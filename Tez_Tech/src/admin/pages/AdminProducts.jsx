@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { FaSearch, FaFileImport, FaSyncAlt, FaExternalLinkAlt } from "react-icons/fa";
+import { FaSearch, FaFileImport, FaSyncAlt, FaExternalLinkAlt, FaPlus } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 
 const API_BASE_URL = "https://sonani-backend.onrender.com/api";
@@ -132,10 +132,18 @@ const AdminProducts = () => {
             >
               <FaSyncAlt /> Refresh
             </button>
-            <label className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition-colors shadow-sm cursor-pointer bg-emerald-600 rounded-xl hover:bg-emerald-700">
-              <FaFileImport /> Upload CSV Catalog
-              <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
-            </label>
+            <button
+              onClick={() => navigate("/admin/products/csv-management")}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition-colors shadow-sm bg-blue-600 rounded-xl hover:bg-blue-700"
+            >
+              <FaFileImport /> CSV Manager
+            </button>
+            <button
+              onClick={() => navigate("/admin/products/add")}
+              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition-colors shadow-sm bg-emerald-600 rounded-xl hover:bg-emerald-700"
+            >
+              <FaPlus /> Add Product
+            </button>
           </div>
         </div>
 
