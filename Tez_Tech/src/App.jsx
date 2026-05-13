@@ -106,6 +106,7 @@ function App() {
             <Route path="products/csv-management" element={<AdminProductCsvManagement />} />
             {/* 🔥 NAYI ROUTE ADD KI GAYI HAI 👇 */}
             <Route path="products/add" element={<AddProductManually />} />
+            <Route path="products/edit/:id" element={<AddProductManually />} />
             <Route path="categories" element={<AdminCategoryManagement />} />
 
             {/* ✅ ORDER ROUTES: 'create' hamesha ':id' se upar hona chahiye */}

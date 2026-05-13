@@ -11,14 +11,27 @@ const AdminProducts = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
-  const loadProducts = async () => {
+  // Debounce search input
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
+
+  const loadProducts = async (query = "") => {
     try {
       setLoading(true);
-      const res = await axios.get(`${API_BASE_URL}/products/admin`, {
+      const url = query 
+        ? `${API_BASE_URL}/products/admin?search=${encodeURIComponent(query)}` 
+        : `${API_BASE_URL}/products/admin`;
+        
+      const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.data.success) {
@@ -33,32 +46,59 @@ const AdminProducts = () => {
   };
 
   useEffect(() => {
-    loadProducts();
+    loadProducts(debouncedSearch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [debouncedSearch]);
 
-  const filteredProducts = useMemo(() => {
-    const q = normalizeText(search);
-    if (!q) return products;
-    return products.filter((product) => {
-      const text = [
-        product?.name,
-        product?.sku,
-        Array.isArray(product?.searchTags) ? product.searchTags.join(" ") : "",
-      ]
-        .map((value) => normalizeText(value))
-        .join(" ");
-      return text.includes(q);
-    });
-  }, [products, search]);
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to permanently delete this product?")) {
+      try {
+        const res = await axios.delete(`${API_BASE_URL}/products/admin/${id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.data.success) {
+          setProducts(products.filter(p => p._id !== id));
+        }
+      } catch (err) {
+        alert("Failed to delete product");
+      }
+    }
+  };
+
+  const handleCsvUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      setLoading(true);
+      const res = await axios.post(`${API_BASE_URL}/products/bulk-upload`, formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data" 
+        }
+      });
+      if (res.data.success) {
+        alert(res.data.message);
+        loadProducts(debouncedSearch);
+      }
+    } catch (err) {
+      alert("CSV upload failed: " + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
+      e.target.value = null; // Reset input
+    }
+  };
 
   const handleStatusToggle = async (product) => {
     const nextStatus = normalizeText(product?.status) === "active" ? "Hidden" : "Active";
     try {
       setUpdatingId(product._id);
       const res = await axios.patch(
-        `${API_BASE_URL}/products/${product._id}/status`,
-        { status: nextStatus },
+        `${API_BASE_URL}/products/admin/${product._id}/visibility`,
+        {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (res.data.success) {
@@ -92,12 +132,10 @@ const AdminProducts = () => {
             >
               <FaSyncAlt /> Refresh
             </button>
-            <button
-              onClick={() => navigate("/admin/products/csv-management")}
-              className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition-colors shadow-sm bg-emerald-600 rounded-xl hover:bg-emerald-700"
-            >
+            <label className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white transition-colors shadow-sm cursor-pointer bg-emerald-600 rounded-xl hover:bg-emerald-700">
               <FaFileImport /> Upload CSV Catalog
-            </button>
+              <input type="file" accept=".csv" className="hidden" onChange={handleCsvUpload} />
+            </label>
           </div>
         </div>
 
@@ -142,7 +180,7 @@ const AdminProducts = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {filteredProducts.map((product) => {
+                {products.map((product) => {
                   const isActive = normalizeText(product.status) === "active";
                   const imageUrl =
                     product?.images?.[0] ||
@@ -204,21 +242,27 @@ const AdminProducts = () => {
                           {updatingId === productId ? "..." : isActive ? "Active" : "Hidden"}
                         </button>
                       </td>
-                      <td className="px-6 py-3 text-center">
-                        {/* 🟢 NEW: Dedicated View Button */}
+                      <td className="flex items-center gap-2 px-6 py-3 text-center">
                         <button
-                          onClick={() => navigate(`/product/${productId}`)}
+                          onClick={() => navigate(`/admin/products/edit/${productId}`)}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-blue-600 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 hover:text-blue-700 transition-colors whitespace-nowrap"
-                          title="View Product Details"
+                          title="Edit Product"
                         >
-                          <FaExternalLinkAlt size={10} /> View
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(productId)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 hover:text-red-700 transition-colors whitespace-nowrap"
+                          title="Delete Product"
+                        >
+                          Delete
                         </button>
                       </td>
                     </tr>
                   );
                 })}
 
-                {!loading && filteredProducts.length === 0 && (
+                {!loading && products.length === 0 && (
                   <tr>
                     <td colSpan="7" className="px-6 py-16 text-center">
                       <div className="flex flex-col items-center justify-center">

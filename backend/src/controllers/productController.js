@@ -1,6 +1,7 @@
 import Product from "../models/Product.js";
 import ProductImportJob from "../models/ProductImportJob.js";
 import Category from "../models/Category.js";
+import { v2 as cloudinary } from 'cloudinary';
 
 const DEFAULT_PRODUCT_IMAGE = "https://placehold.co/600x600?text=Product";
 
@@ -137,7 +138,19 @@ export const getProducts = async (req, res) => {
 
 export const getProductsAdmin = async (req, res) => {
   try {
-    const products = await Product.find().lean();
+    const { search } = req.query;
+    let query = {};
+    if (search) {
+      query = {
+        $or: [
+          { name: { $regex: search, $options: 'i' } },
+          { baseSku: { $regex: search, $options: 'i' } },
+          { searchTags: { $regex: search, $options: 'i' } },
+          { category: { $regex: search, $options: 'i' } }
+        ]
+      };
+    }
+    const products = await Product.find(query).sort({ createdAt: -1 }).lean();
     res.json({ success: true, products });
   } catch (err) {
     console.error("ADMIN ERROR:", err);
@@ -246,7 +259,7 @@ export const updateProduct = async (req, res) => {
       sku, name, status, searchTags, description, 
       mrp, sellingPrice, gst, shippingCharge, stock, 
       category1, category2, category3,
-      specifications, variations 
+      specifications, variations, deletedImages 
     } = req.body;
 
     const updateData = {};
@@ -291,7 +304,33 @@ export const updateProduct = async (req, res) => {
       } catch(e) {}
     }
 
-    // Handle images
+    // Process deleted images
+    if (deletedImages) {
+      const imagesToDelete = typeof deletedImages === "string" ? JSON.parse(deletedImages) : deletedImages;
+      
+      // Ensure Cloudinary configuration
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+
+      for (const imgUrl of imagesToDelete) {
+        if (imgUrl && imgUrl.includes("cloudinary.com")) {
+          try {
+            const parts = imgUrl.split("/");
+            const filename = parts[parts.length - 1];
+            const publicId = filename.split(".")[0];
+            const folder = parts[parts.length - 2]; 
+            await cloudinary.uploader.destroy(`${folder}/${publicId}`);
+          } catch (e) {
+            console.error("Cloudinary delete error:", e);
+          }
+        }
+      }
+    }
+
+    // Handle new images
     const imageUrls = [];
     if (req.files && req.files.length > 0) {
       req.files.forEach(file => imageUrls.push(file.path));
@@ -328,20 +367,47 @@ export const updateProduct = async (req, res) => {
 
 export const deleteProduct = async (req, res) => {
   try {
+    const product = await Product.findById(req.params.id);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    // Ensure Cloudinary configuration
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+
+    const allImages = [...new Set([...(product.images || []), product.image])].filter(Boolean);
+    for (const imgUrl of allImages) {
+      if (imgUrl.includes("cloudinary.com")) {
+        try {
+          const parts = imgUrl.split("/");
+          const filename = parts[parts.length - 1];
+          const publicId = filename.split(".")[0];
+          const folder = parts[parts.length - 2]; 
+          await cloudinary.uploader.destroy(`${folder}/${publicId}`);
+        } catch (e) {
+          console.error("Cloudinary delete error:", e);
+        }
+      }
+    }
+
     await Product.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
+    res.json({ success: true, message: "Product deleted permanently" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
-export const updateProductStatus = async (req, res) => {
+export const toggleVisibility = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ message: "Product not found" });
-    product.status = req.body.status;
+    
+    product.status = (product.status === "Active" || product.status === "active") ? "Inactive" : "Active";
     await product.save();
-    res.json({ success: true });
+    
+    res.json({ success: true, status: product.status });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

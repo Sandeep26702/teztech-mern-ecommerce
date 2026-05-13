@@ -17,6 +17,7 @@ import {
   deleteImportHistory,
   importProductsCsv,
   exportProductsCsv,
+  toggleVisibility
 } from "../controllers/productController.js";
 
 import { protect, authorize } from "../middleware/auth.Middleware.js";
@@ -79,10 +80,10 @@ router.delete(
 );
 
 router.patch(
-  "/admin/:id/status",
+  "/admin/:id/visibility",
   protect,
   authorize("admin", "subadmin"),
-  updateProductStatus
+  toggleVisibility
 );
 
 // ===============================
@@ -90,6 +91,15 @@ router.patch(
 // ===============================
 router.post(
   "/import/csv",
+  protect,
+  authorize("admin", "subadmin"),
+  csvUpload.single("file"),
+  importProductsCsv
+);
+
+// Alias for import/csv as requested
+router.post(
+  "/bulk-upload",
   protect,
   authorize("admin", "subadmin"),
   csvUpload.single("file"),

@@ -1,16 +1,17 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useParams } from "react-router-dom";
 import axios from "axios";
 // 🔥 FIXED: Added FaTimes here
 import { FaArrowLeft, FaPlus, FaTrash, FaCloudUploadAlt, FaSave, FaTags, FaRulerCombined, FaTimes } from "react-icons/fa";
 
-// Using local API to test newly added backend changes
-// Once tested and deployed, you can switch back to the Render URL
-const API = "http://localhost:5000/api";
+// Pointing to live Render URL so it works on all devices
+const API = "https://sonani-backend.onrender.com/api";
 
 const AddProductManually = () => {
+  const { id } = useParams();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [deletedImages, setDeletedImages] = useState([]);
 
   // ==========================================
   // 1. CORE FORM STATE (Based on CSV Columns)
@@ -61,6 +62,63 @@ const AddProductManually = () => {
   const [images, setImages] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
 
+  // ==========================================
+  // FETCH PRODUCT FOR EDIT
+  // ==========================================
+  useEffect(() => {
+    if (id) {
+      const fetchProduct = async () => {
+        try {
+          const res = await axios.get(`${API}/products/${id}`);
+          if (res.data.success) {
+            const p = res.data.product;
+            setFormData({
+              sku: p.baseSku || p.sku || "",
+              name: p.name || "",
+              status: p.status || "Active",
+              searchTags: p.searchTags ? p.searchTags.join(", ") : "",
+              description: p.description || "",
+              mrp: p.mrp || "",
+              sellingPrice: p.price || "",
+              gst: p.gstRate || "",
+              shippingCharge: p.shippingCharge || "",
+              stock: p.stock || "",
+              category1: p.category || p.categories?.[0] || "",
+              category2: p.categories?.[1] || "",
+              category3: p.categories?.[2] || "",
+            });
+
+            if (p.details && p.details.length > 0) {
+              setSpecifications(p.details);
+            }
+
+            if (p.attributes && p.attributes.length > 0) {
+              const vars = [];
+              p.attributes.forEach(attr => {
+                attr.options.forEach(opt => {
+                  vars.push({
+                    group: attr.name,
+                    option: opt.value,
+                    priceOffset: opt.priceAdjustment || 0,
+                    sku: opt.meta?.sku || "",
+                    stock: opt.meta?.stock || ""
+                  });
+                });
+              });
+              setVariations(vars);
+            }
+
+            const existingImages = [...new Set([...(p.images || []), p.image])].filter(Boolean);
+            setImagePreviews(existingImages);
+          }
+        } catch (error) {
+          console.error("Failed to fetch product:", error);
+        }
+      };
+      fetchProduct();
+    }
+  }, [id]);
+
   // --- Handlers ---
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -93,7 +151,23 @@ const AddProductManually = () => {
   };
 
   const removeImage = (index) => {
-    setImages(images.filter((_, i) => i !== index));
+    const preview = imagePreviews[index];
+    // If it's a remote URL, mark it for deletion in Cloudinary
+    if (preview.startsWith("http")) {
+      setDeletedImages(prev => [...prev, preview]);
+    } else {
+      // It's a new local file, so we need to remove from the `images` state too
+      // The images state only contains File objects (newly added), so we find its index
+      // Since existing images aren't in `images`, the index in `images` array is different.
+      // But a simpler way is to just filter by object URL if needed, or re-calculate.
+      // Assuming images are added at the end:
+      const localFilesCount = images.length;
+      const remoteUrlsCount = imagePreviews.length - localFilesCount;
+      if (index >= remoteUrlsCount) {
+        const fileIndex = index - remoteUrlsCount;
+        setImages(images.filter((_, i) => i !== fileIndex));
+      }
+    }
     setImagePreviews(imagePreviews.filter((_, i) => i !== index));
   };
 
@@ -122,13 +196,25 @@ const AddProductManually = () => {
         submitData.append("images", image);
       });
 
-      const token = localStorage.getItem("token");
-      await axios.post(`${API}/products/admin`, submitData, {
-        headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` },
-      });
+      if (deletedImages.length > 0) {
+        submitData.append("deletedImages", JSON.stringify(deletedImages));
+      }
 
-      alert("🎉 Product Added Successfully!");
-      navigate("/admin/products/csv-management");
+      const token = localStorage.getItem("token");
+      
+      if (id) {
+        await axios.put(`${API}/products/admin/${id}`, submitData, {
+          headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` },
+        });
+        alert("🎉 Product Updated Successfully!");
+      } else {
+        await axios.post(`${API}/products/admin`, submitData, {
+          headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` },
+        });
+        alert("🎉 Product Added Successfully!");
+      }
+      
+      navigate("/admin/products");
 
     } catch (error) {
       console.error(error);
@@ -149,13 +235,13 @@ const AddProductManually = () => {
               <FaArrowLeft />
             </Link>
             <div>
-              <h1 className="text-3xl font-extrabold text-gray-900">Add Advanced Product</h1>
-              <p className="text-gray-500">Create product with variations perfectly aligned with your CSV schema.</p>
+              <h1 className="text-3xl font-extrabold text-gray-900">{id ? "Edit Product" : "Add Advanced Product"}</h1>
+              <p className="text-gray-500">Create or edit product with variations perfectly aligned with your CSV schema.</p>
             </div>
           </div>
           
           <button onClick={handleSubmit} disabled={loading} className="flex items-center gap-2 px-6 py-3 font-bold text-white transition-transform shadow-lg bg-gradient-to-r from-emerald-600 to-teal-600 rounded-xl hover:-translate-y-1 disabled:opacity-70">
-            {loading ? <span className="animate-pulse">Saving...</span> : <><FaSave /> Save Product</>}
+            {loading ? <span className="animate-pulse">Saving...</span> : <><FaSave /> {id ? "Update Product" : "Save Product"}</>}
           </button>
         </div>
 
@@ -322,14 +408,14 @@ const AddProductManually = () => {
             <div className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-bold text-gray-800">Images</h3>
-                <span className="text-xs font-bold text-gray-500">{images.length}/3 Uploaded</span>
+                <span className="text-xs font-bold text-gray-500">{imagePreviews.length}/3 Uploaded</span>
               </div>
               
-              {images.length < 3 && (
+              {imagePreviews.length < 3 && (
                 <div className="relative flex flex-col items-center justify-center p-6 mb-4 border-2 border-gray-300 border-dashed cursor-pointer rounded-xl bg-gray-50 hover:bg-gray-100">
                   <input type="file" multiple accept="image/*" onChange={handleImageChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
                   <FaCloudUploadAlt className="mb-2 text-3xl text-gray-400" />
-                  <p className="text-sm font-semibold text-gray-600">Upload Image_{images.length + 1}</p>
+                  <p className="text-sm font-semibold text-gray-600">Upload Image_{imagePreviews.length + 1}</p>
                 </div>
               )}
 
