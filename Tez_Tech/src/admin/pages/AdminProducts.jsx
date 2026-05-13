@@ -156,7 +156,7 @@ const AdminProducts = () => {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/30">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Catalog</h2>
-            <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase mt-0.5">Showing {filteredProducts.length} products</p>
+            <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase mt-0.5">Showing {products.length} products</p>
           </div>
         </div>
 
