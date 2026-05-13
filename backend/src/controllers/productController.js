@@ -167,30 +167,162 @@ export const getProductBySlug = async (req, res) => {
 
 export const createProduct = async (req, res) => {
   try {
-    const product = await Product.create({
-      ...req.body,
-      user: req.user?._id || null,
-      image: req.file?.path || DEFAULT_PRODUCT_IMAGE,
+    const { 
+      sku, name, status, searchTags, description, 
+      mrp, sellingPrice, gst, shippingCharge, stock, 
+      category1, category2, category3,
+      specifications, variations 
+    } = req.body;
+
+    const baseSku = sku || `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    let parsedSpecs = [];
+    let parsedVars = [];
+    try { if (specifications) parsedSpecs = JSON.parse(specifications); } catch (e) {}
+    try { if (variations) parsedVars = JSON.parse(variations); } catch (e) {}
+
+    // Process variations into attributes format expected by schema
+    const attributesMap = {};
+    parsedVars.forEach(v => {
+      if (!v.group || !v.option) return;
+      if (!attributesMap[v.group]) attributesMap[v.group] = [];
+      attributesMap[v.group].push({
+        value: v.option,
+        priceAdjustment: Number(v.priceOffset) || 0,
+        meta: { sku: v.sku, stock: v.stock }
+      });
     });
-    res.status(201).json({ success: true, product });
+    
+    const attributesArray = Object.keys(attributesMap).map(group => ({
+      name: group,
+      type: "select",
+      options: attributesMap[group]
+    }));
+
+    // Handle images
+    const imageUrls = [];
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => imageUrls.push(file.path));
+    } else if (req.file) {
+      imageUrls.push(req.file.path);
+    }
+
+    const categories = [category1, category2, category3].filter(Boolean);
+
+    const product = await Product.create({
+      baseSku,
+      name,
+      description,
+      price: Number(sellingPrice) || 0,
+      stock: Number(stock) || 0,
+      status: status || 'Active',
+      category: category1, // Main category
+      categories,
+      gstRate: Number(gst) || 0,
+      shippingCharge: Number(shippingCharge) || 0,
+      searchTags: searchTags ? searchTags.split(',').map(t => t.trim()) : [],
+      details: parsedSpecs,
+      attributes: attributesArray,
+      hasVariants: attributesArray.length > 0,
+      user: req.user?._id || null,
+      image: imageUrls.length > 0 ? imageUrls[0] : DEFAULT_PRODUCT_IMAGE,
+      images: imageUrls,
+    });
+
+    res.status(201).json({ 
+      success: true, 
+      message: "Product created successfully",
+      product 
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error("CREATE PRODUCT ERROR:", err);
+    res.status(500).json({ success: false, message: "Server error while creating product", error: err.message });
   }
 };
 
 export const updateProduct = async (req, res) => {
   try {
+    const { 
+      sku, name, status, searchTags, description, 
+      mrp, sellingPrice, gst, shippingCharge, stock, 
+      category1, category2, category3,
+      specifications, variations 
+    } = req.body;
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (description) updateData.description = description;
+    if (sellingPrice) updateData.price = Number(sellingPrice);
+    if (category1) updateData.category = category1;
+    if (stock !== undefined) updateData.stock = Number(stock);
+    if (status) updateData.status = status;
+    if (sku) updateData.baseSku = sku;
+    if (gst) updateData.gstRate = Number(gst);
+    if (shippingCharge) updateData.shippingCharge = Number(shippingCharge);
+    if (searchTags) updateData.searchTags = searchTags.split(',').map(t => t.trim());
+    
+    if (category1 || category2 || category3) {
+      updateData.categories = [category1, category2, category3].filter(Boolean);
+    }
+
+    if (specifications) {
+      try { updateData.details = JSON.parse(specifications); } catch(e) {}
+    }
+
+    if (variations) {
+      try {
+        const parsedVars = JSON.parse(variations);
+        const attributesMap = {};
+        parsedVars.forEach(v => {
+          if (!v.group || !v.option) return;
+          if (!attributesMap[v.group]) attributesMap[v.group] = [];
+          attributesMap[v.group].push({
+            value: v.option,
+            priceAdjustment: Number(v.priceOffset) || 0,
+            meta: { sku: v.sku, stock: v.stock }
+          });
+        });
+        updateData.attributes = Object.keys(attributesMap).map(group => ({
+          name: group,
+          type: "select",
+          options: attributesMap[group]
+        }));
+        updateData.hasVariants = updateData.attributes.length > 0;
+      } catch(e) {}
+    }
+
+    // Handle images
+    const imageUrls = [];
+    if (req.files && req.files.length > 0) {
+      req.files.forEach(file => imageUrls.push(file.path));
+    } else if (req.file) {
+      imageUrls.push(req.file.path);
+    }
+
+    if (imageUrls.length > 0) {
+      updateData.image = imageUrls[0];
+      // Append or replace depending on logic. Here we just replace or add.
+      updateData.images = imageUrls;
+    }
+
     const updated = await Product.findByIdAndUpdate(
       req.params.id,
-      {
-        ...req.body,
-        ...(req.file && { image: req.file.path }),
-      },
-      { new: true }
+      { $set: updateData },
+      { new: true, runValidators: true }
     );
-    res.json({ success: true, product: updated });
+
+    if (!updated) {
+      return res.status(404).json({ success: false, message: "Product not found" });
+    }
+
+    res.json({ 
+      success: true, 
+      message: "Product updated successfully",
+      product: updated 
+    });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    console.error("UPDATE PRODUCT ERROR:", err);
+    res.status(500).json({ success: false, message: "Server error while updating product", error: err.message });
   }
 };
 

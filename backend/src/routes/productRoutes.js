@@ -20,6 +20,7 @@ import {
 } from "../controllers/productController.js";
 
 import { protect, authorize } from "../middleware/auth.Middleware.js";
+import { validateProduct } from "../middleware/productValidator.js";
 import { upload } from "../config/cloudinary.js";
 
 const router = express.Router();
@@ -56,7 +57,8 @@ router.post(
   "/admin",
   protect,
   authorize("admin", "subadmin"),
-  upload.single("image"),
+  upload.array("images", 5),
+  validateProduct,
   createProduct
 );
 
@@ -64,7 +66,8 @@ router.put(
   "/admin/:id",
   protect,
   authorize("admin", "subadmin"),
-  upload.single("image"),
+  upload.array("images", 5),
+  validateProduct,
   updateProduct
 );
 

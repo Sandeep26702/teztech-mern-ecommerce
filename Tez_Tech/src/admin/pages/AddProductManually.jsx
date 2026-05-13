@@ -4,7 +4,9 @@ import axios from "axios";
 // 🔥 FIXED: Added FaTimes here
 import { FaArrowLeft, FaPlus, FaTrash, FaCloudUploadAlt, FaSave, FaTags, FaRulerCombined, FaTimes } from "react-icons/fa";
 
-const API = "https://sonani-backend.onrender.com/api";
+// Using local API to test newly added backend changes
+// Once tested and deployed, you can switch back to the Render URL
+const API = "http://localhost:5000/api";
 
 const AddProductManually = () => {
   const navigate = useNavigate();
@@ -121,7 +123,7 @@ const AddProductManually = () => {
       });
 
       const token = localStorage.getItem("token");
-      await axios.post(`${API}/products`, submitData, {
+      await axios.post(`${API}/products/admin`, submitData, {
         headers: { "Content-Type": "multipart/form-data", Authorization: `Bearer ${token}` },
       });
 
