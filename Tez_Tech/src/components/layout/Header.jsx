@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext"; 
 import { useQuote } from "../../context/QuoteContext"; 
 import { useCart } from "../../context/CartContext"; 
-import myLogo from '../assets/teztech-logo.png';
+import myLogo from '../../assets/teztech-logo.png';
 
 // 💧 Water Droplet Component
 const WaterDroplet = ({ x, y, tx, ty, colorClass }) => {
