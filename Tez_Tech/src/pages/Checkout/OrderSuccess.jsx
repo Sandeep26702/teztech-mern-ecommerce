@@ -91,7 +91,7 @@ const OrderSuccess = () => {
 
         {/* Headings */}
         <h1 className="mb-2 text-4xl font-black tracking-tight text-white drop-shadow-md">
-          Boom! Order Placed.
+          Order Placed.
         </h1>
         <p className="mb-8 text-lg font-medium text-emerald-300">
           Congratulations! Your premium electronics are on their way.

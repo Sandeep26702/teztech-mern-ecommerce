@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext"; 
 import { useQuote } from "../../context/QuoteContext"; 
 import { useCart } from "../../context/CartContext"; 
+import myLogo from '../assets/teztech-logo.png';
 
 // 💧 Water Droplet Component
 const WaterDroplet = ({ x, y, tx, ty, colorClass }) => {
@@ -138,15 +139,14 @@ const Header = () => {
       <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           
-          {/* Brand Logo */}
+          {/* Brand Logo - UPDATE KIYA GAYA HISSA */}
           <div className="flex items-center flex-shrink-0">
             <Link to="/" className="flex items-center gap-2 group">
-              <div className="flex items-center justify-center w-8 h-8 font-bold text-white transition-transform rounded-lg shadow-md bg-gradient-to-br from-blue-600 to-cyan-400 group-hover:rotate-12">
-                TZ
-              </div>
-              <h1 className="text-xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-blue-800">
-                Tez Tech
-              </h1>
+              <img 
+                src={myLogo} 
+                alt="TezTech Logo" 
+                className="w-auto h-10 transition-transform duration-300 group-hover:scale-105" 
+              />
             </Link>
           </div>
 
@@ -280,7 +280,7 @@ const Header = () => {
             <Link 
               key={idx} 
               to={link.path} 
-              onClick={toggleMenu} // 🔥 Menu band karne ke liye add kiya
+              onClick={toggleMenu} 
               className="relative flex items-center justify-between px-4 py-3.5 overflow-hidden transition-all duration-300 bg-transparent rounded-2xl group hover:bg-cyan-50"
             >
               <span className="relative z-10 text-base font-bold text-gray-700 transition-transform duration-300 group-hover:translate-x-2 group-hover:text-cyan-700">
@@ -297,7 +297,6 @@ const Header = () => {
 
           <div className="pt-6 mt-6 border-t border-gray-100">
             {isAuthenticated ? (
-              // 🔥 YAHAN MAIN CHANGES KIYE HAIN MOBILE PROFILE MENU KE LIYE
               <div className="flex flex-col gap-3 p-4 border border-gray-200 bg-gray-50 rounded-2xl">
                 <p className="mb-2 font-bold text-center text-gray-700">Welcome, {user?.name || "User"}</p>
                 
