@@ -1,7 +1,8 @@
 import axios from "axios";
+import { getApiUrl } from "../utils/api.js";
 
 const API = axios.create({
-  baseURL: "https://sonani-backend.onrender.com/api",
+  baseURL: getApiUrl(),
 });
 
 // 🔍 Search + Pagination

@@ -3,8 +3,15 @@ import axios from 'axios';
 // ==========================================
 // 1. MASTER AXIOS INSTANCE
 // ==========================================
-// 🚀 THE FINAL BOSS FIX: Ab Vercel majboori mein sirf Render ko hi call karega!
-const API_URL = 'https://sonani-backend.onrender.com/api';
+// Dynamically resolve backend URL based on host environment (Render in prod, localhost in dev)
+export const getApiUrl = () => {
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    return 'https://sonani-backend.onrender.com/api';
+  }
+  return import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+};
+
+const API_URL = getApiUrl();
 
 const api = axios.create({
   baseURL: API_URL,

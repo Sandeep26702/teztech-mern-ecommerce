@@ -41,7 +41,6 @@ const Login = () => {
     if (error) setError(""); 
   };
 
-  /* ================= HANDLE LOGIN ================= */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -53,6 +52,13 @@ const Login = () => {
       if (!result.success) {
         setError(result.message || "Invalid Email or Password");
         setLoading(false);
+
+        // If the user's account is not verified, redirect to verification page
+        if (result.isVerified === false) {
+          setTimeout(() => {
+            navigate("/verify-otp", { state: { email: formData.email } });
+          }, 2000);
+        }
       }
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");

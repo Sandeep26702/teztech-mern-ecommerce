@@ -2,6 +2,8 @@
 import React, { createContext, useState, useEffect, useContext, useRef } from "react";
 import axios from "axios";
 
+import { getApiUrl } from "../utils/api.js";
+
 /* ================= CONTEXT CREATION ================= */
 export const AuthContext = createContext();
 
@@ -14,7 +16,7 @@ export const useAuth = () => {
 };
 
 /* ================= AXIOS SETUP ================= */
-const API_URL = "https://sonani-backend.onrender.com/api";
+const API_URL = getApiUrl();
 
 const api = axios.create({
   baseURL: API_URL,
@@ -129,6 +131,26 @@ export const AuthProvider = ({ children }) => {
       const res = await api.post("/auth/register", userData);
 
       if (res.data.success) {
+        return { 
+          success: true, 
+          email: res.data.email, 
+          message: res.data.message 
+        };
+      }
+    } catch (err) {
+      return {
+        success: false,
+        message: err.response?.data?.message || "Registration failed",
+      };
+    }
+  };
+
+  /* ================= OTP VERIFICATION ================= */
+  const verifyOtp = async (email, otp) => {
+    try {
+      const res = await api.post("/auth/verify-otp", { email, otp });
+
+      if (res.data.success) {
         localStorage.setItem("token", res.data.token);
         localStorage.setItem("user", JSON.stringify(res.data.user));
         setUser(res.data.user);
@@ -137,15 +159,27 @@ export const AuthProvider = ({ children }) => {
         
         // Delay taaki local storage theek se save ho jaye
         setTimeout(() => {
-            window.location.href = "/"; 
+          window.location.href = "/"; 
         }, 400);
-        
+
         return { success: true };
       }
     } catch (err) {
       return {
         success: false,
-        message: err.response?.data?.message || "Registration failed",
+        message: err.response?.data?.message || "Verification failed",
+      };
+    }
+  };
+
+  const resendOtp = async (email) => {
+    try {
+      const res = await api.post("/auth/resend-otp", { email });
+      return { success: true, message: res.data.message };
+    } catch (err) {
+      return {
+        success: false,
+        message: err.response?.data?.message || "Failed to resend OTP",
       };
     }
   };
@@ -172,6 +206,8 @@ export const AuthProvider = ({ children }) => {
     } catch (err) {
       return {
         success: false,
+        isVerified: err.response?.data?.isVerified !== false,
+        email: err.response?.data?.email,
         message: err.response?.data?.message || "Login failed",
       };
     }
@@ -209,6 +245,8 @@ export const AuthProvider = ({ children }) => {
         loading,
         login,
         register,
+        verifyOtp,
+        resendOtp,
         logout,
         createSubAdmin,
         api, // Exporting Custom Axios for other components

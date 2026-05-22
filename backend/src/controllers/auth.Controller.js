@@ -73,32 +73,155 @@ export const register = async (req, res) => {
       return res.status(400).json({ success: false, message: "Temporary/disposable emails are not allowed" });
     }
 
-    if (!isValidPhone(normalizedPhone)) {
+    if (normalizedPhone && !isValidPhone(normalizedPhone)) {
       return res.status(400).json({ success: false, message: "Please enter valid 10-digit mobile number" });
     }
 
     const userExists = await User.findOne({
-      $or: [{ email: normalizedEmail }, { phone: normalizedPhone }, { userId: normalizedPhone }],
+      $or: [
+        { email: normalizedEmail },
+        ...(normalizedPhone ? [{ phone: normalizedPhone }, { userId: normalizedPhone }] : [])
+      ],
     });
     if (userExists) {
       return res.status(400).json({ success: false, message: "Email or mobile already exists" });
     }
 
+    // Hash password using bcrypt
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Generate random 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
     const user = await User.create({
       name: normalizedName,
       email: normalizedEmail,
-      password,
-      phone: normalizedPhone,
-      userId: normalizedPhone,
+      password: hashedPassword,
+      phone: normalizedPhone || undefined,
+      userId: normalizedPhone || undefined,
+      isVerified: false,
+      otp,
+      otpExpire,
     });
 
-    sendTokenResponse(user, 201, res);
+    let emailSent = true;
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: "TezTech Account Verification OTP",
+        message: `Hello ${user.name},\n\nYour 6-digit OTP for account verification is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nThank you,\nTezTech Support`,
+      });
+    } catch (emailError) {
+      console.error("OTP email sending failed:", emailError.message);
+      emailSent = false;
+    }
+
+    res.status(201).json({
+      success: true,
+      message: emailSent
+        ? "Registration successful. Please verify the OTP sent to your email."
+        : "Registration successful, but we failed to send the verification email. Please request a new OTP.",
+      email: user.email,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-/* ================= 2. LOGIN USER ================= */
+/* ================= 2. VERIFY OTP ================= */
+export const verifyOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const cleanOtp = String(otp || "").trim();
+
+    if (!normalizedEmail || !cleanOtp) {
+      return res.status(400).json({ success: false, message: "Please provide email and OTP" });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ success: false, message: "User is already verified. Please login." });
+    }
+
+    if (user.otp !== cleanOtp || user.otpExpire < new Date()) {
+      return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+    }
+
+    // Update user document
+    user.isVerified = true;
+    user.isEmailVerified = true; // backward compatibility
+    user.otp = undefined;
+    user.otpExpire = undefined;
+
+    await user.save();
+
+    // Automatically log user in right after verification
+    sendTokenResponse(user, 200, res);
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ================= 3. RESEND OTP ================= */
+export const resendOtp = async (req, res) => {
+  try {
+    const { email } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      return res.status(400).json({ success: false, message: "Please provide email" });
+    }
+
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    if (user.isVerified) {
+      return res.status(400).json({ success: false, message: "User is already verified. Please login." });
+    }
+
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    user.otp = otp;
+    user.otpExpire = otpExpire;
+
+    await user.save();
+
+    let emailSent = true;
+    try {
+      await sendEmail({
+        email: user.email,
+        subject: "TezTech Account Verification OTP (Resent)",
+        message: `Hello ${user.name},\n\nYour new 6-digit OTP for account verification is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nThank you,\nTezTech Support`,
+      });
+    } catch (emailError) {
+      console.error("OTP email sending failed:", emailError.message);
+      emailSent = false;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: emailSent
+        ? "New OTP sent to your email."
+        : "New OTP generated, but we failed to send the email. Please request again or check credentials.",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ================= 4. LOGIN USER ================= */
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -125,6 +248,17 @@ export const login = async (req, res) => {
     
     if (!isMatch) {
       return res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
+
+    // Check if user is verified (support isEmailVerified for backward compatibility)
+    const isVerifiedUser = user.isVerified || user.isEmailVerified;
+    if (!isVerifiedUser) {
+      return res.status(403).json({
+        success: false,
+        message: "Please verify your email first. An OTP has been sent during registration.",
+        isVerified: false,
+        email: user.email
+      });
     }
 
     sendTokenResponse(user, 200, res);
@@ -246,6 +380,7 @@ export const createSubAdmin = async (req, res) => {
       userId: normalizedPhone || undefined,
       role: "subadmin",
       isEmailVerified: true,
+      isVerified: true,
     });
     res.status(201).json({
       success: true,

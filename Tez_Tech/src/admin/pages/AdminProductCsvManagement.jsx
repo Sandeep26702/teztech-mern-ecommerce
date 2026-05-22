@@ -16,8 +16,9 @@ import {
   FaPlus,
   FaDownload
 } from "react-icons/fa";
+import { getApiUrl } from "../../utils/api";
 
-const API = "https://sonani-backend.onrender.com/api/products";
+const API = `${getApiUrl()}/products`;
 
 const AdminProductCsvManagement = () => {
   const [loading, setLoading] = useState(false);
@@ -26,6 +27,14 @@ const AdminProductCsvManagement = () => {
   const [selectedJob, setSelectedJob] = useState(null);
   const fileRef = useRef();
   const token = localStorage.getItem("token");
+
+  // Upload Progress States
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [eta, setEta] = useState(null);
+  const [uploadStage, setUploadStage] = useState("idle");
+  const [uploadFileName, setUploadFileName] = useState("");
+  const [uploadError, setUploadError] = useState("");
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -74,15 +83,45 @@ const AdminProductCsvManagement = () => {
     const form = new FormData();
     form.append("file", file);
 
+    setUploadFileName(file.name);
+    setUploading(true);
+    setUploadProgress(0);
+    setUploadStage("uploading");
+    setUploadError("");
+    setLoading(true);
+
+    const startTime = Date.now();
+
     try {
-      setLoading(true);
       const res = await axios.post(`${API}/import/csv`, form, {
         headers: { ...headers, "Content-Type": "multipart/form-data" },
+        onUploadProgress: (progressEvent) => {
+          const { loaded, total } = progressEvent;
+          if (total) {
+            const percentage = Math.round((loaded * 100) / total);
+            setUploadProgress(percentage);
+            
+            const elapsed = (Date.now() - startTime) / 1000;
+            if (elapsed > 0) {
+              const speed = loaded / elapsed;
+              const remaining = total - loaded;
+              const remainingSeconds = Math.round(remaining / speed);
+              setEta(remainingSeconds);
+            }
+            
+            if (percentage === 100) {
+              setUploadStage("processing");
+            }
+          }
+        }
       });
-      alert(res.data.message || "🔥 Import Dhamakedar Raha!");
+      
+      setUploadStage("completed");
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || "❌ Import Fail ho gaya");
+      console.error("CSV Upload Error:", err);
+      setUploadStage("failed");
+      setUploadError(err.response?.data?.message || err.message || "Import failed. Please try again.");
     } finally {
       setLoading(false);
       e.target.value = null; // reset file input
@@ -320,6 +359,118 @@ const AdminProductCsvManagement = () => {
             >
               Close Window
             </button>
+            
+          </div>
+        </div>
+      )}
+
+      {/* 🚀 PREMIUM UPLOAD PROGRESS MODAL */}
+      {uploading && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md p-8 bg-white border border-gray-100 shadow-2xl rounded-3xl text-center">
+            
+            <div className="flex flex-col items-center mb-6">
+              {uploadStage === "uploading" && (
+                <div className="relative flex items-center justify-center w-20 h-20 mb-4 bg-indigo-50 rounded-full text-indigo-600 animate-pulse">
+                  <FaCloudUploadAlt className="text-4xl animate-bounce" />
+                </div>
+              )}
+              {uploadStage === "processing" && (
+                <div className="relative flex items-center justify-center w-20 h-20 mb-4 bg-amber-50 rounded-full text-amber-600">
+                  <div className="absolute inset-0 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+                  <FaBoxOpen className="text-3xl text-amber-500" />
+                </div>
+              )}
+              {uploadStage === "completed" && (
+                <div className="flex items-center justify-center w-20 h-20 mb-4 bg-emerald-50 rounded-full text-emerald-600">
+                  <FaCheckCircle className="text-5xl" />
+                </div>
+              )}
+              {uploadStage === "failed" && (
+                <div className="flex items-center justify-center w-20 h-20 mb-4 bg-rose-50 rounded-full text-rose-600">
+                  <FaTimesCircle className="text-5xl" />
+                </div>
+              )}
+
+              <h3 className="text-xl font-black text-gray-800 break-all px-2">
+                {uploadStage === "uploading" && "Uploading CSV..."}
+                {uploadStage === "processing" && "Processing Catalog..."}
+                {uploadStage === "completed" && "Import Successful!"}
+                {uploadStage === "failed" && "Import Failed"}
+              </h3>
+              <p className="mt-1 text-xs font-semibold text-gray-400 break-all px-2">{uploadFileName}</p>
+            </div>
+
+            {(uploadStage === "uploading" || uploadStage === "processing") && (
+              <div className="space-y-4">
+                <div className="w-full h-3.5 bg-gray-100 rounded-full overflow-hidden p-0.5 border border-gray-200/50">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-300 ${
+                      uploadStage === "processing" 
+                        ? "bg-gradient-to-r from-amber-500 to-orange-500 w-full animate-pulse" 
+                        : "bg-gradient-to-r from-violet-600 to-indigo-600"
+                    }`}
+                    style={{ width: `${uploadStage === "processing" ? 100 : uploadProgress}%` }}
+                  />
+                </div>
+                
+                <div className="flex justify-between items-center text-sm font-semibold text-gray-500 px-1">
+                  <span>
+                    {uploadStage === "uploading" 
+                      ? `${uploadProgress}% uploaded` 
+                      : "Saving to database..."
+                    }
+                  </span>
+                  <span>
+                    {uploadStage === "uploading" && eta !== null && (
+                      eta > 0 ? `${eta}s remaining` : "Almost done"
+                    )}
+                    {uploadStage === "processing" && "Please wait..."}
+                  </span>
+                </div>
+                
+                <p className="text-xs font-medium text-gray-400 italic">
+                  {uploadStage === "uploading" 
+                    ? "Sending data to server, please keep this window open."
+                    : "Writing products and categories to database. Do not reload."
+                  }
+                </p>
+              </div>
+            )}
+
+            {uploadStage === "completed" && (
+              <div className="space-y-3">
+                <div className="p-4 text-emerald-700 bg-emerald-50 rounded-2xl border border-emerald-100 font-semibold text-sm">
+                  Catalog imported successfully. All products are now live!
+                </div>
+                <button 
+                  onClick={() => {
+                    setUploading(false);
+                    setUploadStage("idle");
+                  }}
+                  className="w-full py-3 mt-6 font-bold text-white transition-colors bg-emerald-600 hover:bg-emerald-700 shadow-lg shadow-emerald-100 rounded-xl"
+                >
+                  View Catalog
+                </button>
+              </div>
+            )}
+
+            {uploadStage === "failed" && (
+              <div className="space-y-3">
+                <div className="p-4 text-rose-700 bg-rose-50 rounded-2xl border border-rose-100 font-semibold text-sm text-left max-h-32 overflow-y-auto break-words">
+                  {uploadError || "An unexpected error occurred during CSV parsing."}
+                </div>
+                <button 
+                  onClick={() => {
+                    setUploading(false);
+                    setUploadStage("idle");
+                  }}
+                  className="w-full py-3 mt-6 font-bold text-white transition-colors bg-gray-900 hover:bg-gray-800 shadow-lg rounded-xl"
+                >
+                  Close Window
+                </button>
+              </div>
+            )}
             
           </div>
         </div>

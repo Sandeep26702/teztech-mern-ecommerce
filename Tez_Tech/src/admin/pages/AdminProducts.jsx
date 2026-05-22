@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { FaSearch, FaFileImport, FaSyncAlt, FaExternalLinkAlt, FaPlus } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { getApiUrl } from "../../utils/api";
 
-const API_BASE_URL = "https://sonani-backend.onrender.com/api";
+const API_BASE_URL = getApiUrl();
 
 const normalizeText = (value = "") => String(value || "").trim().toLowerCase();
 
@@ -16,6 +17,12 @@ const AdminProducts = () => {
   const navigate = useNavigate();
   const token = localStorage.getItem("token");
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const itemsPerPage = 20;
+
   // Debounce search input
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -24,18 +31,20 @@ const AdminProducts = () => {
     return () => clearTimeout(handler);
   }, [search]);
 
-  const loadProducts = async (query = "") => {
+  const loadProducts = async (query = "", page = currentPage) => {
     try {
       setLoading(true);
       const url = query 
-        ? `${API_BASE_URL}/products/admin?search=${encodeURIComponent(query)}` 
-        : `${API_BASE_URL}/products/admin`;
+        ? `${API_BASE_URL}/products/admin?search=${encodeURIComponent(query)}&page=${page}&limit=${itemsPerPage}` 
+        : `${API_BASE_URL}/products/admin?page=${page}&limit=${itemsPerPage}`;
         
       const res = await axios.get(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.data.success) {
         setProducts(res.data.products || []);
+        setTotalPages(res.data.totalPages || 1);
+        setTotalProducts(res.data.totalProducts || 0);
       }
     } catch (error) {
       console.error("Admin products fetch error:", error);
@@ -45,10 +54,21 @@ const AdminProducts = () => {
     }
   };
 
+  // When search changes, reset page to 1
   useEffect(() => {
-    loadProducts(debouncedSearch);
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    } else {
+      loadProducts(debouncedSearch, 1);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
+
+  // When currentPage changes, reload products
+  useEffect(() => {
+    loadProducts(debouncedSearch, currentPage);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to permanently delete this product?")) {
@@ -164,7 +184,7 @@ const AdminProducts = () => {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 bg-gray-50/30">
           <div>
             <h2 className="text-lg font-bold text-gray-900">Catalog</h2>
-            <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase mt-0.5">Showing {products.length} products</p>
+            <p className="text-xs font-semibold tracking-wide text-gray-500 uppercase mt-0.5">Showing {totalProducts} products</p>
           </div>
         </div>
 
@@ -285,6 +305,61 @@ const AdminProducts = () => {
             </table>
           )}
         </div>
+
+        {/* Pagination controls */}
+        {!loading && totalProducts > 0 && (
+          <div className="flex flex-col items-center justify-between gap-4 px-6 py-4 border-t border-gray-100 sm:flex-row bg-gray-50/50">
+            <p className="text-sm font-semibold text-gray-500">
+              Showing <span className="font-black text-gray-800">{Math.min((currentPage - 1) * itemsPerPage + 1, totalProducts)}</span> to{" "}
+              <span className="font-black text-gray-800">{Math.min(currentPage * itemsPerPage, totalProducts)}</span> of{" "}
+              <span className="font-black text-gray-800">{totalProducts}</span> products
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3.5 py-2 text-sm font-bold text-gray-600 transition bg-white border border-gray-200 shadow-sm rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              
+              {Array.from({ length: Math.min(5, totalPages) }, (_, idx) => {
+                let pageNumber = currentPage;
+                if (currentPage <= 3) {
+                  pageNumber = idx + 1;
+                } else if (currentPage >= totalPages - 2) {
+                  pageNumber = totalPages - 4 + idx;
+                } else {
+                  pageNumber = currentPage - 2 + idx;
+                }
+                
+                if (pageNumber < 1 || pageNumber > totalPages) return null;
+
+                return (
+                  <button
+                    key={pageNumber}
+                    onClick={() => setCurrentPage(pageNumber)}
+                    className={`w-10 h-10 text-sm font-black rounded-xl transition ${
+                      currentPage === pageNumber
+                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-200"
+                        : "bg-white text-gray-600 border border-gray-200 shadow-sm hover:bg-gray-50"
+                    }`}
+                  >
+                    {pageNumber}
+                  </button>
+                );
+              })}
+
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className="px-3.5 py-2 text-sm font-bold text-gray-600 transition bg-white border border-gray-200 shadow-sm rounded-xl hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

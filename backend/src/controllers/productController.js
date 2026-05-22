@@ -138,7 +138,7 @@ export const getProducts = async (req, res) => {
 
 export const getProductsAdmin = async (req, res) => {
   try {
-    const { search } = req.query;
+    const { search, page = 1, limit = 20 } = req.query;
     let query = {};
     if (search) {
       query = {
@@ -150,8 +150,22 @@ export const getProductsAdmin = async (req, res) => {
         ]
       };
     }
-    const products = await Product.find(query).sort({ createdAt: -1 }).lean();
-    res.json({ success: true, products });
+    
+    const skip = (Number(page) - 1) * Number(limit);
+    const totalProducts = await Product.countDocuments(query);
+    const products = await Product.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit))
+      .lean();
+      
+    res.json({ 
+      success: true, 
+      products,
+      totalPages: Math.ceil(totalProducts / Number(limit)),
+      currentPage: Number(page),
+      totalProducts
+    });
   } catch (err) {
     console.error("ADMIN ERROR:", err);
     res.status(500).json({ success: false, message: err.message });
@@ -651,19 +665,19 @@ export const importProductsCsv = async (req, res) => {
     let updatedCount = 0;
     let matchedCount = 0;
     let uiDisplayCount = 0;
+    let createdProductIds = [];
 
     if (ops.length > 0) {
       const bulkResult = await Product.bulkWrite(ops, { ordered: false });
       importedCount = bulkResult.upsertedCount || 0; 
       updatedCount = bulkResult.modifiedCount || 0; 
       matchedCount = bulkResult.matchedCount || 0;
-      uiDisplayCount = importedCount + updatedCount + matchedCount; 
-    }
-
-    let createdProductIds = [];
-    if (baseSkusImported.length > 0) {
-        const importedProducts = await Product.find({ baseSku: { $in: baseSkusImported } }, '_id');
-        createdProductIds = importedProducts.map(p => p._id);
+      // uiDisplayCount is total touched items. Since matchedCount includes modified items, we sum imported + matched.
+      uiDisplayCount = importedCount + matchedCount; 
+      
+      if (bulkResult.upsertedIds) {
+        createdProductIds = Object.values(bulkResult.upsertedIds).map(val => val._id || val);
+      }
     }
 
     await ProductImportJob.create({

@@ -38,8 +38,11 @@ const Register = () => {
       email: formData.email,
       password: formData.password
     });
-    if (result.success) navigate("/");
-    else setError(result.message);
+    if (result.success) {
+      navigate("/verify-otp", { state: { email: formData.email } });
+    } else {
+      setError(result.message);
+    }
     setLoading(false);
   };
 

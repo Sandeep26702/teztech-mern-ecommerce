@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { getApiUrl } from '../utils/api.js';
 
 // Ek professional central API instance banate hain
 const API = axios.create({
-  baseURL: 'https://sonani-backend.onrender.com/api/orders',
+  baseURL: `${getApiUrl()}/orders`,
 });
 
 // Request Interceptor: Har request se pehle token check karega aur lagayega

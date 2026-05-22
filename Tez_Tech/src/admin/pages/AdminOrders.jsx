@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
+import { getApiUrl } from "../../utils/api.js";
 import { 
   FaSearch, FaFilter,
   FaChevronDown, FaChevronUp,
@@ -83,7 +84,7 @@ const AdminOrders = () => {
         headers: { Authorization: `Bearer ${token}` },
         params: debouncedFilter
       };
-      const API_URL = import.meta.env.VITE_API_URL || "https://sonani-backend.onrender.com/api";
+      const API_URL = getApiUrl();
       const res = await axios.get(`${API_URL}/admin/orders`, config);
       if (res.data.success) {
         setOrders(res.data.orders);
@@ -195,7 +196,7 @@ const AdminOrders = () => {
           : o
       ));
 
-      const API_URL = import.meta.env.VITE_API_URL || "https://sonani-backend.onrender.com/api";
+      const API_URL = getApiUrl();
       const res = await axios.put(`${API_URL}/admin/orders/${orderId}/status`, payload, config);
       if (!res.data.success) {
         fetchOrders();

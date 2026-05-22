@@ -47,6 +47,9 @@ const userSchema = new mongoose.Schema(
     },
     profileImage: { type: String, default: "" },
     isEmailVerified: { type: Boolean, default: false },
+    isVerified: { type: Boolean, default: false },
+    otp: { type: String },
+    otpExpire: { type: Date },
     isActive: { type: Boolean, default: true },
     blockedReason: { type: String, default: "" },
     resetPasswordToken: String,
@@ -59,6 +62,9 @@ const userSchema = new mongoose.Schema(
 // ⚡ Humne 'next' hata diya hai, Async/Await khud handle karega
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
+
+  // Check if the password is already a bcrypt hash to prevent double-hashing
+  if (this.password.startsWith("$2a$") || this.password.startsWith("$2b$")) return;
 
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
