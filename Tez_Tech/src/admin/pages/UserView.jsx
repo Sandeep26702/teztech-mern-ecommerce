@@ -84,6 +84,19 @@ const UserView = () => {
       updatedSlides[index].file = null;
       updatedSlides[index].mediaUrl = "";
     }
+
+    // Smart Validation for mediaUrl
+    if (field === "mediaUrl" && value) {
+      // 1. YouTube Auto-detect
+      if (value.includes("youtube.com") || value.includes("youtu.be")) {
+        updatedSlides[index].mediaType = "video";
+      }
+      
+      // 2. Google Search URL Warning
+      if (value.includes("google.com/search")) {
+        toast.error("Please paste a direct Image/Video URL, not a Google Search page link!");
+      }
+    }
     
     setFormData({ ...formData, heroSlides: updatedSlides });
   };

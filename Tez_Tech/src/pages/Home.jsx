@@ -38,7 +38,7 @@ const Home = () => {
 
   const getYouTubeId = (url) => {
     if (!url) return null;
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
   };
@@ -47,60 +47,53 @@ const Home = () => {
   // 🔥 UPDATED MEDIA RENDERER (NO CROPPING)
   // ==========================================
   const renderSlideMedia = (slide) => {
-    if (slide.mediaType === "video") {
-      if (slide.sourceType === "link") {
-        const ytId = getYouTubeId(slide.mediaUrl);
-        if (ytId) {
-          const ytSrc = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&showinfo=0&rel=0`;
-          return (
-            <div className="absolute inset-0 w-full h-full bg-black z-0">
-              <iframe
-                className="w-full h-full pointer-events-none"
-                src={ytSrc}
-                frameBorder="0"
-                allow="autoplay; encrypted-media"
-                allowFullScreen
-              ></iframe>
-            </div>
-          );
-        }
-        return (
-          <div className="absolute inset-0 w-full h-full bg-black z-0">
-            <video
-              autoPlay loop muted playsInline
-              className="w-full h-full object-contain"
-              src={slide.mediaUrl}
-            />
-          </div>
-        );
-      } else {
-        return (
-          <div className="absolute inset-0 w-full h-full bg-black z-0">
-            <video autoPlay loop muted playsInline className="w-full h-full object-contain">
-              <source src={slide.mediaUrl} type="video/mp4" />
-            </video>
-          </div>
-        );
-      }
-    } else {
-      // Images ke liye Premium Blurred Background Effect
+    // 1. ALWAYS check for YouTube links first, regardless of mediaType
+    const ytId = slide.sourceType === "link" ? getYouTubeId(slide.mediaUrl) : null;
+    if (ytId) {
+      const ytSrc = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&showinfo=0&rel=0`;
       return (
-        <div className="absolute inset-0 w-full h-full bg-gray-900 z-0 overflow-hidden">
-          {/* 1. Background Blur (Khali jagah bharne ke liye) */}
-          <img
-            src={slide.mediaUrl}
-            alt="blur-bg"
-            className="absolute inset-0 w-full h-full object-cover opacity-40 blur-2xl scale-110"
-          />
-          {/* 2. Main Crisp Image (Puri dikhegi, katega nahi) */}
-          <img
-            src={slide.mediaUrl}
-            alt="Hero Slide"
-            className="absolute inset-0 w-full h-full object-contain z-10"
-          />
+        <div className="absolute inset-0 w-full h-full bg-black z-0">
+          <iframe
+            className="w-full h-full pointer-events-none"
+            src={ytSrc}
+            frameBorder="0"
+            allow="autoplay; encrypted-media"
+            allowFullScreen
+          ></iframe>
         </div>
       );
     }
+
+    // 2. Render standard video
+    if (slide.mediaType === "video") {
+      return (
+        <div className="absolute inset-0 w-full h-full bg-black z-0">
+          <video
+            autoPlay loop muted playsInline
+            className="w-full h-full object-contain"
+            src={slide.mediaUrl}
+          />
+        </div>
+      );
+    } 
+    
+    // 3. Render image (Premium Blurred Background Effect)
+    return (
+      <div className="absolute inset-0 w-full h-full bg-gray-900 z-0 overflow-hidden">
+        {/* 1. Background Blur (Khali jagah bharne ke liye) */}
+        <img
+          src={slide.mediaUrl}
+          alt="blur-bg"
+          className="absolute inset-0 w-full h-full object-cover opacity-40 blur-2xl scale-110"
+        />
+        {/* 2. Main Crisp Image (Puri dikhegi, katega nahi) */}
+        <img
+          src={slide.mediaUrl}
+          alt="Hero Slide"
+          className="absolute inset-0 w-full h-full object-contain z-10"
+        />
+      </div>
+    );
   };
 
   const slides = layout?.heroSlides?.length > 0 ? layout.heroSlides : [];
