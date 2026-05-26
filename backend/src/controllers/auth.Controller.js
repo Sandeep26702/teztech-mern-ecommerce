@@ -154,7 +154,7 @@ export const verifyOtp = async (req, res) => {
 
     if (user.otp !== cleanOtp || user.otpExpire < new Date()) {
       await Log.create({
-        ipAddress: req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip,
+        ipAddress: (req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip || "").split(",")[0].trim() || "Unknown",
         email: normalizedEmail,
         action: "Failed OTP Attempt",
         riskLevel: "Warning",
@@ -244,7 +244,7 @@ export const login = async (req, res) => {
 
     if (!user) {
       await Log.create({
-        ipAddress: req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip,
+        ipAddress: (req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip || "").split(",")[0].trim() || "Unknown",
         email: normalizedEmail,
         action: "Failed Login Attempt (User Not Found)",
         riskLevel: "Warning",
@@ -265,7 +265,7 @@ export const login = async (req, res) => {
     
     if (!isMatch) {
       await Log.create({
-        ipAddress: req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip,
+        ipAddress: (req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip || "").split(",")[0].trim() || "Unknown",
         email: normalizedEmail,
         user: user._id,
         action: "Failed Login Attempt (Wrong Password)",

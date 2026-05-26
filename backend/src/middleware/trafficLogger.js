@@ -9,7 +9,8 @@ const TIME_WINDOW_MS = 60 * 1000; // 1 minute window
 
 export const trafficLogger = async (req, res, next) => {
   try {
-    const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip;
+    let rawIp = req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip || "";
+    const ip = rawIp.split(",")[0].trim() || "Unknown";
     const currentTime = Date.now();
     const endpoint = req.originalUrl;
     const method = req.method;
