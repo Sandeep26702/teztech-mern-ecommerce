@@ -307,7 +307,8 @@ const UserView = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       {/* DESKTOP UPLOAD */}
                       <div>
-                        <label className="block mb-2 text-sm font-semibold text-slate-700">Desktop {slide.mediaType === "video" ? "Video (Landscape)" : "Image (Landscape)"}</label>
+                        <label className="block mb-1 text-sm font-semibold text-slate-700">Desktop {slide.mediaType === "video" ? "Video (Landscape)" : "Image (Landscape)"}</label>
+                        <p className="mb-3 text-xs text-slate-500 italic">Recommended: 16:9 ratio (e.g., 1920x1080) | Max: {slide.mediaType === "video" ? "50MB" : "2MB"}</p>
                         {slide.existingUrl && !slide.file && (
                           <div className="mb-3">
                             <p className="text-xs text-green-600 font-semibold mb-1">Current Active</p>
@@ -333,7 +334,8 @@ const UserView = () => {
 
                       {/* MOBILE UPLOAD */}
                       <div>
-                        <label className="block mb-2 text-sm font-semibold text-slate-700">Mobile {slide.mediaType === "video" ? "Video (Portrait)" : "Image (Portrait)"} <span className="text-blue-500 text-xs font-normal">(Optional)</span></label>
+                        <label className="block mb-1 text-sm font-semibold text-slate-700">Mobile {slide.mediaType === "video" ? "Video (Portrait)" : "Image (Portrait)"} <span className="text-blue-500 text-xs font-normal">(Optional)</span></label>
+                        <p className="mb-3 text-xs text-slate-500 italic">Recommended: 9:16 ratio (e.g., 1080x1920) | Max: {slide.mediaType === "video" ? "50MB" : "2MB"}</p>
                         {slide.existingMobileUrl && !slide.mobileFile && (
                           <div className="mb-3">
                             <p className="text-xs text-green-600 font-semibold mb-1">Current Active Mobile</p>
