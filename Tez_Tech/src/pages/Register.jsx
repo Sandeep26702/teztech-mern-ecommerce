@@ -81,7 +81,7 @@ const Register = () => {
             </p>
           </div>
 
-          {error && (
+          {error && !error.includes("Temporary emails") && (
             <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="p-3 mb-6 text-sm text-center text-red-400 border bg-red-500/10 border-red-500/30 rounded-xl">
               {error}
             </motion.div>
@@ -94,7 +94,14 @@ const Register = () => {
               <InputGroup icon={<User size={18}/>} name="lastName" placeholder="Last Name" value={formData.lastName} onChange={handleChange} />
             </div>
 
-            <InputGroup icon={<Mail size={18}/>} name="email" type="email" placeholder="Email Address" value={formData.email} onChange={handleChange} />
+            <div>
+              <InputGroup icon={<Mail size={18}/>} name="email" type="email" placeholder="Email Address" value={formData.email} onChange={handleChange} />
+              {error && error.includes("Temporary emails") && (
+                <motion.p initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} className="mt-1.5 ml-2 text-xs font-medium text-red-400 text-left">
+                  {error}
+                </motion.p>
+              )}
+            </div>
             <InputGroup icon={<Phone size={18}/>} name="phone" type="tel" placeholder="Mobile Number" value={formData.phone} onChange={handleChange} />
             
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">

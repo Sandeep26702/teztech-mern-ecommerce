@@ -5,24 +5,10 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import sendEmail from "../utils/sendEmail.js";
 
-const disposableEmailDomains = new Set([
-  "mailinator.com",
-  "guerrillamail.com",
-  "10minutemail.com",
-  "tempmail.com",
-  "yopmail.com",
-  "trashmail.com",
-  "fakeinbox.com",
-  "sharklasers.com",
-]);
+import emailValidator from "deep-email-validator";
 
 const isValidName = (name) => /^[a-zA-Z][a-zA-Z\s.'-]{1,}$/.test(String(name || "").trim());
-const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email || "").trim());
 const isValidPhone = (phone) => /^\d{10}$/.test(String(phone || "").trim());
-const isDisposableEmail = (email) => {
-  const domain = String(email || "").split("@")[1]?.toLowerCase();
-  return domain ? disposableEmailDomains.has(domain) : false;
-};
 
 /* ================= HELPER: Generate Token ================= */
 const sendTokenResponse = (user, statusCode, res) => {
@@ -66,12 +52,21 @@ export const register = async (req, res) => {
       return res.status(400).json({ success: false, message: "Please enter a valid full name" });
     }
 
-    if (!isValidEmail(normalizedEmail)) {
-      return res.status(400).json({ success: false, message: "Please enter a valid email address" });
-    }
+    // Deep Email Validation for format, MX records, and Disposable Domains
+    const emailValidation = await emailValidator({
+      email: normalizedEmail,
+      validateRegex: true,
+      validateMx: true,
+      validateTypo: false, // Typo checks can sometimes be too strict
+      validateDisposable: true,
+      validateSMTP: false, // SMTP checks are slow and can cause hangs
+    });
 
-    if (isDisposableEmail(normalizedEmail)) {
-      return res.status(400).json({ success: false, message: "Temporary/disposable emails are not allowed" });
+    if (!emailValidation.valid) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Please use a valid personal or business email address. Temporary emails are not allowed." 
+      });
     }
 
     if (normalizedPhone && !isValidPhone(normalizedPhone)) {
@@ -238,6 +233,23 @@ export const login = async (req, res) => {
 
     if (!normalizedEmail || !password) {
       return res.status(400).json({ success: false, message: "Please provide email and password" });
+    }
+
+    // Deep Email Validation for format, MX records, and Disposable Domains
+    const emailValidation = await emailValidator({
+      email: normalizedEmail,
+      validateRegex: true,
+      validateMx: true,
+      validateTypo: false,
+      validateDisposable: true,
+      validateSMTP: false,
+    });
+
+    if (!emailValidation.valid) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Please use a valid personal or business email address. Temporary emails are not allowed." 
+      });
     }
 
     const user = await User.findOne({ email: normalizedEmail }).select("+password");
