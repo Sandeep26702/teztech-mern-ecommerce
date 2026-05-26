@@ -18,7 +18,11 @@ const slideSchema = new mongoose.Schema({
   },
   mediaUrl: { 
     type: String, 
-    required: true // Cloudinary URL ya YouTube/External Link yahan save hoga
+    required: true // Cloudinary URL ya YouTube/External Link yahan save hoga (Desktop)
+  },
+  mobileMediaUrl: {
+    type: String,
+    default: "" // Mobile specific URL
   },
   title: { 
     type: String, 

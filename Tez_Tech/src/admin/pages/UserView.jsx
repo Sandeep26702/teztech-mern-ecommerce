@@ -15,10 +15,13 @@ const UserView = () => {
         mediaType: "image",
         sourceType: "upload",
         mediaUrl: "",
+        mobileMediaUrl: "", // Mobile URL
         title: "",
         subtitle: "",
         file: null,
+        mobileFile: null, // Mobile File
         existingUrl: "",
+        existingMobileUrl: "",
       }
     ],
     featureCards: [
@@ -43,12 +46,15 @@ const UserView = () => {
               mediaType: slide.mediaType || "image",
               sourceType: slide.sourceType || "upload",
               mediaUrl: slide.sourceType === "link" ? slide.mediaUrl : "",
+              mobileMediaUrl: slide.sourceType === "link" ? slide.mobileMediaUrl || "" : "",
               title: slide.title || "",
               subtitle: slide.subtitle || "",
               file: null,
+              mobileFile: null,
               existingUrl: slide.sourceType === "upload" ? slide.mediaUrl : "",
+              existingMobileUrl: slide.sourceType === "upload" ? slide.mobileMediaUrl || "" : "",
             }))
-            : [{ mediaType: "image", sourceType: "upload", mediaUrl: "", title: "", subtitle: "", file: null, existingUrl: "" }],
+            : [{ mediaType: "image", sourceType: "upload", mediaUrl: "", mobileMediaUrl: "", title: "", subtitle: "", file: null, mobileFile: null, existingUrl: "", existingMobileUrl: "" }],
           
           featureCards: data.featureCards && data.featureCards.length > 0
             ? data.featureCards.map(card => ({
@@ -82,7 +88,9 @@ const UserView = () => {
     // Agar source type change ho raha hai, toh purana data clear kar do
     if (field === "sourceType") {
       updatedSlides[index].file = null;
+      updatedSlides[index].mobileFile = null;
       updatedSlides[index].mediaUrl = "";
+      updatedSlides[index].mobileMediaUrl = "";
     }
 
     // Smart Validation for mediaUrl
@@ -101,9 +109,13 @@ const UserView = () => {
     setFormData({ ...formData, heroSlides: updatedSlides });
   };
 
-  const handleSlideFileChange = (index, file) => {
+  const handleSlideFileChange = (index, file, isMobile = false) => {
     const updatedSlides = [...formData.heroSlides];
-    updatedSlides[index].file = file;
+    if (isMobile) {
+      updatedSlides[index].mobileFile = file;
+    } else {
+      updatedSlides[index].file = file;
+    }
     setFormData({ ...formData, heroSlides: updatedSlides });
   };
 
@@ -116,7 +128,7 @@ const UserView = () => {
       ...formData,
       heroSlides: [
         ...formData.heroSlides,
-        { mediaType: "image", sourceType: "upload", mediaUrl: "", title: "", subtitle: "", file: null, existingUrl: "" }
+        { mediaType: "image", sourceType: "upload", mediaUrl: "", mobileMediaUrl: "", title: "", subtitle: "", file: null, mobileFile: null, existingUrl: "", existingMobileUrl: "" }
       ]
     });
   };
@@ -159,8 +171,10 @@ const UserView = () => {
       const slidesToSubmit = formData.heroSlides.map(slide => ({
         mediaType: slide.mediaType,
         sourceType: slide.sourceType,
-        mediaUrl: slide.sourceType === "link" ? slide.mediaUrl : "", // Link wala UI input se aayega
-        existingUrl: slide.existingUrl, // Upload wali existing file
+        mediaUrl: slide.sourceType === "link" ? slide.mediaUrl : "",
+        mobileMediaUrl: slide.sourceType === "link" ? slide.mobileMediaUrl : "",
+        existingUrl: slide.existingUrl,
+        existingMobileUrl: slide.existingMobileUrl,
         title: slide.title,
         subtitle: slide.subtitle
       }));
@@ -176,8 +190,13 @@ const UserView = () => {
 
       // 3. Append Slide Files
       formData.heroSlides.forEach((slide, index) => {
-        if (slide.sourceType === "upload" && slide.file) {
-          data.append(`slide_${index}_file`, slide.file);
+        if (slide.sourceType === "upload") {
+          if (slide.file) {
+            data.append(`slide_${index}_file`, slide.file);
+          }
+          if (slide.mobileFile) {
+            data.append(`slide_${index}_mobileFile`, slide.mobileFile);
+          }
         }
       });
 
@@ -285,44 +304,84 @@ const UserView = () => {
                 {/* File Upload OR Link Input based on Source Type */}
                 <div className="mb-4 p-4 border border-blue-100 bg-blue-50/50 rounded-lg">
                   {slide.sourceType === "upload" ? (
-                    <div>
-                      <label className="block mb-2 text-sm font-semibold text-slate-700">Upload {slide.mediaType === "video" ? "Video" : "Image"}</label>
-                      {slide.existingUrl && !slide.file && (
-                        <div className="mb-3">
-                          <p className="text-xs text-green-600 font-semibold mb-1">Current Active {slide.mediaType}</p>
-                          {slide.mediaType === "video" ? (
-                            <video src={slide.existingUrl} className="w-32 rounded shadow" controls muted />
-                          ) : (
-                            <img src={slide.existingUrl} className="w-32 rounded shadow object-cover" alt="slide preview" />
-                          )}
-                        </div>
-                      )}
-                      <input
-                        type="file"
-                        accept={slide.mediaType === "video" ? "video/mp4,video/webm" : "image/png, image/jpeg, image/jpg"}
-                        onChange={(e) => {
-                          if (e.target.files && e.target.files[0]) {
-                            handleSlideFileChange(index, e.target.files[0]);
-                          }
-                        }}
-                        required={!slide.existingUrl && !slide.file}
-                        className="w-full px-3 py-2 text-sm text-slate-500 border border-slate-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700"
-                      />
-                      <p className="mt-1 text-xs text-slate-500 italic">
-                        {slide.mediaType === "video" ? "Max size: 50MB (MP4/WEBM)" : "Max size: 2MB (JPG/PNG)"}
-                      </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* DESKTOP UPLOAD */}
+                      <div>
+                        <label className="block mb-2 text-sm font-semibold text-slate-700">Desktop {slide.mediaType === "video" ? "Video (Landscape)" : "Image (Landscape)"}</label>
+                        {slide.existingUrl && !slide.file && (
+                          <div className="mb-3">
+                            <p className="text-xs text-green-600 font-semibold mb-1">Current Active</p>
+                            {slide.mediaType === "video" ? (
+                              <video src={slide.existingUrl} className="w-full max-h-32 rounded shadow object-cover" controls muted />
+                            ) : (
+                              <img src={slide.existingUrl} className="w-full max-h-32 rounded shadow object-cover" alt="slide preview" />
+                            )}
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept={slide.mediaType === "video" ? "video/mp4,video/webm" : "image/png, image/jpeg, image/jpg"}
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleSlideFileChange(index, e.target.files[0], false);
+                            }
+                          }}
+                          required={!slide.existingUrl && !slide.file}
+                          className="w-full px-3 py-2 text-xs text-slate-500 border border-slate-300 rounded-lg file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:font-semibold file:bg-blue-50 file:text-blue-700"
+                        />
+                      </div>
+
+                      {/* MOBILE UPLOAD */}
+                      <div>
+                        <label className="block mb-2 text-sm font-semibold text-slate-700">Mobile {slide.mediaType === "video" ? "Video (Portrait)" : "Image (Portrait)"} <span className="text-blue-500 text-xs font-normal">(Optional)</span></label>
+                        {slide.existingMobileUrl && !slide.mobileFile && (
+                          <div className="mb-3">
+                            <p className="text-xs text-green-600 font-semibold mb-1">Current Active Mobile</p>
+                            {slide.mediaType === "video" ? (
+                              <video src={slide.existingMobileUrl} className="w-16 md:w-24 max-h-32 rounded shadow object-cover" controls muted />
+                            ) : (
+                              <img src={slide.existingMobileUrl} className="w-16 md:w-24 max-h-32 rounded shadow object-cover" alt="slide mobile preview" />
+                            )}
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept={slide.mediaType === "video" ? "video/mp4,video/webm" : "image/png, image/jpeg, image/jpg"}
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleSlideFileChange(index, e.target.files[0], true);
+                            }
+                          }}
+                          className="w-full px-3 py-2 text-xs text-slate-500 border border-slate-300 rounded-lg file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:font-semibold file:bg-blue-50 file:text-blue-700"
+                        />
+                      </div>
                     </div>
                   ) : (
-                    <div>
-                      <label className="block mb-2 text-sm font-semibold text-slate-700">Paste {slide.mediaType === "video" ? "YouTube/Video" : "Image"} Link</label>
-                      <input
-                        type="url"
-                        value={slide.mediaUrl}
-                        onChange={(e) => handleSlideChange(index, "mediaUrl", e.target.value)}
-                        required
-                        placeholder={slide.mediaType === "video" ? "https://www.youtube.com/watch?v=..." : "https://example.com/image.jpg"}
-                        className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* DESKTOP LINK */}
+                      <div>
+                        <label className="block mb-2 text-sm font-semibold text-slate-700">Desktop {slide.mediaType === "video" ? "YouTube/Video (Landscape)" : "Image Link (Landscape)"}</label>
+                        <input
+                          type="url"
+                          value={slide.mediaUrl}
+                          onChange={(e) => handleSlideChange(index, "mediaUrl", e.target.value)}
+                          required
+                          placeholder={slide.mediaType === "video" ? "https://www.youtube.com/watch?v=..." : "https://example.com/image.jpg"}
+                          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        />
+                      </div>
+                      
+                      {/* MOBILE LINK */}
+                      <div>
+                        <label className="block mb-2 text-sm font-semibold text-slate-700">Mobile {slide.mediaType === "video" ? "YouTube/Video (Portrait)" : "Image Link (Portrait)"} <span className="text-blue-500 text-xs font-normal">(Optional)</span></label>
+                        <input
+                          type="url"
+                          value={slide.mobileMediaUrl}
+                          onChange={(e) => handleSlideChange(index, "mobileMediaUrl", e.target.value)}
+                          placeholder={slide.mediaType === "video" ? "https://youtube.com/shorts/..." : "https://example.com/mobile-image.jpg"}
+                          className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>

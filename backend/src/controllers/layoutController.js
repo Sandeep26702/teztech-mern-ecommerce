@@ -17,6 +17,7 @@ export const getHomeLayout = async (req, res) => {
             mediaType: "image",
             sourceType: "upload",
             mediaUrl: "", // Admin aakar update karega
+            mobileMediaUrl: "", // Mobile ke liye
             title: "",
             subtitle: "",
           }
@@ -85,19 +86,28 @@ export const updateHomeLayout = async (req, res) => {
 
       // Agar admin ne PC se file "upload" ki hai
       if (slide.sourceType === "upload") {
-        const fieldName = `slide_${i}_file`; // Frontend se yeh naam aayega
-        const uploadedFile = files.find((file) => file.fieldname === fieldName);
-
-        if (uploadedFile) {
-          slide.mediaUrl = uploadedFile.path; // Naya Cloudinary URL set kar do
+        // Desktop File
+        const desktopFieldName = `slide_${i}_file`; 
+        const uploadedDesktopFile = files.find((file) => file.fieldname === desktopFieldName);
+        if (uploadedDesktopFile) {
+          slide.mediaUrl = uploadedDesktopFile.path;
         } else {
-          // Agar file update nahi ki, toh purani wali (existingUrl) use kar lo
           slide.mediaUrl = slide.existingUrl || slide.mediaUrl || "";
         }
+
+        // Mobile File
+        const mobileFieldName = `slide_${i}_mobileFile`;
+        const uploadedMobileFile = files.find((file) => file.fieldname === mobileFieldName);
+        if (uploadedMobileFile) {
+          slide.mobileMediaUrl = uploadedMobileFile.path;
+        } else {
+          slide.mobileMediaUrl = slide.existingMobileUrl || slide.mobileMediaUrl || "";
+        }
       } 
-      // Agar admin ne "link" select kiya hai, toh frontend seedha mediaUrl bhej dega
+      // Agar admin ne "link" select kiya hai
       else if (slide.sourceType === "link") {
         slide.mediaUrl = slide.mediaUrl || "";
+        slide.mobileMediaUrl = slide.mobileMediaUrl || "";
       }
     }
 

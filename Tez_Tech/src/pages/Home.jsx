@@ -47,19 +47,23 @@ const Home = () => {
   // 🔥 UPDATED MEDIA RENDERER (NO CROPPING)
   // ==========================================
   const renderSlideMedia = (slide) => {
+    const desktopUrl = slide.mediaUrl;
+    const mobileUrl = slide.mobileMediaUrl || slide.mediaUrl; // Fallback to desktop if mobile is missing
+
     // 1. ALWAYS check for YouTube links first, regardless of mediaType
-    const ytId = slide.sourceType === "link" ? getYouTubeId(slide.mediaUrl) : null;
-    if (ytId) {
-      const ytSrc = `https://www.youtube.com/embed/${ytId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${ytId}&showinfo=0&rel=0`;
+    const desktopYtId = slide.sourceType === "link" ? getYouTubeId(desktopUrl) : null;
+    const mobileYtId = slide.sourceType === "link" ? getYouTubeId(mobileUrl) : null;
+
+    if (desktopYtId || mobileYtId) {
+      const desktopYtSrc = desktopYtId ? `https://www.youtube.com/embed/${desktopYtId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${desktopYtId}&showinfo=0&rel=0` : "";
+      const mobileYtSrc = mobileYtId ? `https://www.youtube.com/embed/${mobileYtId}?autoplay=1&mute=1&controls=0&loop=1&playlist=${mobileYtId}&showinfo=0&rel=0` : desktopYtSrc;
+      
       return (
-        <div className="absolute inset-0 w-full h-full bg-black z-0">
-          <iframe
-            className="w-full h-full pointer-events-none"
-            src={ytSrc}
-            frameBorder="0"
-            allow="autoplay; encrypted-media"
-            allowFullScreen
-          ></iframe>
+        <div className="absolute inset-0 w-full h-full bg-black z-0 flex">
+          {/* Mobile Iframe */}
+          <iframe className="w-full h-full pointer-events-none block md:hidden" src={mobileYtSrc} frameBorder="0" allow="autoplay; encrypted-media" allowFullScreen></iframe>
+          {/* Desktop Iframe */}
+          <iframe className="w-full h-full pointer-events-none hidden md:block" src={desktopYtSrc} frameBorder="0" allow="autoplay; encrypted-media" allowFullScreen></iframe>
         </div>
       );
     }
@@ -67,12 +71,11 @@ const Home = () => {
     // 2. Render standard video
     if (slide.mediaType === "video") {
       return (
-        <div className="absolute inset-0 w-full h-full bg-black z-0">
-          <video
-            autoPlay loop muted playsInline
-            className="w-full h-full object-contain"
-            src={slide.mediaUrl}
-          />
+        <div className="absolute inset-0 w-full h-full bg-black z-0 flex">
+          {/* Mobile Video */}
+          <video autoPlay loop muted playsInline className="w-full h-full object-contain block md:hidden" src={mobileUrl} />
+          {/* Desktop Video */}
+          <video autoPlay loop muted playsInline className="w-full h-full object-contain hidden md:block" src={desktopUrl} />
         </div>
       );
     } 
@@ -80,18 +83,15 @@ const Home = () => {
     // 3. Render image (Premium Blurred Background Effect)
     return (
       <div className="absolute inset-0 w-full h-full bg-gray-900 z-0 overflow-hidden">
-        {/* 1. Background Blur (Khali jagah bharne ke liye) */}
-        <img
-          src={slide.mediaUrl}
-          alt="blur-bg"
-          className="absolute inset-0 w-full h-full object-cover opacity-40 blur-2xl scale-110"
-        />
-        {/* 2. Main Crisp Image (Puri dikhegi, katega nahi) */}
-        <img
-          src={slide.mediaUrl}
-          alt="Hero Slide"
-          className="absolute inset-0 w-full h-full object-contain z-10"
-        />
+        {/* Background Blur */}
+        <img src={desktopUrl} alt="blur-bg" className="absolute inset-0 w-full h-full object-cover opacity-40 blur-2xl scale-110 hidden md:block" />
+        <img src={mobileUrl} alt="blur-bg-mobile" className="absolute inset-0 w-full h-full object-cover opacity-40 blur-2xl scale-110 block md:hidden" />
+        
+        {/* Main Crisp Image */}
+        <picture className="absolute inset-0 w-full h-full z-10 flex items-center justify-center">
+          <source media="(min-width: 768px)" srcSet={desktopUrl} />
+          <img src={mobileUrl} alt="Hero Slide" className="w-full h-full object-contain" />
+        </picture>
       </div>
     );
   };
