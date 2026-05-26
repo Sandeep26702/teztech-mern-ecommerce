@@ -42,7 +42,7 @@ const AdminLogs = () => {
         dateRange
       });
 
-      const { data } = await axios.get(`http://localhost:5000/api/admin/logs?${queryParams.toString()}`, {
+      const { data } = await axios.get(`https://sonani-backend.onrender.com/api/admin/logs?${queryParams.toString()}`, {
         withCredentials: true
       });
 
@@ -96,7 +96,7 @@ const AdminLogs = () => {
         dateRange
       });
       
-      const response = await axios.get(`http://localhost:5000/api/admin/logs/export?${queryParams.toString()}`, {
+      const response = await axios.get(`https://sonani-backend.onrender.com/api/admin/logs/export?${queryParams.toString()}`, {
         withCredentials: true,
         responseType: 'blob' // Important for file download
       });
