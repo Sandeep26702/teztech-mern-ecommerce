@@ -2,8 +2,9 @@ import { Routes, Route, Outlet } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import 'react-toastify/dist/ReactToastify.css';
 
-// ✅ Custom Route Guard
+// ✅ Custom Route Guards
 import PrivateRoute from "./routes/PrivateRoute";
+import ProtectedRoute from "./routes/ProtectedRoute";
 
 // 🛠️ Layout Components
 import Header from "./components/layout/Header";
@@ -131,31 +132,35 @@ function App() {
 
 
         {/* =====================================================================
-            🌐 PUBLIC & USER ROUTES (With Header/Footer)
+            🌐 PUBLIC & GATED USER ROUTES (With Header/Footer)
         ====================================================================== */}
         <Route element={<PublicLayout />}>
 
+          {/* 🟢 FULLY PUBLIC ROUTES */}
           <Route path="/" element={<Home />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/products" element={<Products />} />
-          <Route path="/products/:id" element={<ProductDetail />} />
-          <Route path="/product/:id" element={<ProductDetail />} />
-          <Route path="/categories" element={<CategoriesPage />} />
-          <Route path="/category/:slug" element={<Products />} />
-
-          <Route path="/quotation" element={<Quotation />} />
-          <Route path="/quote/:token" element={<QuoteViewer />} />
-          <Route path="/quote/:token/item/:itemId" element={<QuoteItemViewer />} />
-          <Route path="/cart" element={<Cart />} />
-
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/terms" element={<TermsOfService />} />
-
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/verify-otp" element={<VerifyOtp />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
+
+          {/* 🔒 GATED CONTENT (Requires Login, but no specific role) */}
+          <Route element={<ProtectedRoute />}>
+            <Route path="/about" element={<About />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/products/:id" element={<ProductDetail />} />
+            <Route path="/product/:id" element={<ProductDetail />} />
+            <Route path="/categories" element={<CategoriesPage />} />
+            <Route path="/category/:slug" element={<Products />} />
+
+            <Route path="/quotation" element={<Quotation />} />
+            <Route path="/quote/:token" element={<QuoteViewer />} />
+            <Route path="/quote/:token/item/:itemId" element={<QuoteItemViewer />} />
+            <Route path="/cart" element={<Cart />} />
+
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/terms" element={<TermsOfService />} />
+          </Route>
 
           {/* =====================================================================
               👤 LOGGED-IN USER ROUTES (Protected but with Header/Footer)
