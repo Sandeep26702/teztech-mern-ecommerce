@@ -22,8 +22,12 @@ import {
 import { protect, authorize } from "../middleware/auth.Middleware.js";
 import { validateProduct } from "../middleware/productValidator.js";
 import { upload } from "../config/cloudinary.js";
+import { trafficLogger } from "../middleware/trafficLogger.js";
 
 const router = express.Router();
+
+// Apply traffic logger to all product routes
+router.use(trafficLogger);
 
 // ===============================
 // 🔥 MULTER (CSV)

@@ -11,8 +11,12 @@ import {
     createAdminOrder // 🟢 NAYA ADD KIYA: Admin Order Controller
 } from '../controllers/orderController.js';
 import { protect, authorize } from '../middleware/auth.Middleware.js'; 
+import { trafficLogger } from "../middleware/trafficLogger.js";
 
 const router = express.Router();
+
+// Apply traffic logger to all order routes
+router.use(trafficLogger);
 
 // ☁️ Cloudinary Configuration (Aapke .env variables ke hisaab se)
 cloudinary.config({

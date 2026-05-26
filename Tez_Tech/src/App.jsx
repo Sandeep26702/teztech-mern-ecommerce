@@ -57,6 +57,7 @@ import AdminAnalytics from "./admin/pages/AdminAnalytics";
 import AdminSettings from "./admin/pages/AdminSettings";
 import QuotesTable from "./admin/pages/QuotesTable";
 import QuoteEditor from "./admin/pages/QuoteEditor";
+import AdminLogs from "./admin/pages/AdminLogs"; // 🔥 NAYA IMPORT
 import AdminOrderDetail from './admin/pages/OrderDetail';
 import ShippingManagement from './admin/pages/ShippingManagement';
 import AdminCreateOrder from './admin/pages/AdminCreateOrder';
@@ -120,6 +121,7 @@ function App() {
 
             <Route path="users" element={<AdminUsers />} />
             <Route path="subadmins" element={<AdminUsers />} />
+            <Route path="logs" element={<AdminLogs />} /> {/* 🔥 Traffic Logs */}
             <Route path="analytics" element={<AdminAnalytics />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="shipping" element={<ShippingManagement />} />

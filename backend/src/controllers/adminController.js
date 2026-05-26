@@ -1,6 +1,7 @@
 import User from "../models/User.js";
 import Product from "../models/Product.js"; 
 import Order from "../models/Order.js";
+import Log from "../models/Log.js";
 
 /* ================= DASHBOARD STATS (UPDATED FOR NEW UI) ================= */
 export const getDashboardStats = async (req, res) => {
@@ -261,6 +262,111 @@ export const toggleUserBlockStatus = async (req, res) => {
       message: isActive ? "User unblocked successfully" : "User blocked successfully",
       user,
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ================= TRAFFIC & SECURITY LOGS ================= */
+export const getTrafficLogs = async (req, res) => {
+  try {
+    const { page = 1, limit = 20, search, riskLevel, dateRange, startDate, endDate } = req.query;
+    const query = {};
+
+    // 1. Search by IP or Email
+    if (search) {
+      query.$or = [
+        { ipAddress: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } }
+      ];
+    }
+
+    // 2. Risk Level Filter
+    if (riskLevel && riskLevel !== "All") {
+      query.riskLevel = riskLevel;
+    }
+
+    // 3. Date Range Filter
+    const now = new Date();
+    if (dateRange === "Today") {
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      query.createdAt = { $gte: startOfToday };
+    } else if (dateRange === "Last 7 Days") {
+      const last7Days = new Date(now.setDate(now.getDate() - 7));
+      query.createdAt = { $gte: last7Days };
+    } else if (dateRange === "Custom" && startDate && endDate) {
+      query.createdAt = {
+        $gte: new Date(startDate),
+        $lte: new Date(endDate)
+      };
+    }
+
+    // Pagination
+    const skip = (Number(page) - 1) * Number(limit);
+    const total = await Log.countDocuments(query);
+    const logs = await Log.find(query)
+      .populate("user", "name email")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    res.status(200).json({
+      success: true,
+      logs,
+      total,
+      page: Number(page),
+      totalPages: Math.ceil(total / Number(limit))
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+/* ================= EXPORT LOGS ================= */
+export const exportTrafficLogs = async (req, res) => {
+  try {
+    const { search, riskLevel, dateRange, startDate, endDate } = req.query;
+    const query = {};
+
+    if (search) {
+      query.$or = [
+        { ipAddress: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } }
+      ];
+    }
+    if (riskLevel && riskLevel !== "All") {
+      query.riskLevel = riskLevel;
+    }
+    const now = new Date();
+    if (dateRange === "Today") {
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      query.createdAt = { $gte: startOfToday };
+    } else if (dateRange === "Last 7 Days") {
+      const last7Days = new Date(now.setDate(now.getDate() - 7));
+      query.createdAt = { $gte: last7Days };
+    } else if (dateRange === "Custom" && startDate && endDate) {
+      query.createdAt = { $gte: new Date(startDate), $lte: new Date(endDate) };
+    }
+
+    const logs = await Log.find(query)
+      .populate("user", "name email")
+      .sort({ createdAt: -1 });
+
+    // Generate CSV
+    let csvStr = "Time,Identity,Action,Risk Level,Endpoint\n";
+    
+    logs.forEach(log => {
+      const time = `"${new Date(log.createdAt).toLocaleString()}"`;
+      const identity = `"${log.user ? `${log.user.name} (${log.user.email})` : `Guest - ${log.ipAddress}`}"`;
+      const action = `"${log.action || ''}"`;
+      const risk = `"${log.riskLevel || ''}"`;
+      const endpoint = `"${log.endpoint || ''}"`;
+      csvStr += `${time},${identity},${action},${risk},${endpoint}\n`;
+    });
+
+    res.header("Content-Type", "text/csv");
+    res.attachment("traffic_logs.csv");
+    res.send(csvStr);
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

@@ -12,8 +12,12 @@ import {
 } from "../controllers/auth.Controller.js";
 
 import { protect, authorize } from "../middleware/auth.Middleware.js"; // 🆕 Added: Import authorize
+import { trafficLogger } from "../middleware/trafficLogger.js";
 
 const router = express.Router();
+
+// Apply traffic logger to all auth routes
+router.use(trafficLogger);
 
 /* ================= PUBLIC ROUTES ================= */
 router.post("/register", register);

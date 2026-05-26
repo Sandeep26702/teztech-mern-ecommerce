@@ -11,6 +11,8 @@ import {
   getUserById,
   updateUserProfileByAdmin,
   toggleUserBlockStatus,
+  getTrafficLogs,
+  exportTrafficLogs
 } from "../controllers/adminController.js"; 
 
 // Quote Controller Imports
@@ -59,5 +61,9 @@ router.route("/users/:id")
 router.get("/quote/:id", getQuoteById);
 router.put("/quote/:id", respondToQuote);
 router.patch("/quote/:id", respondToQuote);
+
+// 🛡️ Traffic & Security Logs Routes
+router.get("/logs/export", exportTrafficLogs); // This must come before /logs/:id if there was one
+router.get("/logs", getTrafficLogs);
 
 export default router;

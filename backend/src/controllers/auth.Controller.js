@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import Log from "../models/Log.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
@@ -152,6 +153,14 @@ export const verifyOtp = async (req, res) => {
     }
 
     if (user.otp !== cleanOtp || user.otpExpire < new Date()) {
+      await Log.create({
+        ipAddress: req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip,
+        email: normalizedEmail,
+        action: "Failed OTP Attempt",
+        riskLevel: "Warning",
+        method: req.method,
+        endpoint: req.originalUrl
+      }).catch(() => {});
       return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
     }
 
@@ -234,6 +243,14 @@ export const login = async (req, res) => {
     const user = await User.findOne({ email: normalizedEmail }).select("+password");
 
     if (!user) {
+      await Log.create({
+        ipAddress: req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip,
+        email: normalizedEmail,
+        action: "Failed Login Attempt (User Not Found)",
+        riskLevel: "Warning",
+        method: req.method,
+        endpoint: req.originalUrl
+      }).catch(() => {});
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
@@ -247,6 +264,15 @@ export const login = async (req, res) => {
     const isMatch = await user.comparePassword(password);
     
     if (!isMatch) {
+      await Log.create({
+        ipAddress: req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip,
+        email: normalizedEmail,
+        user: user._id,
+        action: "Failed Login Attempt (Wrong Password)",
+        riskLevel: "Blocked",
+        method: req.method,
+        endpoint: req.originalUrl
+      }).catch(() => {});
       return res.status(401).json({ success: false, message: "Invalid credentials" });
     }
 
