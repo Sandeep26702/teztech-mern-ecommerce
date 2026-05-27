@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { motion } from "framer-motion";
+import { Mail, Lock, Sparkles, ShieldCheck, Zap, ArrowRight, Loader2 } from "lucide-react";
+import toast from "react-hot-toast";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -13,7 +16,6 @@ const Login = () => {
   });
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   /* ================= AUTO REDIRECT ================= */
   useEffect(() => {
@@ -38,30 +40,31 @@ const Login = () => {
       ...formData,
       [e.target.name]: e.target.value,
     });
-    if (error) setError(""); 
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
 
     try {
       const result = await login(formData.email, formData.password);
       
       if (!result.success) {
-        setError(result.message || "Invalid Email or Password");
+        toast.error(result.message || "Invalid Email or Password");
         setLoading(false);
 
         // If the user's account is not verified, redirect to verification page
         if (result.isVerified === false) {
+          toast("Redirecting to verification...", { icon: '🔄' });
           setTimeout(() => {
             navigate("/verify-otp", { state: { email: formData.email } });
           }, 2000);
         }
+      } else {
+        toast.success("Welcome back!");
       }
     } catch (err) {
-      setError("An unexpected error occurred. Please try again.");
+      toast.error("An unexpected error occurred. Please try again.");
       setLoading(false);
     }
   };
@@ -69,135 +72,169 @@ const Login = () => {
   /* ================= FULL PAGE LOADER ================= */
   if (authLoading && !loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-        <svg className="w-10 h-10 mb-4 text-blue-600 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-        <p className="font-medium text-gray-500">Checking authentication...</p>
+      <div className="flex flex-col items-center justify-center min-h-screen bg-slate-950">
+        <Loader2 className="w-12 h-12 text-purple-500 animate-spin mb-4" />
+        <p className="font-medium text-slate-400">Checking authentication...</p>
       </div>
     ); 
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen px-4 py-12 font-sans bg-gradient-to-br from-gray-50 to-gray-100 sm:px-6 lg:px-8">
+    <div className="relative min-h-screen flex items-center justify-center bg-slate-950 overflow-hidden font-sans text-slate-200">
       
-      {/* Login Card with Masala Hover Effects */}
-      <div className="relative w-full max-w-md p-8 overflow-hidden transition-all duration-300 bg-white border border-gray-100 shadow-xl sm:p-10 rounded-2xl hover:shadow-2xl">
+      {/* --- Premium Animated Background --- */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-0 -right-40 w-96 h-96 bg-blue-600/20 rounded-full mix-blend-screen filter blur-[100px] animate-pulse"></div>
+        <div className="absolute bottom-0 -left-40 w-96 h-96 bg-purple-600/20 rounded-full mix-blend-screen filter blur-[100px] animate-pulse" style={{ animationDelay: '1.5s' }}></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-900/10 rounded-full mix-blend-screen filter blur-[120px]"></div>
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
+      </div>
+
+      {/* --- Main Container: Split Screen on Desktop (Reversed for Login) --- */}
+      <div className="relative z-10 w-full max-w-6xl p-4 sm:p-8 flex flex-col lg:flex-row-reverse items-stretch justify-center gap-8 lg:gap-0">
         
-        {/* Decorative Top Gradient Line */}
-        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-blue-500 via-cyan-400 to-blue-600"></div>
-
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900">
-            Welcome Back
+        {/* LEFT/RIGHT SIDE: Branding / Value Prop */}
+        <motion.div 
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          className="hidden md:flex flex-col justify-center w-full lg:w-5/12 lg:pl-12 xl:pl-16"
+        >
+          <div className="mb-6 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 w-max backdrop-blur-sm">
+            <Sparkles size={16} className="text-blue-400" />
+            <span className="text-sm font-medium tracking-wide text-blue-300">Welcome Back</span>
+          </div>
+          
+          <h1 className="text-5xl lg:text-6xl font-black tracking-tight mb-6 leading-tight">
+            Sign in to <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-500">
+              Your Dashboard
+            </span>
           </h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Sign in to continue to your account
+          
+          <p className="text-lg text-slate-400 mb-10 leading-relaxed max-w-md">
+            Access your orders, manage your profile, and explore the latest innovations in lighting technology.
           </p>
-        </div>
 
-        {/* Error Alert Box */}
-        {error && !error.includes("Temporary emails") && (
-          <div className="flex items-center gap-3 p-4 mb-6 border-l-4 border-red-500 bg-red-50 rounded-r-md">
-            <svg className="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <p className="text-sm font-medium text-red-700">{error}</p>
+          <div className="space-y-6">
+            <FeatureItem icon={<ShieldCheck size={24} className="text-emerald-400"/>} title="Bank-Grade Security" desc="Your account is protected by industry-leading security." />
+            <FeatureItem icon={<Zap size={24} className="text-amber-400"/>} title="Instant Access" desc="One-click login gets you straight to what you need." />
           </div>
-        )}
+        </motion.div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-5">
+        {/* FORM SIDE: The Form Card with Glassmorphism */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.2, ease: "easeOut" }}
+          className="w-full max-w-md mx-auto lg:mx-0 lg:w-7/12"
+        >
+          {/* Animated border wrapper */}
+          <div className="relative p-[1px] rounded-[2rem] overflow-hidden group shadow-2xl shadow-blue-900/20">
+            <div className="absolute inset-[-1000%] animate-[spin_5s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,rgba(0,0,0,0)_0%,#3b82f6_25%,rgba(0,0,0,0)_50%,#a855f7_75%,rgba(0,0,0,0)_100%)] opacity-50 group-hover:opacity-100 transition-opacity duration-500"></div>
             
-            {/* Email Input */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Email Address
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                placeholder="admin@example.com"
-                autoComplete="email"
-                className="block w-full px-4 py-3 placeholder-gray-400 transition-colors border border-gray-300 rounded-lg shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-50 focus:bg-white"
-              />
-              {error && error.includes("Temporary emails") && (
-                <p className="mt-1.5 ml-1 text-xs font-medium text-red-500">
-                  {error}
+            {/* Form Box */}
+            <div className="relative bg-slate-900/80 backdrop-blur-xl rounded-[1.95rem] p-8 sm:p-10 border border-white/10">
+              
+              {/* Mobile Header (Only shows on mobile) */}
+              <div className="md:hidden text-center mb-8">
+                <h2 className="text-3xl font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Tez Tech</h2>
+                <p className="text-slate-400 text-sm mt-1">Sign in to your account</p>
+              </div>
+
+              <div className="mb-8 hidden md:block">
+                <h2 className="text-2xl font-bold text-white mb-2">Login</h2>
+                <p className="text-slate-400 text-sm">Enter your credentials to continue.</p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                
+                <InputGroup disabled={loading} icon={<Mail size={18}/>} name="email" type="email" placeholder="Email Address" value={formData.email} onChange={handleChange} />
+                
+                <div className="space-y-2">
+                  <InputGroup disabled={loading} icon={<Lock size={18}/>} name="password" type="password" placeholder="Password" value={formData.password} onChange={handleChange} />
+                  <div className="flex justify-end">
+                    <Link to="/forgot-password" className="text-sm font-medium text-blue-400 hover:text-blue-300 transition-colors">
+                      Forgot Password?
+                    </Link>
+                  </div>
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: loading ? 1 : 1.02 }}
+                  whileTap={{ scale: loading ? 1 : 0.98 }}
+                  disabled={loading}
+                  type="submit"
+                  className={`w-full mt-8 py-4 rounded-xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-3 shadow-lg 
+                    ${loading 
+                      ? "bg-slate-800 text-slate-400 cursor-not-allowed border border-white/5" 
+                      : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white shadow-blue-500/25 hover:shadow-blue-500/40 border border-blue-500/30"
+                    }`}
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin text-blue-400" />
+                      Signing In...
+                    </>
+                  ) : (
+                    <>
+                      Sign In
+                      <ArrowRight size={18} />
+                    </>
+                  )}
+                </motion.button>
+              </form>
+
+              <div className="mt-8 pt-6 border-t border-white/10 text-center">
+                <p className="text-sm text-slate-400">
+                  Don&apos;t have an account?{" "}
+                  <Link to="/register" className="font-semibold text-blue-400 hover:text-blue-300 transition-colors inline-flex items-center gap-1 group">
+                    Create Account
+                    <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+                  </Link>
                 </p>
-              )}
-            </div>
+              </div>
 
-            {/* Password Input */}
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                Password
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-                placeholder="••••••••"
-                autoComplete="current-password"
-                className="block w-full px-4 py-3 placeholder-gray-400 transition-colors border border-gray-300 rounded-lg shadow-sm appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm bg-gray-50 focus:bg-white"
-              />
             </div>
           </div>
-
-          {/* Forgot Password Link */}
-          <div className="flex items-center justify-end">
-            <Link 
-              to="/forgot-password" 
-              className="text-sm font-medium text-blue-600 transition-colors hover:text-blue-500"
-            >
-              Forgot your password?
-            </Link>
-          </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="group w-full flex justify-center items-center gap-2 py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-bold text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
-          >
-            {loading ? (
-              <>
-                <svg className="w-4 h-4 mr-2 -ml-1 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Signing in...
-              </>
-            ) : (
-              "Sign In"
-            )}
-          </button>
-        </form>
-
-        {/* Footer / Sign Up Link */}
-        <div className="mt-8 text-center">
-          <p className="text-sm text-gray-600">
-            Don&apos;t have an account?{" "}
-            <Link 
-              to="/register" 
-              className="font-semibold text-blue-600 transition-all hover:text-blue-500 hover:underline"
-            >
-              Sign up
-            </Link>
-          </p>
-        </div>
+        </motion.div>
 
       </div>
     </div>
   );
 };
+
+// Sub-component for features on the left
+const FeatureItem = ({ icon, title, desc }) => (
+  <div className="flex items-start gap-4 p-4 rounded-2xl bg-white/5 border border-white/5 backdrop-blur-sm transition-colors hover:bg-white/10 max-w-sm">
+    <div className="p-3 bg-slate-900/50 rounded-xl border border-white/5">
+      {icon}
+    </div>
+    <div>
+      <h4 className="text-white font-semibold mb-1">{title}</h4>
+      <p className="text-sm text-slate-400 leading-relaxed">{desc}</p>
+    </div>
+  </div>
+);
+
+// Glassmorphism Input Group
+const InputGroup = ({ icon, disabled, ...props }) => (
+  <div className="relative group">
+    <div className={`absolute z-20 left-4 top-1/2 -translate-y-1/2 transition-colors duration-300 ${disabled ? 'text-slate-600' : 'text-slate-500 group-focus-within:text-blue-400'}`}>
+      {icon}
+    </div>
+    <input
+      {...props}
+      disabled={disabled}
+      required
+      className={`w-full pl-11 pr-4 py-3.5 rounded-xl outline-none transition-all duration-300 backdrop-blur-md relative z-10 text-sm sm:text-base shadow-inner font-medium tracking-wide
+        ${disabled 
+          ? 'bg-slate-800/30 border-slate-700/30 text-slate-500 cursor-not-allowed' 
+          : 'bg-slate-900/50 border border-slate-700/50 text-white placeholder:text-slate-500 focus:border-blue-500 focus:bg-slate-800/80 hover:border-slate-600/80'
+        }`}
+    />
+  </div>
+);
 
 export default Login;
