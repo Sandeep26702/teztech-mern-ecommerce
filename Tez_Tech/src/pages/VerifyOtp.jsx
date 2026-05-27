@@ -24,7 +24,6 @@ const VerifyOtp = () => {
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const [error, setError] = useState("");
   const [timer, setTimer] = useState(60); // 60 seconds resend cooldown
   const [canResend, setCanResend] = useState(false);
 
@@ -54,7 +53,6 @@ const VerifyOtp = () => {
     // Take the last character typed
     newOtp[index] = value.substring(value.length - 1);
     setOtp(newOtp);
-    setError("");
 
     // Auto-advance focus to the next input if value is filled
     if (value && index < 5) {
@@ -87,7 +85,6 @@ const VerifyOtp = () => {
     if (/^\d{6}$/.test(pastedData)) {
       const digits = pastedData.split("");
       setOtp(digits);
-      setError("");
       inputRefs.current[5].focus();
     }
   };
@@ -97,23 +94,21 @@ const VerifyOtp = () => {
     e.preventDefault();
     const fullOtp = otp.join("");
     if (fullOtp.length !== 6) {
-      setError("Please enter all 6 digits of the OTP.");
+      toast.error("Please enter all 6 digits of the OTP.");
       return;
     }
     if (!email) {
-      setError("Please provide a valid email address.");
+      toast.error("Please provide a valid email address.");
       return;
     }
 
     setLoading(true);
-    setError("");
 
     const result = await verifyOtp(email, fullOtp);
     if (result.success) {
       toast.success("Account verified successfully! Logging you in...");
     } else {
-      setError(result.message || "Invalid or expired OTP");
-      toast.error(result.message || "Verification failed");
+      toast.error(result.message || "Invalid or expired OTP");
       setLoading(false);
     }
   };
@@ -122,12 +117,11 @@ const VerifyOtp = () => {
   const handleResend = async () => {
     if (!canResend || resendLoading) return;
     if (!email) {
-      setError("Please enter your email to resend the OTP.");
+      toast.error("Please enter your email to resend the OTP.");
       return;
     }
 
     setResendLoading(true);
-    setError("");
 
     const result = await resendOtp(email);
     if (result.success) {
@@ -136,76 +130,70 @@ const VerifyOtp = () => {
       setOtp(["", "", "", "", "", ""]);
       inputRefs.current[0].focus();
     } else {
-      setError(result.message || "Failed to resend OTP");
       toast.error(result.message || "Resend failed");
     }
     setResendLoading(false);
   };
 
   return (
-    <div 
-      className="relative flex items-center justify-center w-full min-h-screen px-4 py-8 overflow-hidden font-sans sm:p-8"
-      style={{ 
-        backgroundImage: `url('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2064&auto=format&fit=crop')`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center'
-      }}
-    >
-      {/* Dark Magic Overlay */}
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-[4px]"></div>
-
-      {/* Floating Particles */}
-      <motion.div animate={{ y: [0, -20, 0], opacity: [0.5, 1, 0.5] }} transition={{ repeat: Infinity, duration: 4 }} className="absolute top-20 left-10 text-purple-400 blur-[2px]"><Sparkles size={40} /></motion.div>
-      <motion.div animate={{ y: [0, 30, 0], opacity: [0.3, 0.8, 0.3] }} transition={{ repeat: Infinity, duration: 6 }} className="absolute bottom-20 right-10 text-blue-400 blur-[1px]"><Zap size={50} /></motion.div>
+    <div className="relative min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950 overflow-hidden font-sans text-gray-900 dark:text-slate-200 transition-colors duration-500 p-4">
+      
+      {/* --- Premium Animated Background --- */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-0 -left-40 w-96 h-96 bg-emerald-400/30 dark:bg-emerald-600/20 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] animate-pulse"></div>
+        <div className="absolute bottom-0 -right-40 w-96 h-96 bg-blue-400/30 dark:bg-blue-600/20 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] animate-pulse" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-300/20 dark:bg-indigo-900/10 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[120px]"></div>
+        {/* Subtle grid pattern */}
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-5 dark:opacity-20 brightness-100 contrast-150 mix-blend-overlay"></div>
+      </div>
 
       {/* 3D Rotating Light Border Container */}
-      <div className="relative p-[2px] sm:p-[3px] overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] group max-w-xl w-full z-10 shadow-[0_0_50px_rgba(99,102,241,0.3)]">
+      <div className="relative z-10 p-[1px] overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] group max-w-xl w-full shadow-2xl shadow-indigo-900/5 dark:shadow-indigo-900/20">
         
         {/* Rotating border gradient */}
-        <div className="absolute inset-[-1000%] animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#E2E8F0_0%,#a855f7_25%,#3b82f6_50%,#a855f7_75%,#E2E8F0_100%)] opacity-80"></div>
+        <div className="absolute inset-[-1000%] animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,rgba(0,0,0,0)_0%,#3b82f6_25%,rgba(0,0,0,0)_50%,#a855f7_75%,rgba(0,0,0,0)_100%)] opacity-20 dark:opacity-50 group-hover:opacity-40 dark:group-hover:opacity-100 transition-opacity duration-500"></div>
 
         {/* Content Box (Glassmorphism) */}
-        <div className="relative bg-slate-950/85 backdrop-blur-2xl rounded-[1.9rem] sm:rounded-[2.4rem] p-6 sm:p-10 md:p-12 z-10 border border-white/10">
+        <div className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl rounded-[1.95rem] sm:rounded-[2.45rem] p-6 sm:p-10 md:p-12 z-10 border border-white/40 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
           
           <div className="mb-8 text-center sm:mb-10">
-            <h1 className="text-3xl font-black tracking-tight text-transparent sm:text-4xl bg-clip-text bg-gradient-to-r from-purple-400 to-blue-500">
+            <h1 className="text-3xl font-black tracking-tight text-transparent sm:text-4xl bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-500">
               Verify Account
             </h1>
-            <p className="text-slate-300 mt-2 text-xs sm:text-sm uppercase tracking-[0.2em] font-medium">
+            <p className="text-gray-500 dark:text-slate-400 mt-2 text-xs sm:text-sm uppercase tracking-[0.2em] font-medium">
              Enter OTP sent to your Email
             </p>
           </div>
-
-          {error && (
-            <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }} className="p-3 mb-6 text-sm text-center text-red-400 border bg-red-500/10 border-red-500/30 rounded-xl">
-              {error}
-            </motion.div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             
             {/* Email Field (Dynamic editable fallback) */}
             <div className="relative group">
-              <div className="absolute z-20 transition-colors -translate-y-1/2 left-4 top-1/2 text-slate-400 group-focus-within:text-purple-400">
-                <Mail size={18} />
-              </div>
               <input
                 type="email"
                 required
                 disabled={isEmailReadOnly}
                 value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  setError("");
-                }}
-                placeholder="Verify Email Address"
-                className={`w-full bg-slate-900/50 border border-slate-700/50 text-white pl-12 pr-4 py-3.5 sm:py-4 rounded-xl outline-none focus:border-purple-500 focus:bg-slate-800/80 transition-all placeholder:text-slate-500 backdrop-blur-md relative z-10 text-sm sm:text-base shadow-inner ${isEmailReadOnly ? "opacity-60 cursor-not-allowed border-dashed" : ""}`}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder=" "
+                className={`peer w-full px-4 pr-20 pt-6 pb-2 rounded-xl outline-none transition-all duration-300 backdrop-blur-md relative z-10 text-sm sm:text-base shadow-inner font-medium tracking-wide
+                  ${isEmailReadOnly 
+                    ? "bg-gray-100 dark:bg-slate-800/30 border-gray-200 border-dashed dark:border-slate-700/30 text-gray-500 dark:text-slate-500 cursor-not-allowed" 
+                    : "bg-white/60 dark:bg-slate-900/50 border border-gray-300 dark:border-slate-700/50 text-gray-900 dark:text-white focus:border-indigo-500 dark:focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800/80 hover:border-gray-400 dark:hover:border-slate-600/80"
+                  }`}
               />
+              <label className={`absolute z-20 left-4 transition-all duration-300 pointer-events-none origin-[0]
+                top-1/2 -translate-y-1/2 text-sm font-medium
+                peer-focus:top-3.5 peer-focus:-translate-y-0 peer-focus:scale-75 peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-wider
+                peer-[&:not(:placeholder-shown)]:top-3.5 peer-[&:not(:placeholder-shown)]:-translate-y-0 peer-[&:not(:placeholder-shown)]:scale-75 peer-[&:not(:placeholder-shown)]:font-bold peer-[&:not(:placeholder-shown)]:uppercase peer-[&:not(:placeholder-shown)]:tracking-wider
+                ${isEmailReadOnly ? 'text-gray-400 dark:text-slate-600' : 'text-gray-500 dark:text-slate-400 peer-focus:text-indigo-600 dark:peer-focus:text-indigo-400'}`}>
+                Verify Email Address
+              </label>
               {isEmailReadOnly && (
                 <button
                   type="button"
                   onClick={() => setIsEmailReadOnly(false)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-purple-400 hover:text-purple-300 font-bold z-20 underline"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-bold z-20 underline"
                 >
                   Change
                 </button>
@@ -214,7 +202,7 @@ const VerifyOtp = () => {
 
             {/* 6-Digit OTP Inputs */}
             <div>
-              <label className="block text-slate-400 text-sm font-medium mb-3 text-center">
+              <label className="block text-gray-600 dark:text-slate-400 text-sm font-medium mb-3 text-center">
                 Enter 6-Digit Code
               </label>
               <div className="flex justify-between gap-2 sm:gap-3" onPaste={handlePaste}>
@@ -228,7 +216,7 @@ const VerifyOtp = () => {
                     value={digit}
                     onChange={(e) => handleChange(index, e.target.value)}
                     onKeyDown={(e) => handleKeyDown(index, e)}
-                    className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-black bg-slate-900/50 border border-slate-700/50 focus:border-purple-500 focus:bg-slate-800/80 text-white rounded-xl outline-none transition-all placeholder:text-slate-700 shadow-inner"
+                    className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-black bg-white/60 dark:bg-slate-900/50 border border-gray-300 dark:border-slate-700/50 focus:border-indigo-500 dark:focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800/80 text-gray-900 dark:text-white rounded-xl outline-none transition-all placeholder:text-gray-300 dark:placeholder:text-slate-700 shadow-inner"
                     placeholder="-"
                     required
                   />
@@ -238,32 +226,45 @@ const VerifyOtp = () => {
 
             {/* Action buttons */}
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={{ scale: loading ? 1 : 1.02 }}
+              whileTap={{ scale: loading ? 1 : 0.98 }}
               disabled={loading}
-              className="w-full mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold py-4 rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:shadow-[0_0_30px_rgba(168,85,247,0.6)] transition-all duration-300 flex items-center justify-center gap-2 uppercase tracking-wider text-sm sm:text-base border border-white/10"
+              className={`w-full mt-6 py-4 rounded-xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 uppercase text-sm sm:text-base shadow-lg
+                ${loading 
+                  ? "bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-slate-400 cursor-not-allowed border border-transparent dark:border-white/5" 
+                  : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-500/25 hover:shadow-blue-500/40 border border-blue-500/30 dark:border-white/10"
+                }`}
             >
-              {loading ? "Verifying..." : "Verify & Activate"}
-              {!loading && <ShieldCheck size={18} />}
+              {loading ? (
+                <>
+                  <RefreshCw size={18} className="animate-spin text-blue-600 dark:text-blue-400" />
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  Verify & Activate
+                  <ShieldCheck size={18} />
+                </>
+              )}
             </motion.button>
           </form>
 
           {/* Resend and back navigation */}
           <div className="mt-8 text-center space-y-4">
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-gray-600 dark:text-slate-400">
               Didn&apos;t receive code?{" "}
               {canResend ? (
                 <button
                   type="button"
                   onClick={handleResend}
                   disabled={resendLoading}
-                  className="font-bold text-purple-400 hover:text-purple-300 underline underline-offset-4 inline-flex items-center gap-1 transition-all"
+                  className="font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 underline underline-offset-4 inline-flex items-center gap-1 transition-all"
                 >
                   {resendLoading ? "Sending..." : "Resend OTP"}
                   {!resendLoading && <RefreshCw size={14} className="animate-spin-slow" />}
                 </button>
               ) : (
-                <span className="font-bold text-slate-500">
+                <span className="font-bold text-gray-400 dark:text-slate-500">
                   Resend in {timer}s
                 </span>
               )}
@@ -271,7 +272,7 @@ const VerifyOtp = () => {
 
             <Link 
               to="/login" 
-              className="inline-flex items-center gap-2 text-sm font-semibold text-slate-400 hover:text-white transition-all underline underline-offset-4"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-all underline underline-offset-4"
             >
               <ArrowLeft size={16} />
               Back to Login
