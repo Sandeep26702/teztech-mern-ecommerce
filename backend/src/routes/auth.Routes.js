@@ -13,6 +13,12 @@ import {
 
 import { protect, authorize } from "../middleware/auth.Middleware.js"; // 🆕 Added: Import authorize
 import { trafficLogger } from "../middleware/trafficLogger.js";
+import {
+  validateRegister,
+  validateLogin,
+  validateForgotPassword,
+  validateResetPassword
+} from "../middleware/authValidator.js";
 
 const router = express.Router();
 
@@ -20,12 +26,12 @@ const router = express.Router();
 router.use(trafficLogger);
 
 /* ================= PUBLIC ROUTES ================= */
-router.post("/register", register);
+router.post("/register", validateRegister, register);
 router.post("/verify-otp", verifyOtp);
 router.post("/resend-otp", resendOtp);
-router.post("/login", login);
-router.post("/forgot-password", forgotPassword);
-router.put("/reset-password/:token", resetPassword);
+router.post("/login", validateLogin, login);
+router.post("/forgot-password", validateForgotPassword, forgotPassword);
+router.put("/reset-password/:token", validateResetPassword, resetPassword);
 
 /* ================= PROTECTED ROUTES (Logged in Users) ================= */
 router.get("/me", protect, getMe);

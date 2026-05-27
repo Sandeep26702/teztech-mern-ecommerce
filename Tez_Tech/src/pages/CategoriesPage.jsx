@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { optimizeCloudinaryUrl } from "../utils/api.js";
 
 const CategoriesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -155,7 +156,7 @@ const CategoriesPage = () => {
                 >
                   {/* Full Background Image */}
                   {category.image ? (
-                    <img src={category.image} alt={category.name} className="absolute inset-0 z-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" />
+                    <img src={optimizeCloudinaryUrl(category.image, 500)} alt={category.name} className="absolute inset-0 z-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" />
                   ) : (
                     <div className="absolute inset-0 z-0 w-full h-full bg-gray-100"></div>
                   )}

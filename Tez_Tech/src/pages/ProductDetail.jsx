@@ -7,6 +7,7 @@ import { useQuote } from "../context/QuoteContext";
 import { getProductById } from "../services/productService";
 // 🔥 NAYA: Link copy hone par message dikhane ke liye
 import toast from 'react-hot-toast';
+import { optimizeCloudinaryUrl } from "../utils/api.js";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -152,7 +153,7 @@ const ProductDetail = () => {
         <div>
           {/* 🔥 NAYA: relative lagaya taaki share button top-right me fix rahe */}
           <div className="relative bg-[#f8f8f8] p-4 rounded-md group">
-            <img src={images[activeImageIndex]} alt={product.name} className="w-full object-contain max-h-[600px] mix-blend-multiply transition-transform duration-500 ease-in-out group-hover:scale-105" />
+            <img src={optimizeCloudinaryUrl(images[activeImageIndex], 800)} alt={product.name} className="w-full object-contain max-h-[600px] mix-blend-multiply transition-transform duration-500 ease-in-out group-hover:scale-105" />
             
             {/* 🔥 NAYA: Premium Animated Share Button */}
             <button
@@ -167,7 +168,7 @@ const ProductDetail = () => {
           {images.length > 1 && (
             <div className="flex gap-2 mt-4 overflow-x-auto">
               {images.map((img, i) => (
-                <img key={i} src={img} onClick={() => setActiveImageIndex(i)} alt="thumbnail" className={`w-20 h-20 border cursor-pointer object-cover rounded-sm transition-all ${activeImageIndex === i ? 'border-gray-800 border-2' : 'border-gray-200 hover:border-gray-400'}`} />
+                <img key={i} src={optimizeCloudinaryUrl(img, 150)} onClick={() => setActiveImageIndex(i)} alt="thumbnail" className={`w-20 h-20 border cursor-pointer object-cover rounded-sm transition-all ${activeImageIndex === i ? 'border-gray-800 border-2' : 'border-gray-200 hover:border-gray-400'}`} />
               ))}
             </div>
           )}

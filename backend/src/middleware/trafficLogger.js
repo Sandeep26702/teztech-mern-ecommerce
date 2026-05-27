@@ -7,6 +7,27 @@ const WARNING_THRESHOLD = 60; // 60 hits per minute = Warning
 const BLOCKED_THRESHOLD = 150; // 150 hits per minute = Blocked
 const TIME_WINDOW_MS = 60 * 1000; // 1 minute window
 
+// In-memory logs buffer for high-performance write optimization
+const logBuffer = [];
+const BUFFER_FLUSH_INTERVAL = 15000; // 15 seconds
+const MAX_BUFFER_SIZE = 50; // Maximum items before a forced flush
+
+const flushLogs = async () => {
+  if (logBuffer.length === 0) return;
+  const logsToInsert = [...logBuffer];
+  logBuffer.length = 0; // Clear buffer immediately to prevent duplicates on concurrent calls
+
+  try {
+    // Bulk write logs to the database asynchronously
+    await Log.insertMany(logsToInsert, { ordered: false });
+  } catch (err) {
+    console.error("Failed to flush traffic logs to database:", err);
+  }
+};
+
+// Periodic background log flushing
+setInterval(flushLogs, BUFFER_FLUSH_INTERVAL);
+
 export const trafficLogger = async (req, res, next) => {
   try {
     let rawIp = req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip || "";
@@ -53,13 +74,11 @@ export const trafficLogger = async (req, res, next) => {
     }
 
     // Collect user info if logged in (from authMiddleware if it runs before this, else from req.body/token)
-    // req.user might be set if this runs after authMiddleware.
-    // If it's a login route, we can grab email from req.body.
     let user = req.user ? req.user._id : null;
     let email = req.user ? req.user.email : (req.body?.email || null);
 
-    // Save Log (Fire and forget, don't await to block the request)
-    Log.create({
+    // Queue Log Entry in buffer instead of writing instantly
+    logBuffer.push({
       ipAddress: ip,
       user,
       email,
@@ -67,9 +86,15 @@ export const trafficLogger = async (req, res, next) => {
       riskLevel,
       method,
       endpoint,
-    }).catch(err => console.error("Error saving traffic log:", err));
+      createdAt: new Date()
+    });
 
-    // If completely blocked, we might want to reject the request to protect the server
+    // Forced flush if buffer is filled
+    if (logBuffer.length >= MAX_BUFFER_SIZE) {
+      flushLogs();
+    }
+
+    // If completely blocked, reject request
     if (riskLevel === "Blocked") {
       return res.status(429).json({ message: "Too many requests. Please try again later." });
     }

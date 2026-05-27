@@ -1,5 +1,6 @@
 import Category from "../models/Category.js";
 import Product from "../models/Product.js";
+import { getCache, setCache, clearCategoriesCache, cacheKeys } from "../utils/cache.js";
 
 const DEFAULT_CATEGORY_IMAGE = "https://placehold.co/600x400?text=Category";
 
@@ -84,9 +85,18 @@ export const getPublicCategories = async (req, res) => {
     if (fallbackUser) {
       await ensureCategoriesFromProducts(fallbackUser);
     }
+
+    const cached = getCache(cacheKeys.CATEGORIES_PUBLIC);
+    if (cached) {
+      return res.status(200).json({ success: true, categories: cached });
+    }
+
     const categories = await Category.find({ isActive: true })
       .sort({ sortOrder: 1, name: 1 })
       .select("name slug description image sortOrder");
+
+    setCache(cacheKeys.CATEGORIES_PUBLIC, categories);
+
     res.status(200).json({ success: true, categories });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -143,6 +153,8 @@ export const createCategory = async (req, res) => {
       createdBy: req.user._id,
     });
 
+    clearCategoriesCache();
+
     res.status(201).json({ success: true, category });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -186,6 +198,8 @@ export const updateCategory = async (req, res) => {
       );
     }
 
+    clearCategoriesCache();
+
     res.status(200).json({ success: true, category });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -228,6 +242,7 @@ export const deleteCategory = async (req, res) => {
     }
 
     await category.deleteOne();
+    clearCategoriesCache();
     res.status(200).json({ success: true, message: "Category deleted successfully" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -259,6 +274,8 @@ export const reassignCategoryProducts = async (req, res) => {
       { $set: { category: toCategory.name } }
     );
 
+    clearCategoriesCache();
+
     res.status(200).json({
       success: true,
       message: "Products reassigned successfully",
@@ -281,6 +298,7 @@ export const cleanupUnusedCategories = async (req, res) => {
     }
 
     const result = await Category.deleteMany({ _id: { $in: unusedIds } });
+    clearCategoriesCache();
     return res.status(200).json({
       success: true,
       message: "Unused categories removed successfully",

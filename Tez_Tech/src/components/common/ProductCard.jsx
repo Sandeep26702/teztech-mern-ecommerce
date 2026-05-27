@@ -2,6 +2,7 @@ import { useNavigate } from "react-router-dom";
 import { FaShoppingCart, FaFileAlt } from "react-icons/fa";
 import { useCart } from "../../context/CartContext";
 import { useQuote } from "../../context/QuoteContext";
+import { optimizeCloudinaryUrl } from "../../utils/api.js";
 
 const ProductCard = ({ product }) => {
   const navigate = useNavigate();
@@ -10,7 +11,8 @@ const ProductCard = ({ product }) => {
 
   if (!product) return null;
 
-  const imageUrl = product?.image || product?.images?.[0]?.url || product?.images?.[0] || "https://placehold.co/400x300/f3f4f6/a1a1aa?text=No+Image";
+  const imageUrl = optimizeCloudinaryUrl(product?.image || product?.images?.[0]?.url || product?.images?.[0] || "https://placehold.co/400x300/f3f4f6/a1a1aa?text=No+Image", 400);
+
   const productId = product?._id || product?.id;
 
   const defaultVariant = product?.variants?.length > 0 ? product.variants[0] : null;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { optimizeCloudinaryUrl } from "../utils/api.js";
 
 // 🔥 SWIPER JS IMPORTS
 import { Swiper, SwiperSlide } from "swiper/react";
@@ -47,8 +48,8 @@ const Home = () => {
   // 🔥 UPDATED MEDIA RENDERER (NO CROPPING)
   // ==========================================
   const renderSlideMedia = (slide) => {
-    const desktopUrl = slide.mediaUrl;
-    const mobileUrl = slide.mobileMediaUrl || slide.mediaUrl; // Fallback to desktop if mobile is missing
+    const desktopUrl = optimizeCloudinaryUrl(slide.mediaUrl, 1200);
+    const mobileUrl = optimizeCloudinaryUrl(slide.mobileMediaUrl || slide.mediaUrl, 600); // Fallback to desktop if mobile is missing
 
     // 1. ALWAYS check for YouTube links first, regardless of mediaType
     const desktopYtId = slide.sourceType === "link" ? getYouTubeId(desktopUrl) : null;
@@ -181,7 +182,7 @@ const Home = () => {
                 <div className="absolute duration-1000 w-full h-full [transform-style:preserve-3d] group-hover:[transform:rotateX(180deg)] group-focus:[transform:rotateX(180deg)]">
                   <div className="absolute w-full h-full rounded-2xl bg-gray-800 text-white [backface-visibility:hidden] shadow-xl overflow-hidden">
                     {feature.image ? (
-                      <img src={feature.image} alt={feature.title} className="absolute inset-0 w-full h-full object-cover z-0" />
+                      <img src={optimizeCloudinaryUrl(feature.image, 400)} alt={feature.title} className="absolute inset-0 w-full h-full object-cover z-0" />
                     ) : (
                       <div className="absolute inset-0 w-full h-full bg-gradient-to-br from-gray-700 to-gray-900 z-0"></div>
                     )}

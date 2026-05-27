@@ -1,4 +1,5 @@
 import HomeLayout from "../models/HomeLayout.js";
+import { getCache, setCache, clearLayoutCache, cacheKeys } from "../utils/cache.js";
 
 /**
  * @desc    Get Home Layout Data
@@ -7,6 +8,11 @@ import HomeLayout from "../models/HomeLayout.js";
  */
 export const getHomeLayout = async (req, res) => {
   try {
+    const cachedLayout = getCache(cacheKeys.HOME_LAYOUT);
+    if (cachedLayout) {
+      return res.status(200).json(cachedLayout);
+    }
+
     let layout = await HomeLayout.findOne();
 
     // Agar database khali hai, toh ek Default Slider aur Cards bhejenge
@@ -41,6 +47,9 @@ export const getHomeLayout = async (req, res) => {
         ],
       };
     }
+
+    // 2. Save in cache
+    setCache(cacheKeys.HOME_LAYOUT, layout);
 
     res.status(200).json(layout);
   } catch (error) {
@@ -131,6 +140,9 @@ export const updateHomeLayout = async (req, res) => {
     layout.featureCards = parsedCards;
 
     await layout.save();
+
+    // Clear layout cache
+    clearLayoutCache();
 
     res.status(200).json({ message: "Home Layout updated successfully", layout });
   } catch (error) {

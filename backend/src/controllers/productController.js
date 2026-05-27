@@ -2,6 +2,7 @@ import Product from "../models/Product.js";
 import ProductImportJob from "../models/ProductImportJob.js";
 import Category from "../models/Category.js";
 import { v2 as cloudinary } from 'cloudinary';
+import { getCache, setCache, clearProductsCache, cacheKeys } from "../utils/cache.js";
 
 const DEFAULT_PRODUCT_IMAGE = "https://placehold.co/600x600?text=Product";
 
@@ -56,12 +57,26 @@ export const getProducts = async (req, res) => {
   try {
     const { keyword, category, minPrice, maxPrice, page = 1, limit = 8 } = req.query;
 
+    const cacheKey = `${cacheKeys.PRODUCTS_PREFIX}${JSON.stringify({
+      keyword: keyword || "",
+      category: category || "",
+      minPrice: minPrice || "",
+      maxPrice: maxPrice || "",
+      page,
+      limit
+    })}`;
+
+    const cachedData = getCache(cacheKey);
+    if (cachedData) {
+      return res.status(200).json(cachedData);
+    }
+
     // 1. Match Stage (Filters setup)
     let matchStage = { status: "Active" };
 
-    // 🔍 REGEX SEARCH: Partial match ke liye (Taki ek letter type karne pe bhi result aaye)
+    // 🔍 NATIVE TEXT SEARCH
     if (keyword) {
-      matchStage.name = { $regex: keyword, $options: "i" }; // 'i' for case-insensitive
+      matchStage.$text = { $search: keyword };
     }
 
     if (category) {
@@ -84,10 +99,15 @@ export const getProducts = async (req, res) => {
         // Step A: Jo match hote hain unhe filter karo
         { $match: matchStage },
         // Step B: Har product ke naam me keyword kis position (index) pe hai wo pata lagao
+        // (Agar keyword nahi mila toh 9999 sort weight do, nahi toh real index)
         {
           $addFields: {
-            matchIndex: { 
-              $indexOfCP: [ { $toLower: "$name" }, keyword.toLowerCase() ] 
+            matchIndex: {
+              $cond: {
+                if: { $eq: [ { $indexOfCP: [ { $toLower: "$name" }, keyword.toLowerCase() ] }, -1 ] },
+                then: 9999,
+                else: { $indexOfCP: [ { $toLower: "$name" }, keyword.toLowerCase() ] }
+              }
             }
           }
         },
@@ -96,7 +116,27 @@ export const getProducts = async (req, res) => {
         { $sort: { matchIndex: 1, name: 1 } },
         // Step D: Pagination
         { $skip: skip },
-        { $limit: Number(limit) }
+        { $limit: Number(limit) },
+        // Step E: Project only essential fields to minimize database response payload size
+        {
+          $project: {
+            name: 1,
+            price: 1,
+            mrp: 1,
+            image: 1,
+            images: 1,
+            baseSku: 1,
+            status: 1,
+            category: 1,
+            categories: 1,
+            gstRate: 1,
+            shippingCharge: 1,
+            attributes: 1,
+            variants: 1,
+            hasVariants: 1,
+            customFields: 1
+          }
+        }
       ];
 
       products = await Product.aggregate(pipeline);
@@ -112,6 +152,7 @@ export const getProducts = async (req, res) => {
     } else {
       // NORMAL QUERY (Agar user ne kuch search nahi kiya hai toh fast normal query chalegi)
       products = await Product.find(matchStage)
+        .select("name price mrp image images baseSku status category categories gstRate shippingCharge attributes variants hasVariants customFields")
         .sort({ createdAt: -1 }) // Naye products pehle
         .skip(skip)
         .limit(Number(limit))
@@ -122,13 +163,17 @@ export const getProducts = async (req, res) => {
 
     const totalPages = Math.ceil(totalProducts / Number(limit));
 
-    res.status(200).json({
+    const responseData = {
       success: true,
       products,
       totalPages,
       currentPage: Number(page),
       totalProducts
-    });
+    };
+
+    setCache(cacheKey, responseData);
+
+    res.status(200).json(responseData);
 
   } catch (err) {
     console.error("GET PRODUCTS ERROR:", err);
@@ -256,6 +301,8 @@ export const createProduct = async (req, res) => {
       images: imageUrls,
     });
 
+    clearProductsCache();
+
     res.status(201).json({ 
       success: true, 
       message: "Product created successfully",
@@ -368,6 +415,8 @@ export const updateProduct = async (req, res) => {
       return res.status(404).json({ success: false, message: "Product not found" });
     }
 
+    clearProductsCache();
+
     res.json({ 
       success: true, 
       message: "Product updated successfully",
@@ -407,6 +456,7 @@ export const deleteProduct = async (req, res) => {
     }
 
     await Product.findByIdAndDelete(req.params.id);
+    clearProductsCache();
     res.json({ success: true, message: "Product deleted permanently" });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
@@ -420,6 +470,7 @@ export const toggleVisibility = async (req, res) => {
     
     product.status = (product.status === "Active" || product.status === "active") ? "Inactive" : "Active";
     await product.save();
+    clearProductsCache();
     
     res.json({ success: true, status: product.status });
   } catch (err) {
@@ -697,6 +748,8 @@ export const importProductsCsv = async (req, res) => {
       completedAt: new Date()
     });
 
+    clearProductsCache();
+
     res.json({
       success: true,
       message: `Success! Checked ${uiDisplayCount} items. (New: ${importedCount}, Updated: ${updatedCount})`,
@@ -794,6 +847,8 @@ export const rollbackImport = async (req, res) => {
     job.status = "rolled_back";
     job.rollbackAt = new Date(); 
     await job.save();
+
+    clearProductsCache();
 
     res.json({ success: true, message: "Rollback Successful! Products have been deleted." });
 

@@ -5,6 +5,9 @@ import path from "path";
 import cookieParser from "cookie-parser"; // 🚀 NAYA: Cookie padhne ke liye tool
 import connectDB from "./config/db.js";
 import seedAdmin from "./utils/seedAdmin.js";
+import compression from "compression";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 
 import authRoutes from "./routes/auth.Routes.js";
 import userRoutes from "./routes/user.routes.js";
@@ -21,6 +24,31 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 /* ================= MIDDLEWARE ================= */
+
+// 1. Response compression middleware
+app.use(compression());
+
+// 2. Global security headers configuration (CSP disabled for REST API compatibility)
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  })
+);
+
+// 3. Global Rate Limiter for public APIs (100 requests per 15 minutes)
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: {
+    success: false,
+    message: "Too many requests from this IP, please try again after 15 minutes"
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use("/api", globalLimiter);
+
 
 app.use(
   cors({
@@ -41,8 +69,14 @@ app.use(express.json());
 // 🚀 NAYA: Backend ko sikhaya ki aane wali cookies ko kaise padhna hai
 app.use(cookieParser());
 
-// Uploads folder ko public banaya taaki frontend images dekh sake
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// Uploads folder ko public banaya aur cache controls set kiya taaki browser media locally store kar sake
+app.use(
+  '/uploads',
+  express.static(path.join(process.cwd(), 'uploads'), {
+    maxAge: '30d',
+    immutable: true
+  })
+);
 
 /* ================= ROUTES ================= */
 

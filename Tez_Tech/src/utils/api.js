@@ -61,4 +61,15 @@ api.interceptors.response.use(
   }
 );
 
-export default api;
+export const optimizeCloudinaryUrl = (url, width) => {
+  if (!url || typeof url !== 'string') return url;
+  if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
+    if (!url.includes('q_auto') && !url.includes('f_auto')) {
+      const transform = width ? `q_auto,f_auto,w_${width},c_limit` : 'q_auto,f_auto';
+      return url.replace('/upload/', `/upload/${transform}/`);
+    }
+  }
+  return url;
+};
+
+export default api;

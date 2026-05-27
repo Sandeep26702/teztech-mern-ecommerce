@@ -243,8 +243,10 @@ const productSchema = new mongoose.Schema(
 // 🔥 INDEXES (PERFORMANCE)
 // ==========================
 
-//productSchema.index({ slug: 1 });
-//productSchema.index({ category: 1 });
+productSchema.index({ slug: 1 });
+productSchema.index({ category: 1 });
+productSchema.index({ status: 1 });
+productSchema.index({ price: 1 });
 productSchema.index({ name: "text", searchIndex: "text" });
 
 // ==========================
