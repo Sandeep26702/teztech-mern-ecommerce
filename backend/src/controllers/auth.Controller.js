@@ -5,10 +5,9 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import sendEmail from "../utils/sendEmail.js";
 
-import emailValidator from "deep-email-validator";
-
 const isValidName = (name) => /^[a-zA-Z][a-zA-Z\s.'-]{1,}$/.test(String(name || "").trim());
 const isValidPhone = (phone) => /^\d{10}$/.test(String(phone || "").trim());
+const isValidEmail = (email) => /^\S+@\S+\.\S+$/.test(String(email || "").trim());
 
 /* ================= HELPER: Generate Token ================= */
 const sendTokenResponse = (user, statusCode, res) => {
@@ -52,20 +51,10 @@ export const register = async (req, res) => {
       return res.status(400).json({ success: false, message: "Please enter a valid full name" });
     }
 
-    // Deep Email Validation for format, MX records, and Disposable Domains
-    const emailValidation = await emailValidator({
-      email: normalizedEmail,
-      validateRegex: true,
-      validateMx: true,
-      validateTypo: false, // Typo checks can sometimes be too strict
-      validateDisposable: true,
-      validateSMTP: false, // SMTP checks are slow and can cause hangs
-    });
-
-    if (!emailValidation.valid) {
+    if (!isValidEmail(normalizedEmail)) {
       return res.status(400).json({ 
         success: false, 
-        message: "Please use a valid personal or business email address. Temporary emails are not allowed." 
+        message: "Please enter a valid email address." 
       });
     }
 
@@ -79,17 +68,38 @@ export const register = async (req, res) => {
         ...(normalizedPhone ? [{ phone: normalizedPhone }, { userId: normalizedPhone }] : [])
       ],
     });
-    if (userExists) {
-      return res.status(400).json({ success: false, message: "Email or mobile already exists" });
-    }
 
-    // Hash password using bcrypt
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    if (userExists) {
+      if (userExists.isVerified) {
+        return res.status(400).json({ success: false, message: "Email or mobile already exists" });
+      } else {
+        // Automatically clean up the unverified ghost account so the user can re-register
+        await User.findByIdAndDelete(userExists._id);
+      }
+    }
 
     // Generate random 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    // Attempt to send email FIRST!
+    try {
+      await sendEmail({
+        email: normalizedEmail,
+        subject: "TezTech Account Verification OTP",
+        message: `Hello ${normalizedName},\n\nYour 6-digit OTP for account verification is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nThank you,\nTezTech Support`,
+      });
+    } catch (emailError) {
+      console.error("OTP email sending failed:", emailError.message);
+      return res.status(500).json({ 
+        success: false, 
+        message: "Failed to send OTP email. Please check if your email address is correct or contact support." 
+      });
+    }
+
+    // ONLY if email sending succeeds, we save to DB
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
     const user = await User.create({
       name: normalizedName,
@@ -102,23 +112,9 @@ export const register = async (req, res) => {
       otpExpire,
     });
 
-    let emailSent = true;
-    try {
-      await sendEmail({
-        email: user.email,
-        subject: "TezTech Account Verification OTP",
-        message: `Hello ${user.name},\n\nYour 6-digit OTP for account verification is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nThank you,\nTezTech Support`,
-      });
-    } catch (emailError) {
-      console.error("OTP email sending failed:", emailError.message);
-      emailSent = false;
-    }
-
     res.status(201).json({
       success: true,
-      message: emailSent
-        ? "Registration successful. Please verify the OTP sent to your email."
-        : "Registration successful, but we failed to send the verification email. Please request a new OTP.",
+      message: "Registration successful. Please verify the OTP sent to your email.",
       email: user.email,
     });
   } catch (error) {
@@ -197,12 +193,7 @@ export const resendOtp = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    user.otp = otp;
-    user.otpExpire = otpExpire;
-
-    await user.save();
-
-    let emailSent = true;
+    // Attempt to send email FIRST!
     try {
       await sendEmail({
         email: user.email,
@@ -211,14 +202,20 @@ export const resendOtp = async (req, res) => {
       });
     } catch (emailError) {
       console.error("OTP email sending failed:", emailError.message);
-      emailSent = false;
+      return res.status(500).json({ 
+        success: false, 
+        message: "Failed to send OTP email. Please check your credentials or contact support." 
+      });
     }
+
+    // Only update OTP in DB if email succeeds
+    user.otp = otp;
+    user.otpExpire = otpExpire;
+    await user.save();
 
     res.status(200).json({
       success: true,
-      message: emailSent
-        ? "New OTP sent to your email."
-        : "New OTP generated, but we failed to send the email. Please request again or check credentials.",
+      message: "New OTP sent to your email.",
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -235,20 +232,10 @@ export const login = async (req, res) => {
       return res.status(400).json({ success: false, message: "Please provide email and password" });
     }
 
-    // Deep Email Validation for format, MX records, and Disposable Domains
-    const emailValidation = await emailValidator({
-      email: normalizedEmail,
-      validateRegex: true,
-      validateMx: true,
-      validateTypo: false,
-      validateDisposable: true,
-      validateSMTP: false,
-    });
-
-    if (!emailValidation.valid) {
+    if (!isValidEmail(normalizedEmail)) {
       return res.status(400).json({ 
         success: false, 
-        message: "Please use a valid personal or business email address. Temporary emails are not allowed." 
+        message: "Please enter a valid email address." 
       });
     }
 
