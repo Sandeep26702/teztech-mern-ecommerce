@@ -59,14 +59,20 @@ const getHtmlTemplate = (subject, textContent) => {
   `;
 };
 
+let transporter;
+
 const sendEmail = async (options) => {
-  const transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS
-    }
-  });
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      service: "gmail",
+      pool: true,
+      maxConnections: 5,
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
+    });
+  }
 
   const message = {
     from: `"Sonani Support" <${process.env.EMAIL_USER}>`,

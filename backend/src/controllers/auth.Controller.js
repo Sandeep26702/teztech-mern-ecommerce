@@ -82,22 +82,6 @@ export const register = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Attempt to send email FIRST!
-    try {
-      await sendEmail({
-        email: normalizedEmail,
-        subject: "TezTech Account Verification OTP",
-        message: `Hello ${normalizedName},\n\nYour 6-digit OTP for account verification is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nThank you,\nTezTech Support`,
-      });
-    } catch (emailError) {
-      console.error("OTP email sending failed:", emailError.message);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Failed to send OTP email. Please check if your email address is correct or contact support." 
-      });
-    }
-
-    // ONLY if email sending succeeds, we save to DB
     const user = await User.create({
       name: normalizedName,
       email: normalizedEmail,
@@ -113,6 +97,15 @@ export const register = async (req, res) => {
       success: true,
       message: "Registration successful. Please verify the OTP sent to your email.",
       email: user.email,
+    });
+
+    // Fire-and-forget email for speed (do not await)
+    sendEmail({
+      email: normalizedEmail,
+      subject: "TezTech Account Verification OTP",
+      message: `Hello ${normalizedName},\n\nYour 6-digit OTP for account verification is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nThank you,\nTezTech Support`,
+    }).catch(emailError => {
+      console.error("OTP email sending failed in background:", emailError.message);
     });
   } catch (error) {
     console.error("🔥 Error in register:", error);
@@ -191,22 +184,7 @@ export const resendOtp = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // Attempt to send email FIRST!
-    try {
-      await sendEmail({
-        email: user.email,
-        subject: "TezTech Account Verification OTP (Resent)",
-        message: `Hello ${user.name},\n\nYour new 6-digit OTP for account verification is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nThank you,\nTezTech Support`,
-      });
-    } catch (emailError) {
-      console.error("OTP email sending failed:", emailError.message);
-      return res.status(500).json({ 
-        success: false, 
-        message: "Failed to send OTP email. Please check your credentials or contact support." 
-      });
-    }
-
-    // Only update OTP in DB if email succeeds
+    // Update OTP in DB first
     user.otp = otp;
     user.otpExpire = otpExpire;
     await user.save();
@@ -214,6 +192,15 @@ export const resendOtp = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "New OTP sent to your email.",
+    });
+
+    // Fire-and-forget email for speed (do not await)
+    sendEmail({
+      email: user.email,
+      subject: "TezTech Account Verification OTP (Resent)",
+      message: `Hello ${user.name},\n\nYour new 6-digit OTP for account verification is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nThank you,\nTezTech Support`,
+    }).catch(emailError => {
+      console.error("OTP email sending failed in background:", emailError.message);
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
