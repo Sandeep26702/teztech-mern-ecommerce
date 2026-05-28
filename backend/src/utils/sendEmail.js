@@ -75,21 +75,21 @@ const sendEmail = async (options) => {
   }
 
   const message = {
-    from: \`"Sonani Support" <\${process.env.EMAIL_USER}>\`,
+    from: `"Sonani Support" <${process.env.EMAIL_USER}>`,
     to: options.email,
     subject: options.subject,
     text: options.message,
     html: options.html || getHtmlTemplate(options.subject, options.message)
   };
 
-  console.log(\`📧 Attempting to send email to: \${options.email}\`);
+  console.log(`📧 Attempting to send email to: ${options.email}`);
   
   try {
     const info = await transporter.sendMail(message);
-    console.log(\`✅ Email sent successfully! Message ID: \${info.messageId}\`);
+    console.log(`✅ Email sent successfully! Message ID: ${info.messageId}`);
     return info;
   } catch (error) {
-    console.error(\`❌ Nodemailer Error:\`, error);
+    console.error(`❌ Nodemailer Error:`, error);
     throw error;
   }
 };
