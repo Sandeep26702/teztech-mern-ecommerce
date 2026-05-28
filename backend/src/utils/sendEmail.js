@@ -45,7 +45,7 @@ const sendEmail = async (options) => {
   }
 
   const message = {
-    from: \`"Sonani Support" <\${process.env.EMAIL_USER}>\`,
+    from: `"Sonani Support" <${process.env.EMAIL_USER}>`,
     to: options.email,
     subject: options.subject,
     text: options.message,
@@ -56,7 +56,7 @@ const sendEmail = async (options) => {
     const info = await transporter.sendMail(message);
     return info;
   } catch (error) {
-    console.error(\`❌ Nodemailer Background Error:\`, error.message);
+    console.error(`❌ Nodemailer Background Error:`, error.message);
     throw error; // Let the caller catch it if they are awaiting, otherwise it logs in the caller
   }
 };
