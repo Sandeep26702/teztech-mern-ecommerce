@@ -23,6 +23,13 @@ import layoutRoutes from "./routes/layoutRoutes.js";
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust the reverse proxy (Render) to read client IPs correctly for rate-limiting
+app.set("trust proxy", 1);
+
+// Force Node to favor IPv4 to prevent Gmail IPv6 'ENETUNREACH' errors on Render
+import dns from "dns";
+dns.setDefaultResultOrder("ipv4first");
+
 /* ================= MIDDLEWARE ================= */
 
 // 1. Response compression middleware

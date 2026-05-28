@@ -98,13 +98,10 @@ export const register = async (req, res) => {
     }
 
     // ONLY if email sending succeeds, we save to DB
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
     const user = await User.create({
       name: normalizedName,
       email: normalizedEmail,
-      password: hashedPassword,
+      password: password, // The Mongoose pre-save hook will hash this automatically
       phone: normalizedPhone || undefined,
       userId: normalizedPhone || undefined,
       isVerified: false,
@@ -118,6 +115,7 @@ export const register = async (req, res) => {
       email: user.email,
     });
   } catch (error) {
+    console.error("🔥 Error in register:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
