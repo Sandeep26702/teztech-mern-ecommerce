@@ -4,7 +4,6 @@
   "private": true,
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix backend\" \"npm run dev --prefix Tez_Tech\""
-    
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
@@ -19,6 +18,7 @@
     "multer-storage-cloudinary": "^2.2.1",
     "react-hot-toast": "^2.6.0",
     "react-toastify": "^11.1.0",
+    "resend": "^6.12.4",
     "swiper": "^12.1.4"
   }
 }

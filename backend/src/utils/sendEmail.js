@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import { Resend } from "resend";
 
 /**
  * Basic HTML template for instant transactional emails
@@ -27,25 +27,11 @@ const getHtmlTemplate = (subject, textContent) => {
   `;
 };
 
-let transporter;
-
 const sendEmail = async (options) => {
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      pool: true,
-      maxConnections: 5,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-      }
-    });
-  }
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
-  const message = {
-    from: `"Sonani Support" <${process.env.EMAIL_USER}>`,
+  const payload = {
+    from: process.env.EMAIL_FROM || "Sonani Support <onboarding@resend.dev>",
     to: options.email,
     subject: options.subject,
     text: options.message,
@@ -53,10 +39,16 @@ const sendEmail = async (options) => {
   };
 
   try {
-    const info = await transporter.sendMail(message);
-    return info;
+    const { data, error } = await resend.emails.send(payload);
+
+    if (error) {
+      console.error(`❌ Resend API Error:`, error);
+      throw new Error(error.message);
+    }
+    
+    return data;
   } catch (error) {
-    console.error(`❌ Nodemailer Background Error:`, error.message);
+    console.error(`❌ Resend Background Error:`, error.message);
     throw error; // Let the caller catch it if they are awaiting, otherwise it logs in the caller
   }
 };
