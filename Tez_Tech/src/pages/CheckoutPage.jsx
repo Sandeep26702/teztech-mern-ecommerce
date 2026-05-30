@@ -60,6 +60,17 @@ const CheckoutPage = () => {
     pickupTime: "", 
   });
 
+  const [isBillingSameAsShipping, setIsBillingSameAsShipping] = useState(true);
+  const [billingInfo, setBillingInfo] = useState({
+    fullName: user?.name || "",
+    companyName: "",
+    phone: user?.phone || "",
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
+  });
+
   const [selectedCourier, setSelectedCourier] = useState(null);
 
   // 🔥 DOUBLE TAX FIX & DYNAMIC SHIPPING FIX
@@ -170,6 +181,13 @@ const CheckoutPage = () => {
           return alert("Please select pickup date & time.");
         }
       }
+
+      if (!isBillingSameAsShipping) {
+        const { fullName, phone, address, city, state, pincode } = billingInfo;
+        if (!fullName || !phone || !address || !city || !state || !pincode) {
+          return alert("Please fill all required billing address fields.");
+        }
+      }
     }
     setCurrentStep((prev) => prev + 1);
     window.scrollTo({ top: 0, behavior: 'smooth' }); 
@@ -209,6 +227,7 @@ const CheckoutPage = () => {
         })),
         shippingInfo: (deliveryType === 'ship' && useNewAddress) || deliveryType === 'pickup' ? shippingInfo : null,
         addressId: deliveryType === 'ship' && !useNewAddress ? selectedAddressId : null,
+        billingInfo: isBillingSameAsShipping ? null : billingInfo,
         saveNewAddress: deliveryType === 'ship' && useNewAddress ? saveAddressForNext : false,
         paymentMethod,
         deliveryType,
@@ -295,6 +314,10 @@ const CheckoutPage = () => {
                       setSelectedAddressId={setSelectedAddressId} saveAddressForNext={saveAddressForNext}
                       setSaveAddressForNext={setSaveAddressForNext} addressesLoading={addressesLoading}
                       deliveryType={deliveryType} setDeliveryType={setDeliveryType}
+                      isBillingSameAsShipping={isBillingSameAsShipping}
+                      setIsBillingSameAsShipping={setIsBillingSameAsShipping}
+                      billingInfo={billingInfo}
+                      setBillingInfo={setBillingInfo}
                     />
                     <div className="hidden lg:flex justify-end pt-8 mt-10 border-t border-slate-100">
                       <button type="button" onClick={handleNextStep} className="w-full px-10 py-4 font-bold text-white transition-all bg-blue-600 shadow-lg sm:w-auto rounded-2xl hover:bg-blue-700 shadow-blue-100 active:scale-95">

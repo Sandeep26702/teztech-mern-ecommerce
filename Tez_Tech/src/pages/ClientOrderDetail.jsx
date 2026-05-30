@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaDownload, FaCheckCircle } from "react-icons/fa";
 import { getOrderById } from "../services/orderService"; 
+import TaxInvoice from "../admin/components/TaxInvoice";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -129,8 +130,12 @@ const ClientOrderDetail = () => {
   const totalGstAmount = order.gstAmount || 0;
 
   return (
-    <div className="min-h-screen px-4 pt-24 pb-12 font-sans bg-slate-50 sm:px-6 lg:px-8">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <>
+      <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-[9999]">
+        <TaxInvoice order={order} />
+      </div>
+      <div className="min-h-screen px-4 pt-24 pb-12 font-sans bg-slate-50 sm:px-6 lg:px-8 print:hidden">
+        <div className="max-w-6xl mx-auto space-y-6">
         
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -144,7 +149,11 @@ const ClientOrderDetail = () => {
               Placed on {new Date(order.createdAt).toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
             </p>
           </div>
-          <button className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold text-slate-700 bg-white border rounded-xl hover:bg-slate-100 shadow-sm transition-colors">
+          <button onClick={() => {
+            setTimeout(() => {
+              window.print();
+            }, 100);
+          }} className="flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-bold text-slate-700 bg-white border rounded-xl hover:bg-slate-100 shadow-sm transition-colors">
             <FaDownload /> Download Invoice
           </button>
         </div>
@@ -294,8 +303,9 @@ const ClientOrderDetail = () => {
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

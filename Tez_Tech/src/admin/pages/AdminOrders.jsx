@@ -784,9 +784,10 @@ const AdminOrders = () => {
                           <button onClick={() => { navigate(`/admin/orders/${order._id}`); setActiveDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-[#f4f6f8] text-[#202223]">View Order</button>
                           <button onClick={() => { setActiveDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-[#f4f6f8] text-[#202223]">Update Status</button>
                           <button onClick={() => { handleStatusChange(order._id, 'Shipped', 'fulfillment'); }} className="w-full text-left px-4 py-2 hover:bg-[#f4f6f8] text-[#202223]">Mark as Shipped</button>
-                          <button onClick={() => { setActiveDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-[#f4f6f8] text-[#202223]">Edit Order</button>
+                          <button onClick={() => { navigate(`/admin/orders/edit/${order._id}`); setActiveDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-[#f4f6f8] text-[#202223]">Edit Order</button>
                           <button onClick={() => { triggerPrint(order); setActiveDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-[#f4f6f8] text-[#202223]">Print Order</button>
-                          <button onClick={() => { triggerPrint(order); setActiveDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-[#f4f6f8] text-[#202223]">Create Tax Invoice</button>
+                          <button onClick={() => { window.open(`/admin/orders/tax-invoice/${order._id}`, '_blank'); setActiveDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-[#f4f6f8] text-[#202223]">Create Tax Invoice</button>
+                          <button onClick={() => { window.open(`/admin/orders/print-label/${order._id}`, '_blank'); setActiveDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-[#f4f6f8] text-[#202223]">Print Label</button>
                           <div className="h-[1px] bg-[#d5dce4] my-1"></div>
                           <button onClick={() => { setActiveDropdown(null); }} className="w-full text-left px-4 py-2 hover:bg-[#f4f6f8] text-[#d82c0d]">Delete Order</button>
                         </div>

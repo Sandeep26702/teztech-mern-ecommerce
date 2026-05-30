@@ -8,7 +8,8 @@ import {
     updateOrderStatus, 
     getOrderDetail,
     getMyOrders,
-    createAdminOrder // 🟢 NAYA ADD KIYA: Admin Order Controller
+    createAdminOrder, // 🟢 NAYA ADD KIYA: Admin Order Controller
+    editAdminOrder
 } from '../controllers/orderController.js';
 import { protect, authorize } from '../middleware/auth.Middleware.js'; 
 import { trafficLogger } from "../middleware/trafficLogger.js";
@@ -49,5 +50,8 @@ router.put('/admin/update/:orderId', protect, authorize("admin", "subadmin"), up
 
 // 🟢 NAYA ROUTE: Admin Order Create karne ke liye (Secure with authorize)
 router.post('/admin/create', protect, authorize("admin", "subadmin"), createAdminOrder);
+
+// 🟢 NAYA ROUTE: Admin Edit Order karne ke liye
+router.put('/admin/edit/:orderId', protect, authorize("admin", "subadmin"), editAdminOrder);
 
 export default router;

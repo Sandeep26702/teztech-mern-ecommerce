@@ -33,11 +33,11 @@ const AdminLayout = () => {
   ];
 
   return (
-    <div className="flex h-screen overflow-hidden font-sans bg-gray-50">
+    <div className="flex h-screen overflow-hidden font-sans bg-gray-50 print:h-auto print:overflow-visible print:bg-white">
       
       {/* 🌑 Premium Dark Sidebar */}
       <aside 
-        className={`bg-slate-900 text-slate-300 flex flex-col transition-all duration-300 ease-in-out z-20 shadow-2xl ${
+        className={`print:hidden bg-slate-900 text-slate-300 flex flex-col transition-all duration-300 ease-in-out z-20 shadow-2xl ${
           isSidebarOpen ? "w-64" : "w-20"
         }`}
       >
@@ -97,10 +97,10 @@ const AdminLayout = () => {
       </aside>
 
       {/* ⚪ Main Content Area */}
-      <main className="flex flex-col flex-1 min-w-0 overflow-hidden">
+      <main className="flex flex-col flex-1 min-w-0 overflow-hidden print:overflow-visible">
         
         {/* Glassmorphism Header */}
-        <header className="z-10 flex items-center justify-between h-16 px-4 border-b border-gray-200 bg-white/80 backdrop-blur-md sm:px-6">
+        <header className="z-10 flex items-center justify-between h-16 px-4 border-b border-gray-200 bg-white/80 backdrop-blur-md sm:px-6 print:hidden">
           <div className="flex items-center gap-4">
             <button 
               className="p-2 text-gray-500 transition-colors rounded-lg hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -126,7 +126,7 @@ const AdminLayout = () => {
         </header>
 
         {/* 📄 Dynamic Content (Outlet) */}
-        <section className="flex-1 p-4 overflow-x-hidden overflow-y-auto bg-gray-50 sm:p-6 lg:p-8">
+        <section className="flex-1 p-4 overflow-x-hidden overflow-y-auto bg-gray-50 sm:p-6 lg:p-8 print:p-0 print:m-0 print:overflow-visible print:bg-white">
           <Outlet />
         </section>
         

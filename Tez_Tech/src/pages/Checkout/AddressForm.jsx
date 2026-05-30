@@ -7,7 +7,9 @@ const AddressForm = ({
   selectedAddressId, setSelectedAddressId, 
   saveAddressForNext, setSaveAddressForNext, 
   addressesLoading,
-  deliveryType, setDeliveryType 
+  deliveryType, setDeliveryType,
+  isBillingSameAsShipping, setIsBillingSameAsShipping,
+  billingInfo, setBillingInfo
 }) => {
   
   const handleInputChange = (e) => {
@@ -191,6 +193,36 @@ const AddressForm = ({
 
         </div>
       )}
+
+      {/* --- STEP 3: Billing Address --- */}
+      <div className="mt-8 pt-8 border-t border-gray-200">
+        <h2 className="mb-4 text-xl font-semibold text-gray-800">Billing Address</h2>
+        <label className="flex items-center gap-3 cursor-pointer group mb-6">
+          <input 
+            type="checkbox" 
+            checked={isBillingSameAsShipping} 
+            onChange={(e) => setIsBillingSameAsShipping(e.target.checked)} 
+            className="w-5 h-5 text-blue-600 border-gray-300 rounded cursor-pointer focus:ring-blue-500" 
+          />
+          <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">Billing address same as shipping address</span>
+        </label>
+
+        {!isBillingSameAsShipping && (
+          <div className="p-6 bg-white border border-gray-100 shadow-sm rounded-2xl animate-fade-in space-y-5">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <input name="fullName" value={billingInfo.fullName} onChange={(e) => setBillingInfo(prev => ({...prev, fullName: e.target.value}))} placeholder="First and last name" className="p-3.5 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" required={!isBillingSameAsShipping} />
+              <input name="phone" value={billingInfo.phone} onChange={(e) => setBillingInfo(prev => ({...prev, phone: e.target.value}))} placeholder="Phone number" className="p-3.5 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" required={!isBillingSameAsShipping} pattern="[0-9]{10}" />
+            </div>
+            <input name="companyName" value={billingInfo.companyName || ''} onChange={(e) => setBillingInfo(prev => ({...prev, companyName: e.target.value}))} placeholder="Company name (optional)" className="w-full p-3.5 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" />
+            <textarea name="address" value={billingInfo.address} onChange={(e) => setBillingInfo(prev => ({...prev, address: e.target.value}))} placeholder="Address (Street, apartment, suite, etc)" className="w-full p-3.5 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow resize-none" rows={3} required={!isBillingSameAsShipping} />
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+              <input name="city" value={billingInfo.city} onChange={(e) => setBillingInfo(prev => ({...prev, city: e.target.value}))} placeholder="City" className="p-3.5 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" required={!isBillingSameAsShipping} />
+              <input name="state" value={billingInfo.state} onChange={(e) => setBillingInfo(prev => ({...prev, state: e.target.value}))} placeholder="State" className="p-3.5 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" required={!isBillingSameAsShipping} />
+              <input name="pincode" value={billingInfo.pincode} onChange={(e) => setBillingInfo(prev => ({...prev, pincode: e.target.value}))} placeholder="Postal code" className="p-3.5 border border-gray-300 rounded-xl outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-shadow" required={!isBillingSameAsShipping} pattern="[0-9]{6}" />
+            </div>
+          </div>
+        )}
+      </div>
 
     </div>
   );

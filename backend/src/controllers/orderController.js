@@ -62,7 +62,8 @@ export const createOrder = async (req, res) => {
       orderNotes,
       shippingCost,
       totalAmount,
-      courierPartner 
+      courierPartner,
+      billingInfo
     } = orderPayload;
 
     const paymentScreenshot = req.file ? req.file.path : null;
@@ -183,6 +184,7 @@ export const createOrder = async (req, res) => {
       user: req.user._id,
       items: finalOrderItems,
       shippingInfo: finalShippingInfo,
+      billingInfo: billingInfo || finalShippingInfo,
       paymentMethod: safeMethod, // Mapped according to Schema
       paymentStatus: safeStatus, // Mapped according to Schema
       utrNumber: utrNumber || "",
@@ -301,7 +303,8 @@ export const getAllOrdersForAdmin = async (req, res) => {
 export const getOrderDetail = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
-      .populate("user", "name email phone");
+      .populate("user", "name email phone")
+      .populate("items.productId", "sku baseSku name");
     if (!order) return res.status(404).json({ success: false, message: "Order not found" });
     res.status(200).json({ success: true, order });
   } catch (error) { res.status(500).json({ success: false, message: "Server Error" }); }
@@ -444,5 +447,126 @@ export const createAdminOrder = async (req, res) => {
   } catch (error) {
     console.error("❌ ADMIN Order Creation Error:", error);
     res.status(500).json({ success: false, message: "Database Save Failed", error: error.message });
+  }
+};
+
+// ==========================================
+// 📝 ADMIN EDIT ORDER
+// ==========================================
+export const editAdminOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const {
+      items,
+      shippingInfo,
+      billingInfo,
+      paymentMethod,
+      paymentStatus,
+      deliveryType,
+      selectedShippingProvider,
+      ratePerKg, 
+      shippingWeightKg,
+      discount,
+      discountType,
+      isTaxExempt,
+      generateTaxInvoice,
+      orderNotes
+    } = req.body;
+
+    let subtotalAmount = 0;
+    
+    const processedItems = items.map(item => {
+      const safePrice = Number(item.unitPrice) || 0;
+      const safeQty = Number(item.quantity) || 1;
+      
+      const itemGstRate = isTaxExempt ? 0 : 18;
+      const basePrice = Number((safePrice / (1 + (itemGstRate / 100))).toFixed(2));
+      const gstAmount = Number((safePrice - basePrice).toFixed(2));
+      
+      const lineTotal = safePrice * safeQty;
+      const lineGstTotal = Number((gstAmount * safeQty).toFixed(2));
+      
+      subtotalAmount += lineTotal;
+      
+      return { 
+          ...item, 
+          price: safePrice, 
+          basePrice: basePrice,       
+          unitPrice: safePrice,
+          gstAmount: gstAmount,       
+          gstRate: itemGstRate,
+          lineGstTotal: lineGstTotal, 
+          lineSubtotal: Number((basePrice * safeQty).toFixed(2)), 
+          lineTotal: lineTotal 
+      };
+    });
+
+    let discountAmount = 0;
+    if (discount > 0) {
+      discountAmount = discountType === 'PERCENTAGE' ? (subtotalAmount * discount) / 100 : discount;
+    }
+    let discountedSubtotal = Math.max(0, subtotalAmount - discountAmount);
+
+    let gstAmount = 0;
+    let taxType = "IGST";
+    
+    if (!isTaxExempt) {
+      const stateStr = shippingInfo?.state ? shippingInfo.state.toLowerCase().trim() : "";
+      if (stateStr === 'gujarat' || stateStr === 'gj') {
+        gstAmount = discountedSubtotal * 0.18; 
+        taxType = "CGST_SGST";
+      } else {
+        gstAmount = discountedSubtotal * 0.18; 
+        taxType = "IGST";
+      }
+    }
+
+    let shippingAmount = 0;
+    if (paymentMethod === 'STORE_PICKUP' || deliveryType === 'pickup') {
+      shippingAmount = 0; 
+    } else if (ratePerKg && shippingWeightKg) {
+      shippingAmount = shippingWeightKg * ratePerKg; 
+    } else {
+      shippingAmount = req.body.shippingAmount || 0; 
+    }
+
+    const totalAmount = discountedSubtotal + gstAmount + shippingAmount;
+
+    const safeMethod = formatPaymentMethod(paymentMethod);
+    let safeStatus = paymentStatus || "Paid";
+    if (safeStatus === "Pending") safeStatus = "Awaiting Payment";
+
+    const updatePayload = {
+      items: processedItems, 
+      shippingInfo: shippingInfo || {},
+      billingInfo: billingInfo || {},
+      paymentMethod: safeMethod,
+      paymentStatus: safeStatus,
+      deliveryType: deliveryType || 'ship',
+      selectedShippingProvider: selectedShippingProvider || "Manual",
+      courierPartner: selectedShippingProvider || "Manual",
+      shippingWeightKg: shippingWeightKg || 1,
+      subtotalAmount: round2(subtotalAmount),
+      discount: discount || 0,
+      discountType: discountType || "FLAT",
+      isTaxExempt: isTaxExempt || false,
+      generateTaxInvoice: generateTaxInvoice || false,
+      gstAmount: round2(gstAmount),
+      taxType,
+      shippingAmount: round2(shippingAmount),
+      totalAmount: round2(totalAmount),
+      orderNotes: orderNotes || ""
+    };
+
+    const updatedOrder = await Order.findByIdAndUpdate(orderId, updatePayload, { new: true });
+    
+    if (!updatedOrder) {
+        return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    res.status(200).json({ success: true, message: "Admin Order updated successfully!", order: updatedOrder });
+  } catch (error) {
+    console.error("❌ ADMIN Order Update Error:", error);
+    res.status(500).json({ success: false, message: "Database Update Failed", error: error.message });
   }
 };

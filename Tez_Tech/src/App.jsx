@@ -63,7 +63,10 @@ const AdminLogs = lazy(() => import("./admin/pages/AdminLogs"));
 const AdminOrderDetail = lazy(() => import('./admin/pages/OrderDetail'));
 const ShippingManagement = lazy(() => import('./admin/pages/ShippingManagement'));
 const AdminCreateOrder = lazy(() => import('./admin/pages/AdminCreateOrder'));
+const AdminEditOrder = lazy(() => import('./admin/pages/AdminEditOrder'));
 const UserView = lazy(() => import('./admin/pages/UserView'));
+const PrintableLabel = lazy(() => import('./admin/pages/PrintableLabel'));
+const PrintableTaxInvoice = lazy(() => import('./admin/pages/PrintableTaxInvoice'));
 
 /**
  * 🌟 PUBLIC LAYOUT WRAPPER
@@ -132,6 +135,9 @@ function App() {
               {/* ✅ ORDER ROUTES: 'create' hamesha ':id' se upar hona chahiye */}
               <Route path="orders" element={<AdminOrders />} />
               <Route path="orders/create" element={<AdminCreateOrder />} />
+              <Route path="orders/edit/:id" element={<AdminEditOrder />} />
+              <Route path="orders/print-label/:id" element={<PrintableLabel />} />
+              <Route path="orders/tax-invoice/:id" element={<PrintableTaxInvoice />} />
               <Route path="orders/:id" element={<AdminOrderDetail />} />
 
               <Route path="quotes" element={<QuotesTable />} />
