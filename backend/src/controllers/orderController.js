@@ -462,6 +462,7 @@ export const editAdminOrder = async (req, res) => {
       billingInfo,
       paymentMethod,
       paymentStatus,
+      orderStatus,
       deliveryType,
       selectedShippingProvider,
       ratePerKg, 
@@ -470,12 +471,63 @@ export const editAdminOrder = async (req, res) => {
       discountType,
       isTaxExempt,
       generateTaxInvoice,
-      orderNotes
+      orderNotes,
+      updateStock
     } = req.body;
+
+    // Optional stock adjustment logic
+    if (updateStock) {
+      const oldOrder = await Order.findById(orderId);
+      if (oldOrder) {
+        // Map old items by productId
+        const oldQtyMap = {};
+        oldOrder.items.forEach(item => {
+          if (item.productId) {
+            const prodId = item.productId.toString();
+            oldQtyMap[prodId] = (oldQtyMap[prodId] || 0) + item.quantity;
+          }
+        });
+
+        // Map new items by productId
+        const newQtyMap = {};
+        (items || []).forEach(item => {
+          const prodId = (item.productId?._id || item.productId || "").toString();
+          if (prodId) {
+            newQtyMap[prodId] = (newQtyMap[prodId] || 0) + (Number(item.quantity) || 0);
+          }
+        });
+
+        // Restore stock for items removed or decreased in quantity
+        for (const prodId of Object.keys(oldQtyMap)) {
+          const oldQty = oldQtyMap[prodId];
+          const newQty = newQtyMap[prodId] || 0;
+          const diff = oldQty - newQty; // positive: quantity decreased (restore stock); negative: quantity increased (reduce stock)
+          if (diff !== 0) {
+            const product = await Product.findById(prodId);
+            if (product) {
+              product.stock += diff;
+              await product.save();
+            }
+          }
+        }
+
+        // Reduce stock for newly added items
+        for (const prodId of Object.keys(newQtyMap)) {
+          if (oldQtyMap[prodId] === undefined) {
+            const newQty = newQtyMap[prodId];
+            const product = await Product.findById(prodId);
+            if (product) {
+              product.stock -= newQty;
+              await product.save();
+            }
+          }
+        }
+      }
+    }
 
     let subtotalAmount = 0;
     
-    const processedItems = items.map(item => {
+    const processedItems = (items || []).map(item => {
       const safePrice = Number(item.unitPrice) || 0;
       const safeQty = Number(item.quantity) || 1;
       
@@ -489,7 +541,11 @@ export const editAdminOrder = async (req, res) => {
       subtotalAmount += lineTotal;
       
       return { 
-          ...item, 
+          productId: item.productId?._id || item.productId,
+          sku: item.sku || "",
+          name: item.name,
+          image: item.image || "",
+          quantity: safeQty,
           price: safePrice, 
           basePrice: basePrice,       
           unitPrice: safePrice,
@@ -497,7 +553,8 @@ export const editAdminOrder = async (req, res) => {
           gstRate: itemGstRate,
           lineGstTotal: lineGstTotal, 
           lineSubtotal: Number((basePrice * safeQty).toFixed(2)), 
-          lineTotal: lineTotal 
+          lineTotal: lineTotal,
+          variant: item.variant || item.selectedVariantInfo || ""
       };
     });
 
@@ -542,6 +599,7 @@ export const editAdminOrder = async (req, res) => {
       billingInfo: billingInfo || {},
       paymentMethod: safeMethod,
       paymentStatus: safeStatus,
+      orderStatus: orderStatus || "Awaiting Processing",
       deliveryType: deliveryType || 'ship',
       selectedShippingProvider: selectedShippingProvider || "Manual",
       courierPartner: selectedShippingProvider || "Manual",

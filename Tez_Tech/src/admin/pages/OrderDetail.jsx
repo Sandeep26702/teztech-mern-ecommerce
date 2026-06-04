@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
 import { 
-  FaArrowLeft, FaUserAlt, FaMapMarkerAlt, FaTruck, 
-  FaCheckCircle, FaBoxOpen, FaFileInvoice, FaRupeeSign
+  FaArrowLeft, FaEdit, FaUserAlt, FaMapMarkerAlt, FaTruck, 
+  FaCheckCircle, FaBoxOpen, FaFileInvoice, FaRupeeSign, FaRegCalendarAlt, FaTimes
 } from "react-icons/fa";
+import api, { getApiUrl } from "../../utils/api";
+import { toast } from "react-hot-toast";
 
-// 💰 Currency Formatter
+// 💰 Currency Formatter Helper
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency",
@@ -19,10 +20,11 @@ const getImageUrl = (path) => {
   if (!path) return "https://placehold.co/100x100?text=No+Image";
   if (path.startsWith("http")) return path;
   const cleanPath = path.replace(/\\/g, "/");
-  return `https://sonani-backend.onrender.com${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
+  const backendOrigin = getApiUrl().replace("/api", "");
+  return `${backendOrigin}${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
 };
 
-// 🏷️ Variations Parser (For factory instructions)
+// 🏷️ Variations Parser (For displaying customer custom inputs)
 const getVariations = (item) => {
   let vars = [];
   if (item?.selectedCustomFields && typeof item.selectedCustomFields === 'object') {
@@ -34,37 +36,32 @@ const getVariations = (item) => {
   }
   if (item?.size) vars.push(`Size: ${item.size}`);
   if (item?.color) vars.push(`Color: ${item.color}`);
+  if (item?.selectedVariantInfo) vars.push(item.selectedVariantInfo);
+  if (item?.variant) vars.push(item.variant);
   return vars;
 };
 
 const OrderDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [isUpdating, setIsUpdating] = useState(false);
-
-  // States for updating Order Workflow
-  const [newOrderStatus, setNewOrderStatus] = useState("");
-  const [newPaymentStatus, setNewPaymentStatus] = useState("");
+  const [zoomScreenshot, setZoomScreenshot] = useState(false);
 
   const fetchOrderDetails = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-
-      const res = await axios.get(`https://sonani-backend.onrender.com/api/admin/orders/${id}`, config);
+      setError("");
+      const res = await api.get(`/admin/orders/${id}`);
       if (res.data.success) {
         setOrder(res.data.order);
-        setNewOrderStatus(res.data.order.orderStatus);
-        setNewPaymentStatus(res.data.order.paymentStatus);
       }
     } catch (err) {
-      console.error("Fetch Order Error:", err);
+      console.error("Fetch Order Details Error:", err);
       setError("Failed to load order details.");
+      toast.error("Failed to load order details.");
     } finally {
       setLoading(false);
     }
@@ -74,31 +71,6 @@ const OrderDetail = () => {
     fetchOrderDetails();
   }, [id]);
 
-  // 🔥 ACTION: Update Order Workflow & Payment Status
-  const handleUpdateStatus = async () => {
-    try {
-      setIsUpdating(true);
-      const token = localStorage.getItem("token");
-      const config = { headers: { Authorization: `Bearer ${token}` } };
-
-      const res = await axios.put(
-        `https://sonani-backend.onrender.com/api/admin/orders/${id}/status`, 
-        { orderStatus: newOrderStatus, paymentStatus: newPaymentStatus },
-        config
-      );
-
-      if (res.data.success) {
-        alert("Order updated successfully!");
-        fetchOrderDetails(); // Reload fresh data
-      }
-    } catch (err) {
-      console.error("Update Error:", err);
-      alert("Failed to update status. Please try again.");
-    } finally {
-      setIsUpdating(false);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -107,144 +79,211 @@ const OrderDetail = () => {
     );
   }
 
-  if (!order) return <div className="p-10 font-bold text-center text-red-500">Order not found.</div>;
+  if (error || !order) {
+    return (
+      <div className="max-w-xl p-10 mx-auto mt-10 text-center bg-white rounded-lg shadow border border-red-100">
+        <h2 className="text-xl font-bold text-red-500 mb-2">Error Occurred</h2>
+        <p className="text-gray-600 mb-6">{error || "Order not found."}</p>
+        <button onClick={() => navigate("/admin/orders")} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-500">
+          Back to Orders
+        </button>
+      </div>
+    );
+  }
 
-  // 🔥 THE ONLY FIX ADDED: Live Subtotal Calculation
-  const calculatedSubtotal = order.items?.reduce((sum, item) => {
-    const itemPrice = Number(item.unitPrice) || Number(item.price) || 0;
-    return sum + (itemPrice * item.quantity);
-  }, 0);
+  const displayId = order.orderCode || (order.orderNumber ? `#${order.orderNumber}` : `#${id.slice(-6)}`);
+  
+  // Tax calculations
+  const isTaxExempt = order.isTaxExempt || false;
+  const stateStr = order.shippingInfo?.state || "";
+  const isGujarat = stateStr.toLowerCase().trim() === "gujarat" || stateStr.toLowerCase().trim() === "gj";
+
+  // Timeline Progress mapping
+  const timelineStages = [
+    { label: "Confirmed", statusName: "Awaiting Processing" },
+    { label: "Processing", statusName: "Processing" },
+    { label: "Shipped", statusName: "Shipped" },
+    { label: "Delivered", statusName: "Delivered" }
+  ];
+
+  const getActiveStageIndex = () => {
+    const current = order.orderStatus || "";
+    if (current === "Cancelled") return -1;
+    if (current === "Delivered") return 3;
+    if (current === "Shipped" || current === "Out for Delivery") return 2;
+    if (current === "Processing" || current === "Ready For Pickup") return 1;
+    return 0; // Confirmed
+  };
+
+  const activeStageIndex = getActiveStageIndex();
 
   return (
-    <div className="min-h-screen px-4 py-8 mx-auto font-sans sm:px-6 lg:px-8 max-w-7xl sm:py-10 bg-slate-50">
+    <div className="min-h-screen bg-[#f4f6f8] px-4 py-8 mx-auto font-sans sm:px-6 lg:px-8 max-w-7xl sm:py-10 text-[#202223] relative">
       
-      {/* HEADER */}
+      {/* 1. HEADER ROW */}
       <div className="flex flex-col gap-4 mb-8 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <button onClick={() => navigate(-1)} className="flex items-center gap-2 mb-2 text-sm font-semibold text-slate-500 hover:text-blue-600">
+          <button 
+            onClick={() => navigate("/admin/orders")} 
+            className="flex items-center gap-2 mb-2 text-sm font-semibold text-slate-500 hover:text-blue-600 transition-colors"
+          >
             <FaArrowLeft /> Back to Orders
           </button>
-          <h2 className="text-2xl font-black tracking-tight sm:text-3xl text-slate-900">
-            Order {order.orderCode || `#${order.orderNumber}`}
-          </h2>
-          <p className="mt-1 text-sm font-medium text-slate-500">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-2xl font-black tracking-tight sm:text-3xl text-slate-900">
+              Order {displayId}
+            </h2>
+            <span className={`px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-lg border ${
+              order.paymentStatus === "Paid" ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-700 border-amber-200"
+            }`}>
+              {order.paymentStatus}
+            </span>
+            <span className="px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
+              {order.orderStatus}
+            </span>
+          </div>
+          <p className="mt-1 text-sm font-medium text-slate-500 flex items-center gap-1.5">
+            <FaRegCalendarAlt className="text-xs text-slate-400" />
             Placed on {new Date(order.createdAt).toLocaleString("en-IN", { dateStyle: 'medium', timeStyle: 'short' })}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className={`px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg border ${
-            order.paymentStatus === "Paid" ? "bg-green-50 text-green-700 border-green-200" : "bg-amber-50 text-amber-700 border-amber-200"
-          }`}>
-            Payment: {order.paymentStatus}
-          </span>
-          <span className="px-3 py-1.5 text-xs font-bold uppercase tracking-wider rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
-            Status: {order.orderStatus || "Confirmed"}
-          </span>
-        </div>
+
+        {/* Premium Redirection to Edit Page */}
+        <button 
+          onClick={() => navigate(`/admin/orders/edit/${id}`)}
+          className="flex items-center gap-2 px-6 py-2.5 bg-[#2463d1] hover:bg-[#1c51b0] text-white text-sm font-bold rounded-lg transition-colors shadow-md active:scale-95 shrink-0 self-start sm:self-center"
+        >
+          <FaEdit size={14} /> Edit Order
+        </button>
       </div>
 
+      {/* 2. ORDER PROGRESS TIMELINE BAR */}
+      {order.orderStatus !== "Cancelled" && (
+        <div className="bg-white border border-[#d5dce4] rounded-lg shadow-sm p-6 mb-8">
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-6">Fulfillment Progress</h3>
+          <div className="relative flex flex-col md:flex-row justify-between items-center gap-8 md:gap-0">
+            {/* Horizontal Line background */}
+            <div className="absolute top-4 left-[10%] right-[10%] h-1 bg-gray-200 hidden md:block z-0">
+              <div 
+                className="h-full bg-blue-500 transition-all duration-500" 
+                style={{ width: `${(activeStageIndex / 3) * 100}%` }}
+              />
+            </div>
+
+            {timelineStages.map((stage, idx) => {
+              const isCompleted = idx <= activeStageIndex;
+              const isCurrent = idx === activeStageIndex;
+
+              return (
+                <div key={idx} className="flex flex-col items-center text-center z-10 md:w-1/4">
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shadow-sm transition-all duration-300 border-2 ${
+                    isCompleted 
+                      ? "bg-blue-500 border-blue-500 text-white" 
+                      : "bg-white border-gray-300 text-gray-400"
+                  } ${isCurrent ? "ring-4 ring-blue-100" : ""}`}>
+                    {isCompleted && idx < activeStageIndex ? <FaCheckCircle size={16} /> : idx + 1}
+                  </div>
+                  <span className={`mt-2 text-xs font-bold uppercase tracking-wider ${
+                    isCompleted ? "text-slate-900" : "text-gray-400"
+                  }`}>
+                    {stage.label}
+                  </span>
+                  <span className="text-[10px] text-gray-400 mt-0.5">
+                    {isCurrent ? "Active Stage" : isCompleted ? "Completed" : "Pending"}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 3. MAIN 2-COLUMN GRID */}
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         
-        {/* LEFT COLUMN: Items & Payment Verification */}
+        {/* LEFT COLUMN: VIEW DETAIL CARDS */}
         <div className="space-y-8 lg:col-span-2">
-          
-          {/* 🔥 1. PAYMENT VERIFICATION PANEL */}
-          <div className="overflow-hidden bg-white border shadow-sm border-slate-200 rounded-2xl">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
-              <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-                <FaFileInvoice className="text-blue-500" /> Payment Verification
-              </h3>
-              <span className="px-3 py-1 text-xs font-bold tracking-wide uppercase rounded-md sm:text-sm bg-slate-200 text-slate-700">
-                {order.paymentMethod === "MANUAL" ? "Manual Transfer (UPI)" : order.paymentMethod}
-              </span>
+
+          {/* CARD A: CUSTOMER OVERVIEW */}
+          <div className="bg-white border border-[#d5dce4] rounded shadow-sm p-6">
+            <h3 className="text-base font-bold text-gray-800 border-b pb-3 border-gray-100 mb-4 flex items-center gap-2">
+              <FaUserAlt className="text-blue-500 text-xs" /> Customer Information
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+              <div>
+                <p className="text-xs text-gray-400 font-bold uppercase">Name</p>
+                <p className="font-bold text-slate-800 mt-1">{order.shippingInfo?.fullName || "Guest"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-bold uppercase">Email Address</p>
+                <p className="font-medium text-slate-800 mt-1">{order.user?.email || "No email linked"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-bold uppercase">Phone Number</p>
+                <p className="font-bold text-slate-800 mt-1">{order.shippingInfo?.phone || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-400 font-bold uppercase">Company Name</p>
+                <p className="font-medium text-slate-800 mt-1">{order.billingInfo?.companyName || "N/A"}</p>
+              </div>
             </div>
-            <div className="p-6">
-              {order.paymentMethod === "MANUAL" ? (
-                <div className="flex flex-col items-start gap-6 md:flex-row">
-                  {/* UTR Details */}
-                  <div className="flex-1 w-full space-y-4">
-                    <div>
-                      <p className="text-sm font-semibold text-slate-500">UTR / Reference Number</p>
-                      <p className="p-3 mt-1 font-mono text-lg font-bold break-all border rounded-lg text-slate-900 bg-slate-50 border-slate-200">
-                        {order.utrNumber || "Not Provided"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-500">Amount to Verify</p>
-                      <p className="mt-1 text-2xl font-black text-blue-600">{formatCurrency(order.totalAmount)}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Screenshot View */}
-                  <div className="flex-shrink-0 w-full md:w-48">
-                    <p className="mb-2 text-sm font-semibold text-slate-500">Payment Screenshot</p>
-                    {order.paymentScreenshot ? (
-                      <a href={getImageUrl(order.paymentScreenshot)} target="_blank" rel="noopener noreferrer" className="relative block overflow-hidden transition-colors border-2 border-dashed group rounded-xl border-slate-300 hover:border-blue-500">
-                        <img 
-                          src={getImageUrl(order.paymentScreenshot)} 
-                          alt="UPI Screenshot" 
-                          className="object-cover w-full h-48"
-                        />
-                        <div className="absolute inset-0 flex items-center justify-center transition-opacity opacity-0 bg-black/60 group-hover:opacity-100">
-                          <span className="text-white text-xs font-bold uppercase tracking-widest bg-blue-600 px-3 py-1.5 rounded-lg shadow-lg">Click to Zoom</span>
-                        </div>
-                      </a>
-                    ) : (
-                      <div className="flex items-center justify-center w-full h-48 text-sm font-medium border-2 border-dashed bg-slate-50 border-slate-200 rounded-xl text-slate-400">
-                        No Screenshot
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <div className="py-6 text-center">
-                  <FaCheckCircle className="mx-auto mb-3 text-4xl text-green-500" />
-                  <p className="font-bold text-slate-800">Online Payment / COD Selected.</p>
-                  <p className="mt-1 text-sm text-slate-500">Manual UPI verification is not required.</p>
-                </div>
-              )}
+            <div className="mt-4 pt-4 border-t border-gray-100 flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${isTaxExempt ? 'bg-green-500' : 'bg-gray-400'}`}></span>
+              <span className="text-xs font-semibold text-slate-600">
+                Order Tax Exemption status: <span className="font-bold text-slate-800">{isTaxExempt ? "Exempted" : "Active (GST Collected)"}</span>
+              </span>
             </div>
           </div>
 
-          {/* 📦 2. ORDER ITEMS & VARIATIONS (Factory Instructions) */}
-          <div className="overflow-hidden bg-white border shadow-sm border-slate-200 rounded-2xl">
-            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-              <h3 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-                <FaBoxOpen className="text-blue-500" /> Order Items ({order.items?.length || 0})
-              </h3>
-            </div>
-            <div className="p-6 space-y-6">
-              {(order.items || []).map((item, index) => {
+          {/* CARD B: ORDER ITEMS */}
+          <div className="bg-white border border-[#d5dce4] rounded shadow-sm p-6">
+            <h3 className="text-base font-bold text-gray-800 border-b pb-3 border-gray-100 mb-4 flex items-center gap-2">
+              <FaBoxOpen className="text-blue-500" /> Order Items ({order.items?.length || 0})
+            </h3>
+            
+            <div className="divide-y divide-gray-100">
+              {(order.items || []).map((item, idx) => {
                 const variations = getVariations(item);
+
                 return (
-                  <div key={index} className="flex flex-col gap-6 pb-6 border-b sm:flex-row border-slate-100 last:border-0 last:pb-0">
-                    <div className="flex-shrink-0 w-24 h-24 p-2 overflow-hidden border bg-slate-50 border-slate-200 rounded-xl">
-                      <img src={getImageUrl(item.image)} alt={item.name} className="object-contain w-full h-full mix-blend-multiply" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-base font-bold leading-tight text-slate-900">{item.name}</h3>
-                      <div className="flex items-center gap-4 mt-2">
-                        <p className="text-sm font-medium text-slate-500">Qty: <span className="font-bold text-slate-800">{item.quantity}</span></p>
-                        <p className="text-sm font-medium text-slate-500">Unit: <span className="font-bold text-slate-800">{formatCurrency(item.unitPrice)}</span></p>
+                  <div key={idx} className="py-4 first:pt-0 last:pb-0 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                    <div className="flex gap-4">
+                      {/* Image */}
+                      <div className="w-16 h-16 border bg-slate-50 border-slate-200 rounded-lg overflow-hidden flex-shrink-0 p-1">
+                        <img src={getImageUrl(item.image)} alt={item.name} className="object-contain w-full h-full" />
                       </div>
                       
-                      {/* 🔥 VERY IMPORTANT: Factory Variations Output */}
-                      {variations.length > 0 && (
-                        <div className="p-3 mt-3 border border-blue-100 bg-blue-50/50 rounded-xl">
-                          <p className="text-[10px] font-black uppercase tracking-widest text-blue-500 mb-2">Customer Selected Options:</p>
-                          <div className="flex flex-wrap gap-2">
+                      {/* Name / Details */}
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-950 leading-tight">{item.name}</h4>
+                        <p className="text-xs text-gray-500 mt-0.5">SKU: <span className="font-medium">{item.sku}</span> | Weight: {item.weightKg || 1}kg</p>
+                        
+                        {variations.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5 mt-2">
                             {variations.map((v, i) => (
-                              <span key={i} className="px-2.5 py-1 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg shadow-sm">
+                              <span key={i} className="px-2.5 py-0.5 text-[10px] font-bold text-slate-600 bg-slate-50 border border-slate-200 rounded">
                                 {v}
                               </span>
                             ))}
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
-                    <div className="flex flex-col justify-center mt-4 sm:text-right sm:mt-0">
-                      <p className="mb-1 text-xs font-semibold tracking-wide uppercase text-slate-400">Line Total</p>
-                      <p className="text-lg font-black text-slate-900">{formatCurrency(item.price * item.quantity)}</p>
+
+                    {/* Quantity & Calculations */}
+                    <div className="flex items-center gap-6 self-end sm:self-center">
+                      <div className="text-right">
+                        <p className="text-xs text-gray-400 font-bold uppercase">Pricing</p>
+                        <p className="text-sm text-slate-700 font-semibold mt-0.5">
+                          {item.quantity} × {formatCurrency(item.unitPrice || item.price)}
+                        </p>
+                      </div>
+                      <div className="text-right min-w-[80px]">
+                        <p className="text-xs text-gray-400 font-bold uppercase">Line Total</p>
+                        <p className="text-sm font-bold text-slate-900 mt-0.5">
+                          {formatCurrency(Number(item.unitPrice || item.price) * Number(item.quantity))}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 );
@@ -252,114 +291,219 @@ const OrderDetail = () => {
             </div>
           </div>
 
-          {/* Notes Section */}
+          {/* CARD C: SHIPPING AND DELIVERY INFO */}
+          <div className="bg-white border border-[#d5dce4] rounded shadow-sm p-6">
+            <h3 className="text-base font-bold text-gray-800 border-b pb-3 border-gray-100 mb-4 flex items-center gap-2">
+              <FaTruck className="text-blue-500" /> Delivery Details
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-gray-400 font-bold uppercase mb-1">Courier Partner / Method</p>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 rounded-lg text-sm font-bold text-slate-800">
+                  <FaTruck className="text-blue-500" />
+                  {order.selectedShippingProvider || order.courierPartner || "Standard Shipping"}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 text-sm">
+                <div>
+                  <p className="text-xs text-gray-400 font-bold uppercase">Shipping Address</p>
+                  <div className="mt-1.5 leading-relaxed text-slate-700 uppercase font-semibold">
+                    <p className="font-bold text-slate-900">{order.shippingInfo?.fullName}</p>
+                    <p>{order.shippingInfo?.address}</p>
+                    <p>{order.shippingInfo?.city}, {order.shippingInfo?.state} - {order.shippingInfo?.pincode}</p>
+                    <p>Phone: {order.shippingInfo?.phone}</p>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 font-bold uppercase">Billing Address</p>
+                  <div className="mt-1.5 leading-relaxed text-slate-700 uppercase font-semibold">
+                    <p className="font-bold text-slate-900">{order.billingInfo?.fullName || order.shippingInfo?.fullName}</p>
+                    <p>{order.billingInfo?.address || order.shippingInfo?.address}</p>
+                    <p>{order.billingInfo?.city || order.shippingInfo?.city}, {order.billingInfo?.state || order.shippingInfo?.state} - {order.billingInfo?.pincode || order.shippingInfo?.pincode}</p>
+                    <p>Phone: {order.billingInfo?.phone || order.shippingInfo?.phone}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CARD E: PAYMENT & VERIFICATION */}
+          <div className="bg-white border border-[#d5dce4] rounded shadow-sm p-6">
+            <h3 className="text-base font-bold text-gray-800 border-b pb-3 border-gray-100 mb-4 flex items-center gap-2">
+              <FaFileInvoice className="text-blue-500" /> Payment & Verification
+            </h3>
+            
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-gray-400 font-bold uppercase mb-1">Selected Payment Method</p>
+                <span className="px-3 py-1 text-xs font-bold tracking-wide uppercase rounded-md bg-slate-200 text-slate-700">
+                  {order.paymentMethod === "MANUAL" ? "Manual Transfer (UPI)" : order.paymentMethod}
+                </span>
+              </div>
+
+              {/* UTR Screenshot display for manual payments */}
+              {(order.paymentMethod === "MANUAL TRANSFER" || order.paymentMethod === "MANUAL") && (
+                <div className="p-4 bg-slate-50 rounded-xl space-y-4 border border-gray-200">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-xs text-gray-400 font-bold uppercase">UTR / Reference Number</p>
+                      <p className="p-3 mt-1.5 font-mono text-sm font-bold border rounded-lg text-slate-900 bg-white border-slate-200">
+                        {order.utrNumber || "Not Provided"}
+                      </p>
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-gray-400 font-bold uppercase mb-1.5">Payment Screenshot</p>
+                      {order.paymentScreenshot ? (
+                        <div className="relative w-32 h-32 border border-slate-200 rounded-lg overflow-hidden group">
+                          <img src={getImageUrl(order.paymentScreenshot)} alt="Receipt" className="object-cover w-full h-full" />
+                          <button 
+                            onClick={() => setZoomScreenshot(true)}
+                            className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity text-white text-[10px] font-bold"
+                          >
+                            Zoom Screen
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="w-32 h-32 bg-gray-100 text-gray-400 flex items-center justify-center text-[10px] font-semibold border rounded-lg border-dashed">
+                          No Screenshot
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Customer notes */}
           {order.orderNotes && (
             <div className="p-6 border bg-amber-50 border-amber-200 rounded-2xl">
-              <h3 className="mb-2 text-sm font-black tracking-widest uppercase text-amber-800">Customer Notes / Special Instructions</h3>
-              <p className="font-medium text-slate-700">{order.orderNotes}</p>
+              <h3 className="mb-2 text-xs font-black tracking-widest uppercase text-amber-800">Customer Notes</h3>
+              <p className="font-semibold text-sm text-slate-700 leading-relaxed">{order.orderNotes}</p>
             </div>
           )}
 
         </div>
 
-        {/* RIGHT COLUMN: Sidebar (Shipping, Summary, Actions) */}
-        <div className="space-y-8">
+        {/* RIGHT COLUMN: STICKY FINANCIAL SUMMARY CARD */}
+        <div className="space-y-8 lg:col-span-1">
           
-          {/* ⚡ 3. ADMIN ACTION: STATUS CONTROLS */}
-          <div className="p-6 border shadow-xl bg-slate-900 rounded-2xl border-slate-800">
-            <h2 className="flex items-center gap-2 mb-5 text-lg font-black text-white">
-              Action Panel
-            </h2>
-            
-            <div className="space-y-5">
-              {/* Payment Status Dropdown */}
-              <div>
-                <label className="block mb-2 text-xs font-bold tracking-widest uppercase text-slate-400">Payment Verification</label>
-                <select 
-                  value={newPaymentStatus} 
-                  onChange={(e) => setNewPaymentStatus(e.target.value)}
-                  className="w-full px-4 py-3 text-sm font-bold text-white border bg-slate-800 border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
+          <div className="sticky top-6 space-y-6">
+
+            {/* FINANCIAL CARD */}
+            <div className="bg-white border border-[#d5dce4] rounded shadow-sm">
+              <div className="p-5 border-b border-[#d5dce4]">
+                <h3 className="text-[16px] font-semibold text-[#1a1a1a] mb-4">Summary</h3>
+                
+                <div className="space-y-3">
+                  <div className="flex justify-between text-[14px] text-[#6d7175]">
+                    <span>Subtotal</span>
+                    <span className="text-[#202223] font-semibold">{formatCurrency(order.subtotalAmount)}</span>
+                  </div>
+
+                  {order.discount > 0 && (
+                    <div className="flex justify-between text-[14px] text-red-500">
+                      <span>Discount</span>
+                      <span className="font-semibold">
+                        - {formatCurrency(order.discountType === "PERCENTAGE" ? (order.subtotalAmount * order.discount) / 100 : order.discount)}
+                      </span>
+                    </div>
+                  )}
+
+                  {isTaxExempt ? (
+                    <div className="flex justify-between text-[14px] text-[#6d7175]">
+                      <span>Tax (GST)</span>
+                      <span className="font-semibold text-green-600">Exempted</span>
+                    </div>
+                  ) : isGujarat ? (
+                    <>
+                      <div className="flex justify-between text-[14px] text-[#6d7175]">
+                        <span>CGST (9%)</span>
+                        <span className="text-[#202223] font-semibold">{formatCurrency(order.gstAmount / 2)}</span>
+                      </div>
+                      <div className="flex justify-between text-[14px] text-[#6d7175]">
+                        <span>SGST (9%)</span>
+                        <span className="text-[#202223] font-semibold">{formatCurrency(order.gstAmount / 2)}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between text-[14px] text-[#6d7175]">
+                      <span>IGST (18%)</span>
+                      <span className="text-[#202223] font-semibold">{formatCurrency(order.gstAmount)}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between text-[14px] text-[#6d7175]">
+                    <span>Shipping</span>
+                    <span className="text-[#202223] font-semibold">{formatCurrency(order.shippingAmount)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-5 bg-gray-50/50 rounded-b-lg">
+                <div className="flex justify-between items-center text-[16px] font-bold text-[#202223] mb-1">
+                  <span>Grand Total</span>
+                  <span className="text-lg text-blue-600 font-extrabold">{formatCurrency(order.totalAmount)}</span>
+                </div>
+                {!isTaxExempt && order.gstAmount > 0 && (
+                  <p className="text-right text-[11px] text-gray-500 font-medium italic">
+                    Incl. tax {formatCurrency(order.gstAmount)}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* PRINT & GENERATION DETAILS CARD */}
+            <div className="bg-white border border-[#d5dce4] rounded-lg p-5 space-y-4">
+              <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Document Management</h4>
+              
+              <div className="flex flex-col gap-2 text-xs">
+                <div className="flex justify-between border-b pb-2">
+                  <span className="text-gray-500">Generate Tax Invoice:</span>
+                  <span className={`font-bold ${order.generateTaxInvoice !== false ? 'text-green-600' : 'text-slate-400'}`}>
+                    {order.generateTaxInvoice !== false ? "YES" : "NO"}
+                  </span>
+                </div>
+                
+                <button 
+                  onClick={() => window.open(`/admin/orders/tax-invoice/${id}`, '_blank')}
+                  className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold rounded text-center transition-colors border border-slate-200 mt-2"
                 >
-                  <option value="Pending">Pending (Wait for verification)</option>
-                  <option value="Paid">Paid (Verified successfully)</option>
-                  <option value="Failed">Failed / Rejected</option>
-                </select>
-              </div>
-
-              {/* Order Pipeline Dropdown */}
-              <div>
-                <label className="block mb-2 text-xs font-bold tracking-widest uppercase text-slate-400">Order Pipeline Stage</label>
-                <select 
-                  value={newOrderStatus} 
-                  onChange={(e) => setNewOrderStatus(e.target.value)}
-                  className="w-full px-4 py-3 text-sm font-bold text-white border bg-slate-800 border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                >
-                  <option value="Confirmed">Confirmed (New Order)</option>
-                  <option value="Processing">Processing (Manufacturing/Packing)</option>
-                  <option value="Shipping">Shipping (Handed to courier)</option>
-                  <option value="Delivered">Delivered (Completed)</option>
-                  <option value="Cancelled">Cancelled</option>
-                </select>
-              </div>
-
-              <button 
-                onClick={handleUpdateStatus}
-                disabled={isUpdating}
-                className="w-full px-4 py-3 mt-2 text-sm font-black transition-colors bg-blue-400 text-slate-900 rounded-xl hover:bg-blue-300 disabled:opacity-50"
-              >
-                {isUpdating ? "Saving..." : "Save Changes"}
-              </button>
-            </div>
-          </div>
-
-          {/* 🚚 4. SHIPPING & CUSTOMER DETAILS */}
-          <div className="p-6 bg-white border shadow-sm border-slate-200 rounded-2xl">
-            <h2 className="flex items-center gap-2 mb-5 text-sm font-black tracking-widest uppercase text-slate-400">
-              <FaMapMarkerAlt /> Delivery Details
-            </h2>
-            
-            <p className="text-base font-bold text-slate-900">{order.shippingInfo?.fullName}</p>
-            <p className="mt-2 text-sm leading-relaxed text-slate-600">
-              {order.shippingInfo?.address}<br/>
-              {order.shippingInfo?.city}, {order.shippingInfo?.state ? `${order.shippingInfo.state}, ` : ""}{order.shippingInfo?.pincode}
-            </p>
-            <p className="flex items-center gap-2 mt-3 text-sm font-bold text-slate-800">
-              <FaUserAlt className="text-xs text-slate-400" /> {order.shippingInfo?.phone}
-            </p>
-
-            <div className="pt-5 mt-5 border-t border-slate-100">
-              <p className="mb-2 text-xs font-bold tracking-widest uppercase text-slate-400">Courier Partner</p>
-              <div className="flex items-center gap-2 p-3 text-sm font-bold border text-slate-800 bg-slate-50 border-slate-200 rounded-xl">
-                <FaTruck className="text-blue-500" /> 
-                {order.courierPartner || "Standard Courier"}
+                  Create/View Tax Invoice
+                </button>
               </div>
             </div>
-          </div>
 
-          {/* 🧾 5. FINANCIAL SUMMARY */}
-          <div className="p-6 bg-white border shadow-sm border-slate-200 rounded-2xl">
-            <h2 className="mb-5 text-sm font-black tracking-widest uppercase text-slate-400">Order Summary</h2>
-            <div className="space-y-3 text-sm font-medium">
-              <div className="flex justify-between text-slate-600">
-                <span>Subtotal (Items)</span>
-                {/* 🔥 YAHAN CHANGE KIYA HAI - order.subtotalAmount ki jagah calculatedSubtotal */}
-                <span className="text-slate-900">{formatCurrency(calculatedSubtotal)}</span>
-              </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Shipping Cost {order.courierPartner ? `(${order.courierPartner})` : ""}</span>
-                <span className={order.shippingAmount > 0 ? "text-slate-900" : "text-green-600"}>
-                  {order.shippingAmount > 0 ? formatCurrency(order.shippingAmount) : "FREE"}
-                </span>
-              </div>
-              <div className="flex items-end justify-between pt-4 mt-2 border-t border-dashed border-slate-200">
-                <span className="text-base font-black text-slate-900">Grand Total</span>
-                <span className="text-2xl font-black text-blue-600">{formatCurrency(order.totalAmount)}</span>
-              </div>
-            </div>
           </div>
-
         </div>
+
       </div>
+
+      {/* LIGHTBOX FOR SCREENSHOT ZOOM */}
+      {zoomScreenshot && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 cursor-zoom-out"
+          onClick={() => setZoomScreenshot(false)}
+        >
+          <div className="relative max-w-3xl max-h-[90vh]">
+            <img 
+              src={getImageUrl(order.paymentScreenshot)} 
+              alt="UPI Screenshot Zoomed" 
+              className="object-contain max-w-full max-h-[85vh] rounded shadow-2xl border border-white/10" 
+            />
+            <button 
+              onClick={() => setZoomScreenshot(false)} 
+              className="absolute -top-10 right-0 text-white hover:text-gray-300 text-sm font-bold flex items-center gap-1.5"
+            >
+              <FaTimes size={16} /> Close
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

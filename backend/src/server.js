@@ -65,7 +65,9 @@ app.use(
       "https://teztech-mern-ecommerce-ixig.vercel.app",
       "https://www.sonanielectronics.in",
       "https://sonanielectronics.in",
-      "https://poly.teztech.in"
+      "https://poly.teztech.in",
+      "https://polysheet.in",
+      "https://www.polysheet.in"
     ],
     credentials: true,
   })
