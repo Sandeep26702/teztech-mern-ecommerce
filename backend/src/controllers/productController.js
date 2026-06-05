@@ -74,9 +74,27 @@ export const getProducts = async (req, res) => {
     // 1. Match Stage (Filters setup)
     let matchStage = { status: "Active" };
 
-    // 🔍 NATIVE TEXT SEARCH
+    // 🔍 SUBSTRING / PARTIAL MATCH SEARCH
     if (keyword) {
-      matchStage.$text = { $search: keyword };
+      const words = keyword.trim().split(/\s+/).filter(Boolean);
+      if (words.length > 0) {
+        // Escape special regex characters
+        const escapedWords = words.map(w => w.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+        
+        // Match name if ALL words are present anywhere in the name (order independent)
+        const nameRegexStr = escapedWords.map(w => `(?=.*${w})`).join("");
+        const nameRegex = new RegExp(nameRegexStr, "i");
+        
+        // Match other fields if they contain the full raw keyword
+        const rawKeywordEscaped = keyword.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        
+        matchStage.$or = [
+          { name: { $regex: nameRegex } },
+          { baseSku: { $regex: rawKeywordEscaped, $options: "i" } },
+          { category: { $regex: rawKeywordEscaped, $options: "i" } },
+          { searchTags: { $regex: rawKeywordEscaped, $options: "i" } }
+        ];
+      }
     }
 
     if (category) {
