@@ -31,7 +31,7 @@ const sendEmail = async (options) => {
   const resend = new Resend(process.env.RESEND_API_KEY);
 
   const payload = {
-    from: process.env.EMAIL_FROM || "Sonani Support <onboarding@resend.dev>",
+    from: process.env.EMAIL_FROM || "Sonani Electronics <SonaniElectronic@polysheet.in>",
     to: options.email,
     subject: options.subject,
     text: options.message,

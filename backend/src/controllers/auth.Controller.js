@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import sendEmail from "../utils/sendEmail.js";
+import { getCache, setCache, deleteCache } from "../utils/cache.js";
 
 const isValidName = (name) => /^[a-zA-Z][a-zA-Z\s.'-]{1,}$/.test(String(name || "").trim());
 const isValidPhone = (phone) => /^\d{10}$/.test(String(phone || "").trim());
@@ -70,10 +71,10 @@ export const register = async (req, res) => {
     });
 
     if (userExists) {
-      if (userExists.isVerified) {
+      if (userExists.isVerified || userExists.isEmailVerified) {
         return res.status(400).json({ success: false, message: "Email or mobile already exists" });
       } else {
-        // Automatically clean up the unverified ghost account so the user can re-register
+        // Automatically clean up the unverified ghost account from old system so the user can re-register
         await User.findByIdAndDelete(userExists._id);
       }
     }
@@ -82,22 +83,26 @@ export const register = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-    // ONLY if email sending succeeds, we save to DB
-    const user = await User.create({
+    // Hash the password so we don't store a plain password in the cache
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Store unverified registration details in cache (TTL 600 seconds)
+    const cacheKey = `temp-user:${normalizedEmail}`;
+    const tempUserData = {
       name: normalizedName,
       email: normalizedEmail,
-      password: password, // The Mongoose pre-save hook will hash this automatically
+      password: hashedPassword,
       phone: normalizedPhone || undefined,
-      userId: normalizedPhone || undefined,
-      isVerified: false,
       otp,
       otpExpire,
-    });
+    };
+    setCache(cacheKey, tempUserData, 600);
 
     res.status(201).json({
       success: true,
       message: "Registration successful. Please verify the OTP sent to your email.",
-      email: user.email,
+      email: normalizedEmail,
     });
 
     // Fire-and-forget email for speed
@@ -125,35 +130,80 @@ export const verifyOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: "Please provide email and OTP" });
     }
 
-    const user = await User.findOne({ email: normalizedEmail });
+    const existingUser = await User.findOne({ email: normalizedEmail });
 
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    if (user.isVerified) {
+    if (existingUser && (existingUser.isVerified || existingUser.isEmailVerified)) {
       return res.status(400).json({ success: false, message: "User is already verified. Please login." });
     }
 
-    if (user.otp !== cleanOtp || user.otpExpire < new Date()) {
-      await Log.create({
-        ipAddress: (req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip || "").split(",")[0].trim() || "Unknown",
-        email: normalizedEmail,
-        action: "Failed OTP Attempt",
-        riskLevel: "Warning",
-        method: req.method,
-        endpoint: req.originalUrl
-      }).catch(() => {});
-      return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+    const cacheKey = `temp-user:${normalizedEmail}`;
+    let tempUserData = getCache(cacheKey);
+    let user;
+
+    if (!tempUserData) {
+      // Fallback for old system: check DB for unverified user
+      if (existingUser && !existingUser.isVerified && !existingUser.isEmailVerified) {
+        user = existingUser;
+
+        if (user.otp !== cleanOtp || user.otpExpire < new Date()) {
+          await Log.create({
+            ipAddress: (req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip || "").split(",")[0].trim() || "Unknown",
+            email: normalizedEmail,
+            action: "Failed OTP Attempt",
+            riskLevel: "Warning",
+            method: req.method,
+            endpoint: req.originalUrl
+          }).catch(() => {});
+          return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+        }
+
+        user.isVerified = true;
+        user.isEmailVerified = true;
+        user.otp = undefined;
+        user.otpExpire = undefined;
+        await user.save();
+      } else {
+        return res.status(400).json({ success: false, message: "OTP expired or registration session not found" });
+      }
+    } else {
+      // Normal cache-based flow
+      if (tempUserData.otp !== cleanOtp || new Date(tempUserData.otpExpire) < new Date()) {
+        await Log.create({
+          ipAddress: (req.headers["x-forwarded-for"] || req.connection.remoteAddress || req.ip || "").split(",")[0].trim() || "Unknown",
+          email: normalizedEmail,
+          action: "Failed OTP Attempt",
+          riskLevel: "Warning",
+          method: req.method,
+          endpoint: req.originalUrl
+        }).catch(() => {});
+        return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
+      }
+
+      // Double check email/phone duplication in DB right before inserting
+      const duplicateCheck = await User.findOne({
+        $or: [
+          { email: tempUserData.email },
+          ...(tempUserData.phone ? [{ phone: tempUserData.phone }, { userId: tempUserData.phone }] : [])
+        ],
+      });
+      if (duplicateCheck) {
+        return res.status(400).json({ success: false, message: "Email or mobile already exists" });
+      }
+
+      // Create the user in MongoDB Atlas
+      user = await User.create({
+        name: tempUserData.name,
+        email: tempUserData.email,
+        password: tempUserData.password, // Pre-save hook will skip double hashing since it's already a bcrypt hash
+        phone: tempUserData.phone,
+        userId: tempUserData.phone,
+        isVerified: true,
+        isEmailVerified: true
+      });
+
+      // Clean up the cache
+      deleteCache(cacheKey);
     }
-
-    // Update user document
-    user.isVerified = true;
-    user.isEmailVerified = true; // backward compatibility
-    user.otp = undefined;
-    user.otpExpire = undefined;
-
-    await user.save();
 
     // Automatically log user in right after verification
     sendTokenResponse(user, 200, res);
@@ -172,23 +222,36 @@ export const resendOtp = async (req, res) => {
       return res.status(400).json({ success: false, message: "Please provide email" });
     }
 
-    const user = await User.findOne({ email: normalizedEmail });
+    const existingUser = await User.findOne({ email: normalizedEmail });
 
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    if (user.isVerified) {
+    if (existingUser && (existingUser.isVerified || existingUser.isEmailVerified)) {
       return res.status(400).json({ success: false, message: "User is already verified. Please login." });
     }
 
+    const cacheKey = `temp-user:${normalizedEmail}`;
+    let tempUserData = getCache(cacheKey);
+
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const otpExpire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    let recipientName = "User";
 
-    // Update OTP in DB first
-    user.otp = otp;
-    user.otpExpire = otpExpire;
-    await user.save();
+    if (!tempUserData) {
+      // Fallback for old system: update OTP in DB if user is unverified in DB
+      if (existingUser && !existingUser.isVerified && !existingUser.isEmailVerified) {
+        existingUser.otp = otp;
+        existingUser.otpExpire = otpExpire;
+        await existingUser.save();
+        recipientName = existingUser.name;
+      } else {
+        return res.status(400).json({ success: false, message: "Registration session expired. Please register again." });
+      }
+    } else {
+      // Update OTP in cache
+      tempUserData.otp = otp;
+      tempUserData.otpExpire = otpExpire;
+      setCache(cacheKey, tempUserData, 600);
+      recipientName = tempUserData.name;
+    }
 
     res.status(200).json({
       success: true,
@@ -197,9 +260,9 @@ export const resendOtp = async (req, res) => {
 
     // Fire-and-forget email for speed
     sendEmail({
-      email: user.email,
+      email: normalizedEmail,
       subject: "TezTech Account Verification OTP (Resent)",
-      message: `Hello ${user.name},\n\nYour new 6-digit OTP for account verification is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nThank you,\nTezTech Support`,
+      message: `Hello ${recipientName},\n\nYour new 6-digit OTP for account verification is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nThank you,\nTezTech Support`,
     }).catch(emailError => {
       console.error("OTP email sending failed in background:", emailError.message);
     });
