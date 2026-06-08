@@ -100,7 +100,7 @@ const Products = () => {
       minPrice: minPrice || "",
       maxPrice: maxPrice || "",
       page,
-      limit: 8,
+      limit: 10,
       random: true,
     });
 
@@ -120,7 +120,7 @@ const Products = () => {
         minPrice: minPrice || undefined,
         maxPrice: maxPrice || undefined,
         page,
-        limit: 8,
+        limit: 10,
         random: true,
       });
       
