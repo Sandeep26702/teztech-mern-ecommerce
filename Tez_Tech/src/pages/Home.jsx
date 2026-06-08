@@ -194,7 +194,7 @@ const Home = () => {
                   onClick={() => navigate(`/category/${category.slug}`)}
                   className="flex flex-col items-center group cursor-pointer"
                 >
-                  <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-2xl overflow-hidden border border-gray-200 bg-slate-50 shadow-sm group-hover:shadow-md group-hover:border-blue-500 transition-all duration-300 flex items-center justify-center">
+                  <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-none overflow-hidden border border-gray-200 bg-slate-50 shadow-sm group-hover:shadow-md group-hover:border-blue-500 transition-all duration-300 flex items-center justify-center">
                     <img
                       src={optimizeCloudinaryUrl(category.image, 300)}
                       alt={category.name}

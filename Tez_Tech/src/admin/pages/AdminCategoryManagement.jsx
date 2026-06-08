@@ -277,73 +277,79 @@ const AdminCategoryManagement = () => {
           <div className="p-6 text-sm text-gray-500 bg-white border border-gray-200 rounded-xl col-span-full text-center">No categories found. Create a new one!</div>
         ) : (
           filteredCategories.map((category) => (
-            <div key={category._id} className={`relative p-5 border rounded-xl shadow-sm transition-all hover:shadow-md overflow-hidden min-h-[160px] flex flex-col justify-between group ${category.level === 1 ? 'border-blue-200' : category.level === 2 ? 'border-amber-200' : 'border-gray-200'}`}>
+            <div key={category._id} className={`bg-white border rounded-none shadow-sm transition-all hover:shadow-md overflow-hidden flex flex-col justify-between group ${category.level === 1 ? 'border-blue-200' : category.level === 2 ? 'border-amber-200' : 'border-gray-200'}`}>
               
-              {/* Full Background Image */}
-              {category.image ? (
-                <img src={category.image} alt={category.name} className="absolute inset-0 w-full h-full object-cover z-0 transition-transform duration-500 group-hover:scale-105" />
-              ) : (
-                <div className="absolute inset-0 w-full h-full bg-gray-50 z-0"></div>
-              )}
+              {/* Square Image Box at the Top */}
+              <div 
+                className="w-full aspect-square bg-slate-50 flex items-center justify-center overflow-hidden border-b border-gray-100 cursor-pointer relative"
+                onClick={() => setSelectedCategoryForProducts(category)}
+              >
+                {category.image ? (
+                  <img src={category.image} alt={category.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                ) : (
+                  <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-300">No Image</div>
+                )}
+                
+                {/* Level Overlay Badge */}
+                <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-sm text-white text-[10px] font-black px-2.5 py-1 rounded-lg tracking-wider uppercase">
+                  Level {category.level || 1}
+                </div>
+                
+                {/* Products Count Overlay Badge */}
+                <div className="absolute top-3 right-3 bg-blue-600/90 backdrop-blur-sm text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
+                  {category.productCount || 0} Products
+                </div>
+              </div>
               
-              {/* Dark Overlay */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10 z-10"></div>
-              
-              <div className="relative z-20 flex flex-col h-full text-white">
+              {/* Details Area Below */}
+              <div className="p-4 flex flex-col flex-grow">
                 <div 
                   className="flex-1 cursor-pointer" 
                   onClick={() => setSelectedCategoryForProducts(category)}
                   title="Click to view products in this category"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="min-w-0 flex-1">
-                      <h3 className="font-bold truncate text-xl drop-shadow-md hover:text-blue-300 transition-colors">{category.name}</h3>
-                      <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <span className={`px-2 py-0.5 text-[10px] font-black tracking-widest uppercase rounded bg-white/20 text-white backdrop-blur-sm`}>
-                          Level {category.level || 1}
-                        </span>
-                        <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-600/90 text-white backdrop-blur-sm shadow-sm">
-                          {category.productCount || 0} Products
-                        </span>
-                        {category.level > 1 && (
-                          <span className="text-xs font-semibold text-gray-300 truncate">
-                            in: <span className="text-blue-300">{getParentName(category.parentCategory)}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    {/* Level Badge Icon */}
-                    <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 shadow-sm border border-white/10 ml-2">
-                      {category.level === 1 ? <FaFolder className="text-blue-300" /> : category.level === 2 ? <FaFolderOpen className="text-amber-300" /> : <FaFileAlt className="text-gray-300" />}
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="font-bold text-gray-900 truncate text-base hover:text-blue-600 transition-colors flex-1">{category.name}</h3>
+                    <div className="text-gray-400 mt-0.5 flex-shrink-0">
+                      {category.level === 1 ? <FaFolder className="text-blue-500" /> : category.level === 2 ? <FaFolderOpen className="text-amber-500" /> : <FaFileAlt className="text-gray-400" />}
                     </div>
                   </div>
-                  <p className="mt-2 text-xs text-gray-300 line-clamp-2">{category.description || "No description"}</p>
+                  
+                  {category.level > 1 && (
+                    <p className="text-xs font-semibold text-gray-500 mt-1 truncate">
+                      Parent: <span className="text-blue-600">{getParentName(category.parentCategory)}</span>
+                    </p>
+                  )}
+                  <p className="mt-1.5 text-xs text-gray-500 line-clamp-2 min-h-[32px]">{category.description || "No description provided."}</p>
                 </div>
-              
-              <div className="relative z-20 flex items-center justify-between mt-4 pt-3 border-t border-white/20">
-                <span className={`px-2 py-1 text-xs font-semibold rounded-md ${category.isActive ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-red-500/20 text-red-300 border border-red-500/30"}`}>
-                  {category.isActive ? "Active" : "Inactive"}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleToggleHome(category)}
-                  className={`px-2 py-1 text-[11px] font-semibold rounded-md transition-colors ${category.showOnHome ? "bg-blue-500/30 text-blue-200 border border-blue-500/50 hover:bg-blue-500/55" : "bg-white/10 text-white/70 border border-white/10 hover:bg-white/20"}`}
-                >
-                  {category.showOnHome ? "★ On Home" : "☆ Show on Home"}
-                </button>
-                <span className="text-xs font-bold text-gray-400">ID: {category._id.slice(-6)}</span>
+                
+                {/* Toggles (Active Status & On Home) */}
+                <div className="flex items-center justify-between mt-4 pt-3 border-t border-gray-100">
+                  <span className={`px-2 py-0.5 text-[10px] font-bold rounded border ${category.isActive ? "bg-emerald-50 text-emerald-700 border-emerald-200" : "bg-red-50 text-red-700 border-red-200"}`}>
+                    {category.isActive ? "Active" : "Inactive"}
+                  </span>
+                  
+                  <button
+                    type="button"
+                    onClick={() => handleToggleHome(category)}
+                    className={`px-2.5 py-1 text-[10px] font-bold rounded-lg border transition-colors ${category.showOnHome ? "bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100" : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"}`}
+                  >
+                    {category.showOnHome ? "★ On Home" : "☆ Show on Home"}
+                  </button>
+                </div>
+                
+                {/* Action Buttons (Edit & Delete) */}
+                <div className="flex gap-2 mt-4 pt-3 border-t border-gray-100">
+                  <button onClick={() => openEdit(category)} className="inline-flex items-center justify-center flex-1 gap-1 px-3 py-2 text-xs font-bold text-gray-700 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 hover:text-gray-900 transition-colors">
+                    <FaEdit /> Edit
+                  </button>
+                  <button onClick={() => handleDelete(category._id, category.productCount || 0)} className="inline-flex items-center justify-center flex-1 gap-1 px-3 py-2 text-xs font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors shadow-sm">
+                    <FaTrash /> Delete
+                  </button>
+                </div>
               </div>
               
-              <div className="relative z-20 flex gap-2 mt-4">
-                <button onClick={() => openEdit(category)} className="inline-flex items-center justify-center flex-1 gap-1 px-3 py-2 text-sm font-bold text-white bg-white/20 backdrop-blur-sm border border-white/20 rounded-lg hover:bg-white/30 transition-colors">
-                  <FaEdit /> Edit
-                </button>
-                <button onClick={() => handleDelete(category._id, category.productCount || 0)} className="inline-flex items-center justify-center flex-1 gap-1 px-3 py-2 text-sm font-bold text-white bg-red-500/40 backdrop-blur-sm border border-red-500/30 rounded-lg hover:bg-red-500/60 transition-colors">
-                  <FaTrash /> Delete
-                </button>
-              </div>
             </div>
-          </div>
           ))
         )}
       </div>

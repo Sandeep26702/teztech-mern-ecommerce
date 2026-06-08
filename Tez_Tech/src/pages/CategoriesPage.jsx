@@ -154,44 +154,38 @@ const CategoriesPage = () => {
                   key={category._id}
                   to={`/category/${category.slug}`}
                   onClick={(e) => handleCategoryClick(category, e)}
-                  className="flex flex-col p-6 transition-all duration-300 border border-gray-100 shadow-sm group rounded-2xl hover:shadow-lg hover:-translate-y-1 hover:border-blue-300 relative overflow-hidden min-h-[220px]"
+                  className="flex flex-col items-center group cursor-pointer bg-white p-4 border border-gray-100 shadow-sm rounded-none hover:shadow-md hover:-translate-y-1 transition-all duration-300 hover:border-blue-300"
                 >
-                  {/* Full Background Image */}
-                  {category.image ? (
-                    <img src={optimizeCloudinaryUrl(category.image, 500)} alt={category.name} className="absolute inset-0 z-0 object-cover w-full h-full transition-transform duration-500 group-hover:scale-105" />
-                  ) : (
-                    <div className="absolute inset-0 z-0 w-full h-full bg-gray-100"></div>
-                  )}
+                  {/* Square Image Box */}
+                  <div className="w-full aspect-square rounded-none overflow-hidden border border-gray-200/80 bg-slate-50 shadow-sm flex items-center justify-center relative">
+                    {category.image ? (
+                      <img 
+                        src={optimizeCloudinaryUrl(category.image, 400)} 
+                        alt={category.name} 
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" 
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 flex items-center justify-center text-gray-300">
+                        No Image
+                      </div>
+                    )}
 
-                  {/* Dark overlay for readable text */}
-                  <div className="absolute inset-0 z-10 transition-opacity duration-300 bg-gradient-to-t from-black/80 via-black/40 to-black/10 group-hover:opacity-90"></div>
+                    {/* Folder Indicator Badge */}
+                    {isFolder && (
+                      <div className="absolute top-3 right-3 bg-blue-500/90 backdrop-blur-sm text-white text-[9px] font-black px-2.5 py-1 rounded-lg tracking-widest uppercase shadow-sm">
+                        Sub-categories
+                      </div>
+                    )}
+                  </div>
 
-                  {/* Folder Indicator Badge */}
-                  {isFolder && (
-                    <div className="absolute top-0 right-0 z-20 bg-blue-500/90 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1 rounded-bl-xl tracking-widest uppercase shadow-sm">
-                      Sub-categories
-                    </div>
-                  )}
-
-                  <div className="relative z-20 flex items-start justify-between w-full mt-auto mb-4">
-                    <div className="pt-6 mt-auto">
-                      <h2 className="mb-2 text-xl font-bold text-white transition-colors group-hover:text-blue-300 drop-shadow-md">
-                        {category.name}
-                      </h2>
-                      <p className="text-sm text-gray-300 line-clamp-2 drop-shadow-sm">{category.description || "Browse designs and products"}</p>
-                    </div>
-
-                    <div className={`p-3 transition-colors duration-300 rounded-full shadow-lg ${isFolder ? 'text-white bg-blue-500/80 backdrop-blur-sm' : 'text-gray-900 bg-white/90 backdrop-blur-sm group-hover:bg-green-400 group-hover:text-white'}`}>
-                      {isFolder ? (
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                        </svg>
-                      ) : (
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                        </svg>
-                      )}
-                    </div>
+                  {/* Details block */}
+                  <div className="mt-4 text-center w-full">
+                    <h2 className="text-base font-bold text-gray-800 group-hover:text-blue-600 transition-colors truncate">
+                      {category.name}
+                    </h2>
+                    <p className="mt-1 text-xs text-gray-500 line-clamp-2 px-1">
+                      {category.description || "Browse designs and products"}
+                    </p>
                   </div>
                 </Link>
               );
