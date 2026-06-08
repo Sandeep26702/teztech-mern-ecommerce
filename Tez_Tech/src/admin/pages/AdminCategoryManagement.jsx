@@ -270,7 +270,7 @@ const AdminCategoryManagement = () => {
       </div>
 
       {/* Category List */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
         {loading ? (
           <div className="p-6 text-sm text-gray-500 bg-white border border-gray-200 rounded-xl col-span-full text-center font-bold">Loading categories...</div>
         ) : filteredCategories.length === 0 ? (

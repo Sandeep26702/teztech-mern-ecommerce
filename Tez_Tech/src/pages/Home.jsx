@@ -187,21 +187,21 @@ const Home = () => {
               <div className="mt-4 h-1.5 w-20 bg-gradient-to-r from-blue-600 to-cyan-400 mx-auto rounded-full"></div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-7 gap-6">
+            <div className="flex flex-wrap justify-center gap-6 sm:gap-8">
               {homeCategories.map((category) => (
                 <div
                   key={category._id}
                   onClick={() => navigate(`/category/${category.slug}`)}
-                  className="flex flex-col items-center group cursor-pointer"
+                  className="flex flex-col items-center group cursor-pointer w-28 sm:w-36"
                 >
-                  <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-none overflow-hidden border border-gray-200 bg-slate-50 shadow-sm group-hover:shadow-md group-hover:border-blue-500 transition-all duration-300 flex items-center justify-center">
+                  <div className="w-full aspect-square rounded-none overflow-hidden border border-gray-200 bg-slate-50 shadow-sm group-hover:shadow-md group-hover:border-blue-500 transition-all duration-300 flex items-center justify-center">
                     <img
                       src={optimizeCloudinaryUrl(category.image, 300)}
                       alt={category.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   </div>
-                  <span className="mt-3 text-xs sm:text-sm font-semibold text-gray-700 text-center line-clamp-2 group-hover:text-blue-600 transition-colors">
+                  <span className="mt-3 text-xs sm:text-sm font-semibold text-gray-700 text-center line-clamp-2 group-hover:text-blue-600 transition-colors w-full">
                     {category.name}
                   </span>
                 </div>

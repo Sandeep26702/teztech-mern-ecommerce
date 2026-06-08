@@ -145,7 +145,7 @@ const CategoriesPage = () => {
         {loading ? (
           <div className="py-16 text-center text-gray-500">Loading categories...</div>
         ) : displayCategories.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
             {displayCategories.map((category) => {
               const isFolder = hasChildren(category._id) && !searchQuery;
 
