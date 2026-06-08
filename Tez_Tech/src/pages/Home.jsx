@@ -201,7 +201,7 @@ const Home = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   </div>
-                  <span className="mt-3 text-xs sm:text-sm font-semibold text-gray-700 text-center line-clamp-2 group-hover:text-blue-600 transition-colors w-full">
+                  <span className="mt-3 text-xs sm:text-sm font-semibold text-gray-700 text-center group-hover:text-blue-600 transition-colors w-full">
                     {category.name}
                   </span>
                 </div>

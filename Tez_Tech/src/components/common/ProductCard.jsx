@@ -81,7 +81,7 @@ const ProductCard = ({ product }) => {
         <img src={imageUrl} alt={product?.name || "Product"} className="object-contain w-full h-full transition-transform duration-500 ease-in-out group-hover:scale-110 mix-blend-multiply"/>
       </div>
       <div className="flex flex-col flex-grow p-4 sm:p-5">
-        <h5 className="mb-1 text-lg font-bold text-gray-900 transition-colors line-clamp-2">{product?.name || "Product Name"}</h5>
+        <h5 className="mb-1 text-sm sm:text-base font-bold text-gray-900 transition-colors">{product?.name || "Product Name"}</h5>
         <div className="flex flex-col pt-4 mt-auto border-t border-gray-100">
           <div className="flex flex-col">
             <span className="text-xl font-extrabold leading-none text-gray-900">₹{displayPrice.toLocaleString("en-IN")}</span>

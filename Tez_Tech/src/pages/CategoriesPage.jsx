@@ -145,7 +145,7 @@ const CategoriesPage = () => {
         {loading ? (
           <div className="py-16 text-center text-gray-500">Loading categories...</div>
         ) : displayCategories.length > 0 ? (
-          <div className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5">
             {displayCategories.map((category) => {
               const isFolder = hasChildren(category._id) && !searchQuery;
 
@@ -180,7 +180,7 @@ const CategoriesPage = () => {
 
                   {/* Details block */}
                   <div className="mt-4 text-center w-full">
-                    <h2 className="text-base font-bold text-gray-800 group-hover:text-blue-600 transition-colors truncate">
+                    <h2 className="text-sm sm:text-base font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
                       {category.name}
                     </h2>
                     <p className="mt-1 text-xs text-gray-500 line-clamp-2 px-1">
