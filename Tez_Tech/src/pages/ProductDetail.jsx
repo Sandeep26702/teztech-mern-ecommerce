@@ -145,7 +145,7 @@ const ProductDetail = () => {
   if (!product) return <div className="p-10 text-center">Product not found</div>;
 
   return (
-    <div className="max-w-6xl px-4 py-8 mx-auto font-sans">
+    <div className="w-full px-4 sm:px-8 lg:px-12 py-8 font-sans">
       {/* 📦 TOP SECTION: Image Gallery & Product Buy Options */}
       <div className="grid gap-12 md:grid-cols-2">
         

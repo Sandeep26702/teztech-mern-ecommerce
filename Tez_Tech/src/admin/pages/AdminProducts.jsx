@@ -135,7 +135,7 @@ const AdminProducts = () => {
   };
 
   return (
-    <div className="mx-auto space-y-6 font-sans max-w-7xl">
+    <div className="w-full space-y-6 font-sans">
       {/* Header Section */}
       <div className="p-6 bg-white border border-gray-200 shadow-sm rounded-2xl">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">

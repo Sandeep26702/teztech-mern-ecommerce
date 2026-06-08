@@ -63,7 +63,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen px-4 py-8 mx-auto font-sans sm:px-6 lg:px-8 max-w-7xl sm:py-10 bg-slate-50">
+    <div className="min-h-screen px-4 py-8 font-sans sm:px-8 lg:px-12 w-full sm:py-10 bg-slate-50">
       
       <div className="mb-8">
         <h2 className="text-2xl font-black tracking-tight sm:text-3xl text-slate-900">Store Overview</h2>

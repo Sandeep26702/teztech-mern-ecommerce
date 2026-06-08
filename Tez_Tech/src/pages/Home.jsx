@@ -140,7 +140,7 @@ const Home = () => {
                 {/* Dark Overlay Taki Text Padhne Mein Aaye */}
                 <div className="absolute top-0 left-0 w-full h-full bg-black/40 z-10 pointer-events-none"></div>
 
-                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center px-4 text-center max-w-7xl mx-auto sm:px-6 lg:px-8 pointer-events-none">
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center px-4 text-center w-full pointer-events-none">
                   <h1 className="mb-6 text-4xl font-extrabold tracking-tight text-white sm:text-5xl lg:text-7xl drop-shadow-lg pointer-events-auto">
                     {slide.title || "Sonani Electronics"}
                   </h1>
@@ -176,7 +176,7 @@ const Home = () => {
       {/* 📦 TOP CATEGORIES SECTION */}
       {homeCategories.length > 0 && (
         <section className="py-16 bg-white border-t border-b border-gray-100">
-          <div className="px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
+          <div className="px-4 w-full sm:px-8 lg:px-12">
             <div className="mb-12 text-center">
               <h2 className="text-3xl font-extrabold text-gray-900 sm:text-4xl tracking-tight">
                 Shop by <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Category</span>

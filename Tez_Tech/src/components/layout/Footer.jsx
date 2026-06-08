@@ -15,7 +15,7 @@ const Footer = () => {
       <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600 rounded-full mix-blend-screen filter blur-[150px] opacity-20 animate-pulse pointer-events-none"></div>
       <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-cyan-500 rounded-full mix-blend-screen filter blur-[150px] opacity-20 animate-pulse pointer-events-none" style={{ animationDelay: '2s' }}></div>
 
-      <div className="relative z-10 px-4 mx-auto max-w-7xl sm:px-6 lg:px-8">
+      <div className="relative z-10 px-4 w-full sm:px-8 lg:px-12">
         
         {/* Top Grid Section (4 Columns) */}
         <div className="grid grid-cols-1 gap-8 mb-8 md:grid-cols-2 lg:grid-cols-4">

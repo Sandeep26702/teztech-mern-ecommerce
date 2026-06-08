@@ -81,7 +81,7 @@ const Cart = () => {
 
   return (
     <div className="min-h-screen px-4 pt-24 pb-12 font-sans bg-slate-50">
-      <div className="mx-auto max-w-7xl">
+      <div className="w-full">
         <h1 className="mb-8 text-3xl font-black">Shopping Cart</h1>
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
           <div className="lg:col-span-7 xl:col-span-8 bg-white border rounded-[2rem]">

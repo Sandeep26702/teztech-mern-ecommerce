@@ -226,7 +226,7 @@ const AdminUsers = () => {
   );
 
   return (
-    <div className="mx-auto space-y-6 max-w-7xl">
+    <div className="w-full space-y-6">
       <div className="flex flex-col items-start justify-between gap-4 p-6 bg-white border border-gray-100 shadow-sm sm:flex-row sm:items-center rounded-2xl">
         <div className="flex items-center gap-3">
           <div className="flex items-center justify-center w-10 h-10 text-xl text-indigo-600 bg-indigo-50 rounded-xl">

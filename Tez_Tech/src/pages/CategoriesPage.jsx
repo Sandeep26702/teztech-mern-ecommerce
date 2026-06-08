@@ -82,7 +82,7 @@ const CategoriesPage = () => {
       {/* ========================================== */}
       {/* 1. NON-STICKY HEADER (Title & Subtitle)    */}
       {/* ========================================== */}
-      <div className="px-4 pt-12 mx-auto mb-6 text-center max-w-7xl sm:px-6 lg:px-8">
+      <div className="px-4 pt-12 text-center w-full sm:px-8 lg:px-12">
         <h1 className="mb-4 text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl">
           Explore <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Categories</span>
         </h1>
@@ -94,8 +94,8 @@ const CategoriesPage = () => {
       {/* ========================================== */}
       {/* 🚀 2. STICKY SEARCH & BREADCRUMBS SECTION  */}
       {/* ========================================== */}
-      <div className="sticky top-0 z-50 w-full px-4 py-4 transition-all duration-300 border-b shadow-sm sm:px-6 lg:px-8 bg-gray-50/90 backdrop-blur-md border-gray-200/60">
-        <div className="flex flex-col gap-4 mx-auto max-w-7xl">
+      <div className="sticky top-0 z-50 w-full px-4 py-4 transition-all duration-300 border-b shadow-sm sm:px-8 lg:px-12 bg-gray-50/90 backdrop-blur-md border-gray-200/60">
+        <div className="flex flex-col gap-4 w-full">
           
           {/* Search Box */}
           <div className="relative w-full max-w-2xl mx-auto">
@@ -141,7 +141,7 @@ const CategoriesPage = () => {
       {/* ========================================== */}
       {/* 3. SCROLLABLE CATEGORIES GRID              */}
       {/* ========================================== */}
-      <div className="px-4 mx-auto mt-8 max-w-7xl sm:px-6 lg:px-8">
+      <div className="px-4 mt-8 w-full sm:px-8 lg:px-12">
         {loading ? (
           <div className="py-16 text-center text-gray-500">Loading categories...</div>
         ) : displayCategories.length > 0 ? (

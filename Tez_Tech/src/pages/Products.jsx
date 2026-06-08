@@ -179,7 +179,7 @@ const Products = () => {
     <div className="relative min-h-screen pb-12 font-sans bg-gray-50">
       
       {/* 1. NON-STICKY HEADER */}
-      <div className="px-4 pt-12 mx-auto sm:px-6 lg:px-8 max-w-7xl">
+      <div className="px-4 pt-12 w-full sm:px-8 lg:px-12">
         <div className="flex flex-col gap-6 mb-4">
           {breadcrumbPath.length > 0 && (
             <nav className="flex items-center overflow-x-auto text-sm font-medium text-gray-500 whitespace-nowrap">
@@ -210,8 +210,8 @@ const Products = () => {
       </div>
 
       {/* 🚀 2. STICKY SEARCH & FILTER SECTION (UNIVERSAL FOR PC & MOBILE) */}
-      <div className="sticky top-[60px] md:top-[70px] z-30 w-full px-4 py-4 transition-all duration-300 border-b shadow-sm sm:px-6 lg:px-8 bg-gray-50/95 backdrop-blur-md border-gray-200/60">
-        <div className="flex flex-col gap-4 mx-auto max-w-7xl">
+      <div className="sticky top-[60px] md:top-[70px] z-30 w-full px-4 py-4 transition-all duration-300 border-b shadow-sm sm:px-8 lg:px-12 bg-gray-50/95 backdrop-blur-md border-gray-200/60">
+        <div className="flex flex-col gap-4 w-full">
           
           <div className="flex items-center w-full gap-3">
             {/* Search Bar */}
@@ -258,7 +258,7 @@ const Products = () => {
       </div>
 
       {/* 3. SCROLLABLE PRODUCTS GRID */}
-      <div className="px-4 mx-auto mt-8 sm:px-6 lg:px-8 max-w-7xl">
+      <div className="px-4 mt-8 sm:px-8 lg:px-12 w-full">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <svg className="w-10 h-10 mb-4 text-blue-600 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

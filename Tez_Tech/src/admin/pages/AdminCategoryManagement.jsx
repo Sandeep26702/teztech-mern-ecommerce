@@ -251,7 +251,7 @@ const AdminCategoryManagement = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-10">
+    <div className="w-full space-y-6 pb-10">
       <div className="p-6 bg-white border border-gray-200 rounded-2xl shadow-sm">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>

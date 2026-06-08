@@ -5,7 +5,7 @@ const About = () => {
     <div className="min-h-screen font-sans bg-[#f8fafc] text-slate-600 selection:bg-blue-200 selection:text-blue-900">
       
       {/* 🌟 1. HERO SECTION (Ultra Clean & Minimal) */}
-      <section className="relative px-4 pt-24 pb-20 mx-auto max-w-7xl sm:px-6 lg:px-8 lg:pt-32">
+      <section className="relative px-4 pt-24 pb-20 w-full sm:px-8 lg:px-12 lg:pt-32">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 mb-8 border rounded-full border-slate-200 bg-white shadow-sm">
             <span className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></span>
@@ -24,7 +24,7 @@ const About = () => {
       </section>
 
       {/* 📖 2. STORY & MISSION (Elegant Overlapping Layout) */}
-      <section className="px-4 py-16 mx-auto max-w-7xl sm:px-6 lg:px-8">
+      <section className="px-4 py-16 w-full sm:px-8 lg:px-12">
         <div className="grid items-center grid-cols-1 gap-16 lg:grid-cols-2">
           
           {/* Who We Are */}
@@ -56,7 +56,7 @@ const About = () => {
       </section>
 
       {/* 🍱 3. WHAT WE OFFER (Professional Bento Grid with SVGs) */}
-      <section className="px-4 py-24 mx-auto max-w-7xl sm:px-6 lg:px-8">
+      <section className="px-4 py-24 w-full sm:px-8 lg:px-12">
         <div className="mb-16">
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">What We Offer</h2>
           <p className="mt-4 text-lg text-slate-500">Engineered components for professional display systems and lighting.</p>
@@ -108,7 +108,7 @@ const About = () => {
       </section>
 
       {/* ✅ 4. WHY CHOOSE US (Clean Professional Badges) */}
-      <section className="px-4 py-24 mx-auto border-t border-slate-200/60 max-w-7xl sm:px-6 lg:px-8">
+      <section className="px-4 py-24 border-t border-slate-200/60 w-full sm:px-8 lg:px-12">
         <div className="mb-16 text-center">
           <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Why Choose Us?</h2>
         </div>
@@ -149,7 +149,7 @@ const About = () => {
 
       {/* 🤝 5. TRANSPARENCY & STATS (Pristine Light Section for Contrast with Footer) */}
       <section className="relative px-4 py-24 border-t border-slate-200 bg-white sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
+        <div className="w-full">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             
             {/* Text Side */}
