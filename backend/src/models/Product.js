@@ -22,6 +22,11 @@ const variantSchema = new mongoose.Schema(
       default: 0,
     },
 
+    mrp: {
+      type: Number,
+      default: 0,
+    },
+
     sku: {
       type: String,
       trim: true,
@@ -117,6 +122,11 @@ const productSchema = new mongoose.Schema(
 
     // 🔥 BASE PRICE (fallback)
     price: {
+      type: Number,
+      default: 0,
+    },
+
+    mrp: {
       type: Number,
       default: 0,
     },

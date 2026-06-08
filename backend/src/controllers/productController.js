@@ -310,6 +310,7 @@ export const createProduct = async (req, res) => {
       name,
       description,
       price: Number(sellingPrice) || 0,
+      mrp: Number(mrp) || 0,
       stock: Number(stock) || 0,
       status: status || 'Active',
       category: category1, // Main category
@@ -351,6 +352,7 @@ export const updateProduct = async (req, res) => {
     if (name) updateData.name = name;
     if (description) updateData.description = description;
     if (sellingPrice) updateData.price = Number(sellingPrice);
+    if (mrp !== undefined) updateData.mrp = Number(mrp);
     if (category1) updateData.category = category1;
     if (stock !== undefined) updateData.stock = Number(stock);
     if (status) updateData.status = status;
@@ -596,7 +598,8 @@ export const importProductsCsv = async (req, res) => {
           baseSkusImported.push(sku);
         }
 
-        const price = sanitizeNum(getValIgnoreCase(["selling_price", "price", "mrp"]));
+        const price = sanitizeNum(getValIgnoreCase(["selling_price", "price", "selling price", "sellingprice"]));
+        const mrp = sanitizeNum(getValIgnoreCase(["mrp", "mrp_price", "mrp price", "original_price", "original price"]));
         const stock = sanitizeNum(getValIgnoreCase(["stock", "qty"]));
         const gstRate = sanitizeNum(getValIgnoreCase(["gst", "gst_rate", "gst_percent", "tax"]));
         const shippingCharge = sanitizeNum(getValIgnoreCase(["shipping", "shipping_charge", "delivery", "delivery_charge"]));
@@ -703,6 +706,7 @@ export const importProductsCsv = async (req, res) => {
             brand: brand,
             slug: slug,           
             price: price,
+            mrp: mrp,
             stock: stock,
             status: status,       
             gstRate: gstRate,
@@ -802,6 +806,7 @@ export const exportProductsCsv = async (req, res) => {
         p.name || "", 
         p.category || "", 
         p.price || 0, 
+        p.mrp || 0,
         p.gstRate || 0,            
         p.shippingCharge || 0,     
         p.stock || 0,
@@ -809,7 +814,7 @@ export const exportProductsCsv = async (req, res) => {
       ]);
     });
 
-    const headers = ["SKU", "Name", "Category", "Base Price", "GST (%)", "Shipping Charge", "Stock", "Has Variations"];
+    const headers = ["SKU", "Name", "Category", "Base Price", "MRP", "GST (%)", "Shipping Charge", "Stock", "Has Variations"];
     const csv = [
       headers.join(","),
       ...rows.map(r => r.join(",")),
