@@ -48,6 +48,10 @@ const categorySchema = new mongoose.Schema(
       ref: "Category",
       default: null, // Level 1 (Main) ke liye ye null rahega
     },
+    showOnHome: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );

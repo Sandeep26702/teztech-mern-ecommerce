@@ -201,7 +201,7 @@ export const getProducts = async (req, res) => {
 
 export const getProductsAdmin = async (req, res) => {
   try {
-    const { search, page = 1, limit = 20 } = req.query;
+    const { search, category, page = 1, limit = 100 } = req.query;
     let query = {};
     if (search) {
       query = {
@@ -212,6 +212,12 @@ export const getProductsAdmin = async (req, res) => {
           { category: { $regex: search, $options: 'i' } }
         ]
       };
+    }
+    if (category) {
+      query.$or = [
+        { category: category },
+        { categories: category }
+      ];
     }
     
     const skip = (Number(page) - 1) * Number(limit);

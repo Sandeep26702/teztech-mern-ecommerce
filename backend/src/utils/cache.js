@@ -6,6 +6,7 @@ const cache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
 export const cacheKeys = {
   HOME_LAYOUT: "layout:home",
   CATEGORIES_PUBLIC: "categories:public",
+  CATEGORIES_HOME: "categories:home",
   PRODUCTS_PREFIX: "products:list:",
 };
 
@@ -46,6 +47,7 @@ export const clearProductsCache = () => {
  */
 export const clearCategoriesCache = () => {
   cache.del(cacheKeys.CATEGORIES_PUBLIC);
+  cache.del(cacheKeys.CATEGORIES_HOME);
   clearProductsCache();
 };
 

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { optimizeCloudinaryUrl } from "../utils/api.js";
+import { getApiUrl, optimizeCloudinaryUrl } from "../utils/api.js";
+
+const API_URL = getApiUrl();
 
 const CategoriesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -15,7 +17,7 @@ const CategoriesPage = () => {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const res = await axios.get("https://sonani-backend.onrender.com/api/categories");
+        const res = await axios.get(`${API_URL}/categories`);
         if (res.data.success) {
           setCategories(res.data.categories || []);
         }

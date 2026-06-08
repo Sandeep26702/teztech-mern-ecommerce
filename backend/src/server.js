@@ -32,31 +32,7 @@ dns.setDefaultResultOrder("ipv4first");
 
 /* ================= MIDDLEWARE ================= */
 
-// 1. Response compression middleware
-app.use(compression());
-
-// 2. Global security headers configuration (CSP disabled for REST API compatibility)
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" }
-  })
-);
-
-// 3. Global Rate Limiter for public APIs (100 requests per 15 minutes)
-const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: {
-    success: false,
-    message: "Too many requests from this IP, please try again after 15 minutes"
-  },
-  standardHeaders: true,
-  legacyHeaders: false
-});
-app.use("/api", globalLimiter);
-
-
+// 1. CORS Configuration (Registered first so preflights and rate limit errors get CORS headers)
 app.use(
   cors({
     origin: [
@@ -72,6 +48,30 @@ app.use(
     credentials: true,
   })
 );
+
+// 2. Response compression middleware
+app.use(compression());
+
+// 3. Global security headers configuration (CSP disabled for REST API compatibility)
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  })
+);
+
+// 4. Global Rate Limiter for public APIs (100 requests per 15 minutes)
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: {
+    success: false,
+    message: "Too many requests from this IP, please try again after 15 minutes"
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+app.use("/api", globalLimiter);
 
 app.use(express.json());
 

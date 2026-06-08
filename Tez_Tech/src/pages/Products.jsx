@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams, Link } from "react-router-dom";
 import axios from "axios";
+import { getApiUrl } from "../utils/api.js";
 import { getProducts } from "../services/productService";
 import ProductCard from "../components/common/ProductCard";
+
+const API_URL = getApiUrl();
 
 // Cache ko bahar rakha hai taaki performance achhi rahe
 const productsListCache = new Map();
@@ -30,7 +33,7 @@ const Products = () => {
 
   useEffect(() => {
     if (slug) {
-      axios.get(`https://sonani-backend.onrender.com/api/categories/tree/${slug}`)
+      axios.get(`${API_URL}/categories/tree/${slug}`)
         .then(res => {
            if (res.data.success) setBreadcrumbPath(res.data.tree);
         })
@@ -44,7 +47,7 @@ const Products = () => {
   useEffect(() => {
     const loadCategories = async () => {
       try {
-        const res = await axios.get("https://sonani-backend.onrender.com/api/categories");
+        const res = await axios.get(`${API_URL}/categories`);
         if (res.data.success) {
           setCategories(res.data.categories || []);
         }

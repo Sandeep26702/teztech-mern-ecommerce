@@ -8,6 +8,7 @@ import {
   reassignCategoryProducts,
   cleanupUnusedCategories,
   getCategoryTree,
+  getHomeCategories,
 } from "../controllers/categoryController.js";
 import { protect, authorize } from "../middleware/auth.Middleware.js";
 import { uploadCategory } from "../config/cloudinary.js";
@@ -28,6 +29,7 @@ const handleUpload = (req, res, next) => {
 };
 
 router.get("/", getPublicCategories);
+router.get("/home-categories", getHomeCategories);
 router.get("/tree/:slug", getCategoryTree);
 router.get("/admin", protect, authorize("admin", "subadmin"), getAdminCategories);
 router.post("/admin/cleanup-unused", protect, authorize("admin", "subadmin"), cleanupUnusedCategories);

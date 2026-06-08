@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { FaEdit, FaPlus, FaSyncAlt, FaTrash, FaTimes, FaFolder, FaFolderOpen, FaFileAlt } from "react-icons/fa";
+import { getApiUrl } from "../../utils/api.js";
+
+const API_URL = getApiUrl();
 
 const AdminCategoryManagement = () => {
   const token = localStorage.getItem("token");
@@ -14,12 +17,17 @@ const AdminCategoryManagement = () => {
   const [fromCategoryId, setFromCategoryId] = useState("");
   const [toCategoryId, setToCategoryId] = useState("");
 
+  const [selectedCategoryForProducts, setSelectedCategoryForProducts] = useState(null);
+  const [categoryProducts, setCategoryProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+
   // 🔥 UPDATE: Added level and parentCategory in formData
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     sortOrder: 0,
     isActive: true,
+    showOnHome: false,
     level: 1, 
     parentCategory: "", 
     imageFile: null,
@@ -28,7 +36,16 @@ const AdminCategoryManagement = () => {
   const fetchCategories = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get("https://sonani-backend.onrender.com/api/categories/admin", {
+      // Auto-cleanup categories with 0 products on refresh/fetch
+      try {
+        await axios.post(`${API_URL}/categories/admin/cleanup-unused`, {}, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch (err) {
+        console.error("Auto-cleanup failed:", err);
+      }
+
+      const res = await axios.get(`${API_URL}/categories/admin`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.data.success) {
@@ -45,6 +62,30 @@ const AdminCategoryManagement = () => {
     fetchCategories();
   }, [fetchCategories]);
 
+  const fetchCategoryProducts = useCallback(async (categoryName) => {
+    try {
+      setLoadingProducts(true);
+      const res = await axios.get(`${API_URL}/products/admin?category=${encodeURIComponent(categoryName)}&limit=100`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.data.success) {
+        setCategoryProducts(res.data.products || []);
+      }
+    } catch (error) {
+      alert("Failed to load products for this category");
+    } finally {
+      setLoadingProducts(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (selectedCategoryForProducts) {
+      fetchCategoryProducts(selectedCategoryForProducts.name);
+    } else {
+      setCategoryProducts([]);
+    }
+  }, [selectedCategoryForProducts, fetchCategoryProducts]);
+
   const filteredCategories = useMemo(() => {
     const q = search.toLowerCase().trim();
     if (!q) return categories;
@@ -59,6 +100,7 @@ const AdminCategoryManagement = () => {
     setEditingId(null);
     setFormData({
       name: "", description: "", sortOrder: 0, isActive: true,
+      showOnHome: false,
       level: 1, parentCategory: "", imageFile: null,
     });
     setShowForm(true);
@@ -71,6 +113,7 @@ const AdminCategoryManagement = () => {
       description: category.description || "",
       sortOrder: Number(category.sortOrder || 0),
       isActive: Boolean(category.isActive),
+      showOnHome: Boolean(category.showOnHome),
       level: Number(category.level || 1),
       parentCategory: category.parentCategory?._id || category.parentCategory || "",
       imageFile: null,
@@ -89,6 +132,14 @@ const AdminCategoryManagement = () => {
       return alert("Please select a Parent Category for Level 2 or 3.");
     }
 
+    const homeCategoriesCount = categories.filter((c) => c.showOnHome).length;
+    if (formData.showOnHome) {
+      const isCurrentlyHome = editingId ? categories.find(c => c._id === editingId)?.showOnHome : false;
+      if (!isCurrentlyHome && homeCategoriesCount >= 14) {
+        return alert("You can select a maximum of 14 categories for the home page display.");
+      }
+    }
+
     try {
       setSaving(true);
       const body = new FormData();
@@ -96,6 +147,7 @@ const AdminCategoryManagement = () => {
       body.append("description", formData.description);
       body.append("sortOrder", String(formData.sortOrder));
       body.append("isActive", String(formData.isActive));
+      body.append("showOnHome", String(formData.showOnHome));
       
       // 🔥 Send new fields to backend
       body.append("level", String(formData.level));
@@ -115,10 +167,10 @@ const AdminCategoryManagement = () => {
       };
 
       if (editingId) {
-        await axios.put(`https://sonani-backend.onrender.com/api/categories/${editingId}`, body, config);
+        await axios.put(`${API_URL}/categories/${editingId}`, body, config);
         alert("Category updated");
       } else {
-        await axios.post("https://sonani-backend.onrender.com/api/categories", body, config);
+        await axios.post(`${API_URL}/categories`, body, config);
         alert("Category created");
       }
 
@@ -137,17 +189,53 @@ const AdminCategoryManagement = () => {
       if (productCount > 0) {
         const target = window.prompt("This category has products. Enter target category ID to move products before delete:");
         if (!target) return;
-        await axios.delete(`https://sonani-backend.onrender.com/api/categories/${categoryId}?targetCategoryId=${target}`, {
+        await axios.delete(`${API_URL}/categories/${categoryId}?targetCategoryId=${target}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
       } else {
-        await axios.delete(`https://sonani-backend.onrender.com/api/categories/${categoryId}`, {
+        await axios.delete(`${API_URL}/categories/${categoryId}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
       }
       fetchCategories();
     } catch (error) {
       alert(error.response?.data?.message || "Delete failed");
+    }
+  };
+
+  const handleToggleHome = async (category) => {
+    const isAdding = !category.showOnHome;
+    if (isAdding) {
+      const homeCategoriesCount = categories.filter((c) => c.showOnHome).length;
+      if (homeCategoriesCount >= 14) {
+        return alert("You can select a maximum of 14 categories for the home page display.");
+      }
+    }
+
+    try {
+      setLoading(true);
+      const res = await axios.put(
+        `${API_URL}/categories/${category._id}`,
+        {
+          name: category.name,
+          showOnHome: isAdding,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+      if (res.data.success) {
+        alert(isAdding ? "Added to home page" : "Removed from home page");
+        fetchCategories();
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || "Failed to update category");
+      fetchCategories();
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -202,31 +290,47 @@ const AdminCategoryManagement = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/10 z-10"></div>
               
               <div className="relative z-20 flex flex-col h-full text-white">
-                <div className="flex items-start justify-between">
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-bold truncate text-xl drop-shadow-md">{category.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className={`px-2 py-0.5 text-[10px] font-black tracking-widest uppercase rounded bg-white/20 text-white backdrop-blur-sm`}>
-                        Level {category.level || 1}
-                      </span>
-                      {category.level > 1 && (
-                        <span className="text-xs font-semibold text-gray-300 truncate">
-                          in: <span className="text-blue-300">{getParentName(category.parentCategory)}</span>
+                <div 
+                  className="flex-1 cursor-pointer" 
+                  onClick={() => setSelectedCategoryForProducts(category)}
+                  title="Click to view products in this category"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-bold truncate text-xl drop-shadow-md hover:text-blue-300 transition-colors">{category.name}</h3>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className={`px-2 py-0.5 text-[10px] font-black tracking-widest uppercase rounded bg-white/20 text-white backdrop-blur-sm`}>
+                          Level {category.level || 1}
                         </span>
-                      )}
+                        <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-blue-600/90 text-white backdrop-blur-sm shadow-sm">
+                          {category.productCount || 0} Products
+                        </span>
+                        {category.level > 1 && (
+                          <span className="text-xs font-semibold text-gray-300 truncate">
+                            in: <span className="text-blue-300">{getParentName(category.parentCategory)}</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {/* Level Badge Icon */}
+                    <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 shadow-sm border border-white/10 ml-2">
+                      {category.level === 1 ? <FaFolder className="text-blue-300" /> : category.level === 2 ? <FaFolderOpen className="text-amber-300" /> : <FaFileAlt className="text-gray-300" />}
                     </div>
                   </div>
-                  {/* Level Badge Icon */}
-                  <div className="bg-white/20 backdrop-blur-sm rounded-full p-2 shadow-sm border border-white/10 ml-2">
-                    {category.level === 1 ? <FaFolder className="text-blue-300" /> : category.level === 2 ? <FaFolderOpen className="text-amber-300" /> : <FaFileAlt className="text-gray-300" />}
-                  </div>
+                  <p className="mt-2 text-xs text-gray-300 line-clamp-2">{category.description || "No description"}</p>
                 </div>
-                <p className="mt-2 text-xs text-gray-300 line-clamp-1 flex-1">{category.description || "No description"}</p>
               
               <div className="relative z-20 flex items-center justify-between mt-4 pt-3 border-t border-white/20">
                 <span className={`px-2 py-1 text-xs font-semibold rounded-md ${category.isActive ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-red-500/20 text-red-300 border border-red-500/30"}`}>
                   {category.isActive ? "Active" : "Inactive"}
                 </span>
+                <button
+                  type="button"
+                  onClick={() => handleToggleHome(category)}
+                  className={`px-2 py-1 text-[11px] font-semibold rounded-md transition-colors ${category.showOnHome ? "bg-blue-500/30 text-blue-200 border border-blue-500/50 hover:bg-blue-500/55" : "bg-white/10 text-white/70 border border-white/10 hover:bg-white/20"}`}
+                >
+                  {category.showOnHome ? "★ On Home" : "☆ Show on Home"}
+                </button>
                 <span className="text-xs font-bold text-gray-400">ID: {category._id.slice(-6)}</span>
               </div>
               
@@ -344,8 +448,22 @@ const AdminCategoryManagement = () => {
                 </div>
               </div>
 
+              <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700">Show on Home Page</label>
+                  <span className="text-xs text-gray-500">Toggle whether this category displays on the homepage. Max 14 categories allowed.</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={formData.showOnHome}
+                  onChange={(e) => setFormData({ ...formData, showOnHome: e.target.checked })}
+                  className="w-5 h-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+              </div>
+
               <div>
-                <label className="block mb-1.5 text-sm font-bold text-gray-700">Category Thumbnail</label>
+                <label className="block mb-1 text-sm font-bold text-gray-700">Category Thumbnail</label>
+                <span className="block text-xs text-gray-500 mb-2 font-medium">Recommended size: **Square aspect ratio (e.g., 500x500 px)** for optimal homepage filling. Max size: 1MB.</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -375,6 +493,74 @@ const AdminCategoryManagement = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Products List Modal */}
+      {selectedCategoryForProducts && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="w-full max-w-2xl bg-white border border-gray-200 rounded-2xl shadow-2xl max-h-[85vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h3 className="text-xl font-black text-gray-900">
+                  Products in "{selectedCategoryForProducts.name}"
+                </h3>
+                <p className="text-xs text-gray-500 mt-1">
+                  Total Products: {selectedCategoryForProducts.productCount || 0}
+                </p>
+              </div>
+              <button 
+                onClick={() => setSelectedCategoryForProducts(null)} 
+                className="p-2 text-gray-400 bg-gray-50 rounded-full hover:bg-gray-200 hover:text-gray-900 transition-colors"
+              >
+                <FaTimes />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
+              {loadingProducts ? (
+                <div className="text-center py-12 text-sm text-gray-500 font-bold animate-pulse">
+                  Loading products...
+                </div>
+              ) : categoryProducts.length === 0 ? (
+                <div className="text-center py-12 text-sm text-gray-500">
+                  No products found in this category.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {categoryProducts.map((product) => (
+                    <div key={product._id} className="flex items-center gap-4 p-3 border border-gray-100 rounded-xl hover:bg-gray-50 transition-colors">
+                      <img 
+                        src={product.image || "https://placehold.co/100x100?text=Product"} 
+                        alt={product.name} 
+                        className="w-12 h-12 object-cover rounded-lg border bg-gray-50"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-bold text-sm text-gray-900 truncate">{product.name}</h4>
+                        <p className="text-xs text-gray-500 truncate">SKU: {product.baseSku} | Stock: {product.stock}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm font-extrabold text-blue-600">₹{product.price}</span>
+                        <p className={`text-[10px] font-bold mt-0.5 ${product.status === "Active" ? "text-emerald-600" : "text-red-500"}`}>{product.status}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 flex justify-end">
+              <button 
+                onClick={() => setSelectedCategoryForProducts(null)} 
+                className="px-6 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-sm rounded-xl transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

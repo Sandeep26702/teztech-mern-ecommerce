@@ -103,12 +103,31 @@ export const getPublicCategories = async (req, res) => {
   }
 };
 
+export const getHomeCategories = async (req, res) => {
+  try {
+    const cached = getCache(cacheKeys.CATEGORIES_HOME);
+    if (cached) {
+      return res.status(200).json({ success: true, categories: cached });
+    }
+
+    const categories = await Category.find({ isActive: true, showOnHome: true })
+      .sort({ sortOrder: 1, name: 1 })
+      .select("name slug description image sortOrder level parent");
+
+    setCache(cacheKeys.CATEGORIES_HOME, categories);
+
+    res.status(200).json({ success: true, categories });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 export const getAdminCategories = async (req, res) => {
   try {
     await ensureCategoriesFromProducts(req.user._id);
     const categories = await Category.find({})
       .sort({ sortOrder: 1, name: 1 })
-      .select("name slug description image sortOrder isActive createdAt");
+      .select("name slug description image sortOrder isActive showOnHome createdAt");
     const enriched = await withProductCount(categories);
     res.status(200).json({ success: true, categories: enriched });
   } catch (error) {
@@ -122,10 +141,21 @@ export const createCategory = async (req, res) => {
     const description = normalizeName(req.body.description || "");
     const sortOrder = Number.isFinite(Number(req.body.sortOrder)) ? Number(req.body.sortOrder) : 0;
     const isActive = req.body.isActive === undefined ? true : String(req.body.isActive) !== "false";
+    const showOnHome = req.body.showOnHome === undefined ? false : String(req.body.showOnHome) === "true";
     const image = req.file?.path || req.body.image || DEFAULT_CATEGORY_IMAGE;
 
     if (!name) {
       return res.status(400).json({ success: false, message: "Category name is required" });
+    }
+
+    if (showOnHome) {
+      const homeCount = await Category.countDocuments({ showOnHome: true });
+      if (homeCount >= 14) {
+        return res.status(400).json({
+          success: false,
+          message: "Maximum of 14 categories can be shown on the home page."
+        });
+      }
     }
 
     const existing = await Category.findOne({
@@ -150,6 +180,7 @@ export const createCategory = async (req, res) => {
       image,
       sortOrder,
       isActive,
+      showOnHome,
       createdBy: req.user._id,
     });
 
@@ -173,7 +204,18 @@ export const updateCategory = async (req, res) => {
     const description = req.body.description !== undefined ? normalizeName(req.body.description) : category.description;
     const sortOrder = req.body.sortOrder !== undefined ? Number(req.body.sortOrder) : category.sortOrder;
     const isActive = req.body.isActive !== undefined ? String(req.body.isActive) !== "false" : category.isActive;
+    const showOnHome = req.body.showOnHome !== undefined ? String(req.body.showOnHome) === "true" : category.showOnHome;
     const image = req.file?.path || req.body.image || category.image;
+
+    if (showOnHome && !category.showOnHome) {
+      const homeCount = await Category.countDocuments({ showOnHome: true });
+      if (homeCount >= 14) {
+        return res.status(400).json({
+          success: false,
+          message: "Maximum of 14 categories can be shown on the home page."
+        });
+      }
+    }
 
     const conflict = await Category.findOne({
       _id: { $ne: category._id },
@@ -189,6 +231,7 @@ export const updateCategory = async (req, res) => {
     category.sortOrder = Number.isFinite(sortOrder) ? sortOrder : 0;
     category.isActive = isActive;
     category.image = image;
+    category.showOnHome = showOnHome;
     await category.save();
 
     if (oldName.toLowerCase() !== newName.toLowerCase()) {
