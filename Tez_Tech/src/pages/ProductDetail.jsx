@@ -133,10 +133,15 @@ const ProductDetail = () => {
   }, [selectedAttributes]);
 
   const safeBasePrice = Number(selectedVariant?.sellingPrice || selectedVariant?.price || product?.sellingPrice || product?.price) || 0;
+  const safeBaseMrp = Number(selectedVariant?.mrp || product?.mrp) || 0;
   const safeGstRate = Number(product?.gstRate || product?.GST) || 18;
   
   const rawTotal = safeBasePrice + attributesExtraPrice; 
   const displayPrice = Math.round(rawTotal * (1 + (safeGstRate / 100))) || 0; 
+
+  const rawTotalMrp = safeBaseMrp > 0 ? safeBaseMrp + attributesExtraPrice : 0;
+  const displayMrp = rawTotalMrp > 0 ? Math.round(rawTotalMrp * (1 + (safeGstRate / 100))) : 0;
+  const discountPercent = displayMrp > displayPrice ? Math.round(((displayMrp - displayPrice) / displayMrp) * 100) : 0; 
 
   const stock = selectedVariant?.stock ?? product?.stock ?? 0;
   const displaySku = selectedVariant?.sku || product?.baseSku || "N/A";
@@ -184,9 +189,17 @@ const ProductDetail = () => {
           </div>
           <p className="mt-2 text-[13px] text-gray-500 uppercase">SKU: {displaySku}</p>
 
-          <div className="mt-6">
-            <h2 className="text-3xl font-light text-gray-900">₹{displayPrice.toLocaleString("en-IN")}</h2>
-            <p className="mt-1 text-sm text-gray-500">Incl. {safeGstRate}% GST</p>
+          <div className="mt-6 flex flex-col gap-1">
+            <div className="flex items-baseline gap-3 flex-wrap">
+              <h2 className="text-3xl font-extrabold text-blue-600">₹{displayPrice.toLocaleString("en-IN")}</h2>
+              {discountPercent > 0 && (
+                <>
+                  <span className="text-lg text-gray-400 line-through">₹{displayMrp.toLocaleString("en-IN")}</span>
+                  <span className="text-sm font-bold text-green-600">({discountPercent}% OFF)</span>
+                </>
+              )}
+            </div>
+            <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Incl. {safeGstRate}% GST</p>
           </div>
 
           <div className="w-full h-px my-6 bg-gray-200"></div>

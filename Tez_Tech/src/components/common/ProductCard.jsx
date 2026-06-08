@@ -83,11 +83,18 @@ const ProductCard = ({ product }) => {
       <div className="flex flex-col flex-grow p-4 sm:p-5">
         <h5 className="mb-1 text-sm sm:text-base font-bold text-gray-900 transition-colors">{product?.name || "Product Name"}</h5>
         <div className="flex flex-col pt-4 mt-auto border-t border-gray-100">
-          <div className="flex flex-col">
-            <span className="text-xl font-extrabold leading-none text-gray-900">₹{displayPrice.toLocaleString("en-IN")}</span>
-            <span className="mt-1 text-[11px] font-medium text-gray-400 uppercase tracking-wider">Incl. {gstRate}% GST</span>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <span className="text-lg sm:text-xl font-extrabold text-blue-600">₹{displayPrice.toLocaleString("en-IN")}</span>
+              {discountPercent > 0 && (
+                <>
+                  <span className="text-xs text-gray-400 line-through">₹{displayMrp.toLocaleString("en-IN")}</span>
+                  <span className="text-xs font-bold text-green-600">{discountPercent}% OFF</span>
+                </>
+              )}
+            </div>
+            <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Incl. {gstRate}% GST</span>
           </div>
-          {discountPercent > 0 && <span className="mt-2 text-xs font-semibold text-green-700">MRP <span className="line-through">₹{displayMrp.toLocaleString("en-IN")}</span> ({discountPercent}% OFF)</span>}
           <div className="flex items-center gap-2 mt-4">
             <button onClick={handleAddToCart} className="flex items-center justify-center flex-1 gap-2 py-2 text-sm font-bold text-white transition-all duration-300 bg-orange-600 rounded-lg shadow-sm hover:bg-orange-700"><FaShoppingCart className="text-sm" /> Cart</button>
             <button onClick={handleAddQuote} className="flex items-center justify-center flex-1 gap-2 py-2 text-sm font-bold text-gray-700 transition-all duration-300 bg-gray-100 border border-gray-200 rounded-lg hover:bg-gray-200"><FaFileAlt className="text-sm text-gray-500" /> Quote</button>
