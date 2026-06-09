@@ -153,7 +153,10 @@ const Products = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, appliedKeyword, selectedCategory, minPrice, maxPrice, sortBy, sortOrder]);
 
-  const categoryOptions = useMemo(() => categories.map((item) => item.name), [categories]);
+  const categoryOptions = useMemo(() => {
+    const names = categories.map((item) => item.name);
+    return [...new Set(names)];
+  }, [categories]);
 
   const clearFilters = () => {
     setKeyword("");

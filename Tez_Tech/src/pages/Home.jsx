@@ -187,12 +187,12 @@ const Home = () => {
               <div className="mt-4 h-1.5 w-20 bg-gradient-to-r from-blue-600 to-cyan-400 mx-auto rounded-full"></div>
             </div>
 
-            <div className="flex flex-wrap justify-center gap-6 sm:gap-8">
-              {homeCategories.map((category) => (
+            <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-6 sm:gap-8 max-w-7xl mx-auto justify-items-center">
+              {homeCategories.slice(0, 21).map((category) => (
                 <div
                   key={category._id}
                   onClick={() => navigate(`/category/${category.slug}`)}
-                  className="flex flex-col items-center group cursor-pointer w-28 sm:w-36"
+                  className="flex flex-col items-center group cursor-pointer w-full max-w-[120px] sm:max-w-[150px]"
                 >
                   <div className="w-full aspect-square rounded-none overflow-hidden border border-gray-200 bg-slate-50 shadow-sm group-hover:shadow-md group-hover:border-blue-500 transition-all duration-300 flex items-center justify-center">
                     <img
@@ -201,7 +201,7 @@ const Home = () => {
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                   </div>
-                  <span className="mt-3 text-xs sm:text-sm font-semibold text-gray-700 text-center group-hover:text-blue-600 transition-colors w-full">
+                  <span className="mt-3 text-xs sm:text-sm font-semibold text-gray-700 text-center group-hover:text-blue-600 transition-colors w-full line-clamp-2">
                     {category.name}
                   </span>
                 </div>
