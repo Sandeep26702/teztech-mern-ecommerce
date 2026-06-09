@@ -135,8 +135,8 @@ const AdminCategoryManagement = () => {
     const homeCategoriesCount = categories.filter((c) => c.showOnHome).length;
     if (formData.showOnHome) {
       const isCurrentlyHome = editingId ? categories.find(c => c._id === editingId)?.showOnHome : false;
-      if (!isCurrentlyHome && homeCategoriesCount >= 20) {
-        return alert("You can select a maximum of 20 categories for the home page display.");
+      if (!isCurrentlyHome && homeCategoriesCount >= 18) {
+        return alert("You can select a maximum of 18 categories for the home page display.");
       }
     }
 
@@ -207,8 +207,8 @@ const AdminCategoryManagement = () => {
     const isAdding = !category.showOnHome;
     if (isAdding) {
       const homeCategoriesCount = categories.filter((c) => c.showOnHome).length;
-      if (homeCategoriesCount >= 20) {
-        return alert("You can select a maximum of 20 categories for the home page display.");
+      if (homeCategoriesCount >= 18) {
+        return alert("You can select a maximum of 18 categories for the home page display.");
       }
     }
 
@@ -457,7 +457,7 @@ const AdminCategoryManagement = () => {
               <div className="p-4 bg-gray-50 border border-gray-200 rounded-xl flex items-center justify-between">
                 <div>
                   <label className="block text-sm font-bold text-gray-700">Show on Home Page</label>
-                  <span className="text-xs text-gray-500">Toggle whether this category displays on the homepage. Max 20 categories allowed.</span>
+                  <span className="text-xs text-gray-500">Toggle whether this category displays on the homepage. Max 18 categories allowed.</span>
                 </div>
                 <input
                   type="checkbox"

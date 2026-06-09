@@ -187,8 +187,8 @@ const Home = () => {
               <div className="mt-4 h-1.5 w-20 bg-gradient-to-r from-blue-600 to-cyan-400 mx-auto rounded-full"></div>
             </div>
 
-            <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-6 sm:gap-8 max-w-7xl mx-auto justify-items-center">
-              {homeCategories.slice(0, 21).map((category) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-6 gap-6 sm:gap-8 max-w-6xl mx-auto justify-items-center">
+              {homeCategories.slice(0, 18).map((category) => (
                 <div
                   key={category._id}
                   onClick={() => navigate(`/category/${category.slug}`)}
