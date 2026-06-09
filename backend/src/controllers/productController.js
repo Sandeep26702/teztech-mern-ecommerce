@@ -55,7 +55,7 @@ const sanitizeNum = (val) => {
 
 export const getProducts = async (req, res) => {
   try {
-    const { keyword, category, minPrice, maxPrice, page = 1, limit = 8 } = req.query;
+    const { keyword, category, minPrice, maxPrice, page = 1, limit = 8, sortBy, sortOrder } = req.query;
 
     const cacheKey = `${cacheKeys.PRODUCTS_PREFIX}${JSON.stringify({
       keyword: keyword || "",
@@ -63,7 +63,9 @@ export const getProducts = async (req, res) => {
       minPrice: minPrice || "",
       maxPrice: maxPrice || "",
       page,
-      limit
+      limit,
+      sortBy: sortBy || "",
+      sortOrder: sortOrder || ""
     })}`;
 
     const cachedData = getCache(cacheKey);
@@ -111,14 +113,23 @@ export const getProducts = async (req, res) => {
     let products = [];
     let totalProducts = 0;
 
-    // 🚀 THE MAGIC: AGGREGATION PIPELINE (For Index-based Sorting)
-    if (keyword) {
+    // Define normal query sorting object
+    let sortObj = { createdAt: -1 }; // Default
+    if (sortBy === "name") {
+      sortObj = { name: sortOrder === "desc" ? -1 : 1 };
+    } else if (sortBy === "date") {
+      sortObj = { createdAt: sortOrder === "desc" ? -1 : 1 };
+    }
+
+    // If keyword search OR sorting by size, we MUST use Aggregation Pipeline
+    if (keyword || sortBy === "size") {
       const pipeline = [
-        // Step A: Jo match hote hain unhe filter karo
-        { $match: matchStage },
-        // Step B: Har product ke naam me keyword kis position (index) pe hai wo pata lagao
-        // (Agar keyword nahi mila toh 9999 sort weight do, nahi toh real index)
-        {
+        { $match: matchStage }
+      ];
+
+      // Add matchIndex for search relevance
+      if (keyword) {
+        pipeline.push({
           $addFields: {
             matchIndex: {
               $cond: {
@@ -128,14 +139,83 @@ export const getProducts = async (req, res) => {
               }
             }
           }
-        },
-        // Step C: Index ke hisaab se sort karo! 
-        // (0 yani starts with sabse upar, phir 1, 2, 3...)
-        { $sort: { matchIndex: 1, name: 1 } },
-        // Step D: Pagination
+        });
+      }
+
+      // Add fields for size sorting
+      if (sortBy === "size") {
+        pipeline.push(
+          {
+            $addFields: {
+              lengthVal: {
+                $let: {
+                  vars: {
+                    lengthDetail: {
+                      $filter: {
+                        input: "$details",
+                        as: "d",
+                        cond: { $eq: ["$$d.key", "LENGTH_ft"] }
+                      }
+                    }
+                  },
+                  in: {
+                    $convert: {
+                      input: { $arrayElemAt: ["$$lengthDetail.value", 0] },
+                      to: "double",
+                      onError: 0.0,
+                      onNull: 0.0
+                    }
+                  }
+                }
+              },
+              widthVal: {
+                $let: {
+                  vars: {
+                    widthDetail: {
+                      $filter: {
+                        input: "$details",
+                        as: "d",
+                        cond: { $eq: ["$$d.key", "WIDTH_ft"] }
+                      }
+                    }
+                  },
+                  in: {
+                    $convert: {
+                      input: { $arrayElemAt: ["$$widthDetail.value", 0] },
+                      to: "double",
+                      onError: 0.0,
+                      onNull: 0.0
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            $addFields: {
+              sizeArea: { $multiply: ["$lengthVal", "$widthVal"] }
+            }
+          }
+        );
+      }
+
+      // Determine sorting stage
+      let sortStage = { $sort: { createdAt: -1 } };
+      if (sortBy === "name") {
+        sortStage = { $sort: { name: sortOrder === "desc" ? -1 : 1 } };
+      } else if (sortBy === "date") {
+        sortStage = { $sort: { createdAt: sortOrder === "desc" ? -1 : 1 } };
+      } else if (sortBy === "size") {
+        sortStage = { $sort: { sizeArea: sortOrder === "desc" ? -1 : 1, name: 1 } };
+      } else if (keyword) {
+        sortStage = { $sort: { matchIndex: 1, name: 1 } };
+      }
+      pipeline.push(sortStage);
+
+      // Pagination & Projection
+      pipeline.push(
         { $skip: skip },
         { $limit: Number(limit) },
-        // Step E: Project only essential fields to minimize database response payload size
         {
           $project: {
             name: 1,
@@ -155,23 +235,21 @@ export const getProducts = async (req, res) => {
             customFields: 1
           }
         }
-      ];
+      );
 
       products = await Product.aggregate(pipeline);
 
-      // Pagination ke liye total count
       const countPipeline = [
         { $match: matchStage },
         { $count: "total" }
       ];
       const countResult = await Product.aggregate(countPipeline);
       totalProducts = countResult.length > 0 ? countResult[0].total : 0;
-
     } else {
-      // NORMAL QUERY (Agar user ne kuch search nahi kiya hai toh fast normal query chalegi)
+      // Normal find path (extremely fast for standard browsing)
       products = await Product.find(matchStage)
         .select("name price mrp image images baseSku status category categories gstRate shippingCharge attributes variants hasVariants customFields")
-        .sort({ createdAt: -1 }) // Naye products pehle
+        .sort(sortObj)
         .skip(skip)
         .limit(Number(limit))
         .lean();

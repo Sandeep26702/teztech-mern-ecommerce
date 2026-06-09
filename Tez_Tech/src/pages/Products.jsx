@@ -20,6 +20,8 @@ const Products = () => {
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "");
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "");
+  const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "");
+  const [sortOrder, setSortOrder] = useState(searchParams.get("sortOrder") || "");
   const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
   
   const [products, setProducts] = useState([]);
@@ -87,10 +89,12 @@ const Products = () => {
     if (selectedCategory) params.category = selectedCategory;
     if (minPrice) params.minPrice = minPrice;
     if (maxPrice) params.maxPrice = maxPrice;
+    if (sortBy) params.sortBy = sortBy;
+    if (sortOrder) params.sortOrder = sortOrder;
     if (page > 1) params.page = String(page);
     
     setSearchParams(params, { replace: true });
-  }, [appliedKeyword, selectedCategory, minPrice, maxPrice, page, setSearchParams]);
+  }, [appliedKeyword, selectedCategory, minPrice, maxPrice, sortBy, sortOrder, page, setSearchParams]);
 
   // Fetch Products Function
   const loadProducts = async () => {
@@ -101,6 +105,8 @@ const Products = () => {
       maxPrice: maxPrice || "",
       page,
       limit: 10,
+      sortBy: sortBy || "",
+      sortOrder: sortOrder || "",
       random: true,
     });
 
@@ -121,6 +127,8 @@ const Products = () => {
         maxPrice: maxPrice || undefined,
         page,
         limit: 10,
+        sortBy: sortBy || undefined,
+        sortOrder: sortOrder || undefined,
         random: true,
       });
       
@@ -143,7 +151,7 @@ const Products = () => {
   useEffect(() => {
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, appliedKeyword, selectedCategory, minPrice, maxPrice]);
+  }, [page, appliedKeyword, selectedCategory, minPrice, maxPrice, sortBy, sortOrder]);
 
   const categoryOptions = useMemo(() => categories.map((item) => item.name), [categories]);
 
@@ -153,6 +161,8 @@ const Products = () => {
     setSelectedCategory("");
     setMinPrice("");
     setMaxPrice("");
+    setSortBy("");
+    setSortOrder("");
     setPage(1);
     setIsFilterModalOpen(false);
   };
@@ -238,6 +248,39 @@ const Products = () => {
                   ✕
                 </button>
               )}
+            </div>
+
+            {/* Sort Dropdown */}
+            <div className="relative">
+              <select
+                value={sortBy ? `${sortBy}-${sortOrder}` : "-"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "-") {
+                    setSortBy("");
+                    setSortOrder("");
+                  } else {
+                    const [by, order] = val.split("-");
+                    setSortBy(by);
+                    setSortOrder(order);
+                  }
+                  setPage(1);
+                }}
+                className="appearance-none flex items-center justify-center pl-4 pr-10 py-3.5 bg-white border border-gray-200 rounded-full shadow-sm text-gray-700 hover:bg-gray-100 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm cursor-pointer"
+              >
+                <option value="-">Sort By: Default</option>
+                <option value="name-asc">Name: A to Z</option>
+                <option value="name-desc">Name: Z to A</option>
+                <option value="size-asc">Size: Small to Large</option>
+                <option value="size-desc">Size: Large to Small</option>
+                <option value="date-desc">Newest First</option>
+                <option value="date-asc">Oldest First</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
 
             {/* Filter Button (Now visible on Desktop too!) */}
@@ -377,6 +420,35 @@ const Products = () => {
                   className="w-1/2 px-4 py-3 text-sm border border-gray-200 outline-none bg-gray-50 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
+            </div>
+
+            {/* Sort Options */}
+            <div>
+              <label className="block mb-2 text-sm font-semibold text-gray-700">Sort By</label>
+              <select
+                value={sortBy ? `${sortBy}-${sortOrder}` : "-"}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val === "-") {
+                    setSortBy("");
+                    setSortOrder("");
+                  } else {
+                    const [by, order] = val.split("-");
+                    setSortBy(by);
+                    setSortOrder(order);
+                  }
+                  setPage(1);
+                }}
+                className="w-full px-4 py-3 text-sm border border-gray-200 outline-none cursor-pointer bg-gray-50 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-semibold text-gray-700"
+              >
+                <option value="-">Default</option>
+                <option value="name-asc">Name: A to Z</option>
+                <option value="name-desc">Name: Z to A</option>
+                <option value="size-asc">Size: Small to Large</option>
+                <option value="size-desc">Size: Large to Small</option>
+                <option value="date-desc">Newest First</option>
+                <option value="date-asc">Oldest First</option>
+              </select>
             </div>
 
           </div>
