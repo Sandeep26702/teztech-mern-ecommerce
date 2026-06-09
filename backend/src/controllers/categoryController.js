@@ -150,10 +150,10 @@ export const createCategory = async (req, res) => {
 
     if (showOnHome) {
       const homeCount = await Category.countDocuments({ showOnHome: true });
-      if (homeCount >= 14) {
+      if (homeCount >= 20) {
         return res.status(400).json({
           success: false,
-          message: "Maximum of 14 categories can be shown on the home page."
+          message: "Maximum of 20 categories can be shown on the home page."
         });
       }
     }
@@ -209,10 +209,10 @@ export const updateCategory = async (req, res) => {
 
     if (showOnHome && !category.showOnHome) {
       const homeCount = await Category.countDocuments({ showOnHome: true });
-      if (homeCount >= 14) {
+      if (homeCount >= 20) {
         return res.status(400).json({
           success: false,
-          message: "Maximum of 14 categories can be shown on the home page."
+          message: "Maximum of 20 categories can be shown on the home page."
         });
       }
     }
