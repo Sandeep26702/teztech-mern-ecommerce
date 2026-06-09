@@ -580,7 +580,12 @@ export const importProductsCsv = async (req, res) => {
 
         // Smart Key Finder
         const getValIgnoreCase = (possibleKeys) => {
-            const foundKey = Object.keys(obj).find(k => k && possibleKeys.includes(k.toLowerCase()));
+            const normPossible = possibleKeys.map(k => k.toLowerCase().replace(/[^a-z0-9]/g, ""));
+            const foundKey = Object.keys(obj).find(k => {
+                if (!k) return false;
+                const normK = k.toLowerCase().replace(/[^a-z0-9]/g, "");
+                return normPossible.includes(normK);
+            });
             return foundKey ? obj[foundKey] : "";
         };
 
