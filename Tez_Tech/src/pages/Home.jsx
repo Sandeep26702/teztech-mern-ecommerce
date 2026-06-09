@@ -80,14 +80,14 @@ const Home = () => {
       return (
         <div className="absolute inset-0 w-full h-full bg-black z-0 flex">
           {/* Mobile Video */}
-          <video autoPlay loop muted playsInline className="w-full h-full object-contain block md:hidden" src={mobileUrl} />
+          <video autoPlay loop muted playsInline className="w-full h-full object-cover block md:hidden" src={mobileUrl} />
           {/* Desktop Video */}
-          <video autoPlay loop muted playsInline className="w-full h-full object-contain hidden md:block" src={desktopUrl} />
+          <video autoPlay loop muted playsInline className="w-full h-full object-cover hidden md:block" src={desktopUrl} />
         </div>
       );
     } 
     
-    // 3. Render image (Premium Blurred Background Effect)
+    // 3. Render image (Premium Full Screen Immersive Image)
     return (
       <div className="absolute inset-0 w-full h-full bg-gray-900 z-0 overflow-hidden">
         {/* Background Blur */}
@@ -97,7 +97,7 @@ const Home = () => {
         {/* Main Crisp Image */}
         <picture className="absolute inset-0 w-full h-full z-10 flex items-center justify-center">
           <source media="(min-width: 768px)" srcSet={desktopUrl} />
-          <img src={mobileUrl} alt="Hero Slide" className="w-full h-full object-contain" />
+          <img src={mobileUrl} alt="Hero Slide" className="w-full h-full object-cover" />
         </picture>
       </div>
     );
@@ -117,7 +117,7 @@ const Home = () => {
     <div className="flex flex-col min-h-screen font-sans bg-gray-50">
 
       {/* 🚀 HERO SLIDER SECTION */}
-      <section className="relative w-full h-[600px] sm:h-[700px] lg:h-[80vh] overflow-hidden bg-gray-900 z-10">
+      <section className="relative w-full h-[calc(100vh-64px)] overflow-hidden bg-gray-900 z-10">
 
         {slides.length > 0 ? (
           <Swiper
@@ -187,12 +187,12 @@ const Home = () => {
               <div className="mt-4 h-1.5 w-20 bg-gradient-to-r from-blue-600 to-cyan-400 mx-auto rounded-full"></div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-6 gap-6 sm:gap-8 max-w-6xl mx-auto justify-items-center">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 lg:grid-cols-6 gap-6 sm:gap-8 max-w-7xl mx-auto justify-items-center">
               {homeCategories.slice(0, 18).map((category) => (
                 <div
                   key={category._id}
                   onClick={() => navigate(`/category/${category.slug}`)}
-                  className="flex flex-col items-center group cursor-pointer w-full max-w-[120px] sm:max-w-[150px]"
+                  className="flex flex-col items-center group cursor-pointer w-full max-w-[140px] sm:max-w-[190px]"
                 >
                   <div className="w-full aspect-square rounded-none overflow-hidden border border-gray-200 bg-slate-50 shadow-sm group-hover:shadow-md group-hover:border-blue-500 transition-all duration-300 flex items-center justify-center">
                     <img
