@@ -24,11 +24,6 @@ const UserView = () => {
         existingMobileUrl: "",
       }
     ],
-    featureCards: [
-      { title: "", description: "", image: null, existingImage: "" },
-      { title: "", description: "", image: null, existingImage: "" },
-      { title: "", description: "", image: null, existingImage: "" },
-    ],
   });
 
   useEffect(() => {
@@ -55,19 +50,6 @@ const UserView = () => {
               existingMobileUrl: slide.sourceType === "upload" ? slide.mobileMediaUrl || "" : "",
             }))
             : [{ mediaType: "image", sourceType: "upload", mediaUrl: "", mobileMediaUrl: "", title: "", subtitle: "", file: null, mobileFile: null, existingUrl: "", existingMobileUrl: "" }],
-          
-          featureCards: data.featureCards && data.featureCards.length > 0
-            ? data.featureCards.map(card => ({
-              title: card.title,
-              description: card.description,
-              image: null,
-              existingImage: card.image || "",
-            }))
-            : [
-              { title: "", description: "", image: null, existingImage: "" },
-              { title: "", description: "", image: null, existingImage: "" },
-              { title: "", description: "", image: null, existingImage: "" },
-            ],
         });
       }
     } catch (error) {
@@ -142,20 +124,7 @@ const UserView = () => {
     setFormData({ ...formData, heroSlides: updatedSlides });
   };
 
-  // ==========================================
-  // CARD HANDLERS
-  // ==========================================
-  const handleCardChange = (index, field, value) => {
-    const updatedCards = [...formData.featureCards];
-    updatedCards[index][field] = value;
-    setFormData({ ...formData, featureCards: updatedCards });
-  };
 
-  const handleCardFileChange = (index, file) => {
-    const updatedCards = [...formData.featureCards];
-    updatedCards[index].image = file;
-    setFormData({ ...formData, featureCards: updatedCards });
-  };
 
   // ==========================================
   // SUBMIT FORM
@@ -180,13 +149,7 @@ const UserView = () => {
       }));
       data.append("heroSlides", JSON.stringify(slidesToSubmit));
 
-      // 2. Prepare JSON structure for Cards
-      const featureCardsText = formData.featureCards.map(card => ({
-        title: card.title,
-        description: card.description,
-        existingImage: card.existingImage
-      }));
-      data.append("featureCards", JSON.stringify(featureCardsText));
+
 
       // 3. Append Slide Files
       formData.heroSlides.forEach((slide, index) => {
@@ -200,12 +163,7 @@ const UserView = () => {
         }
       });
 
-      // 4. Append Card Files
-      formData.featureCards.forEach((card, index) => {
-        if (card.image) {
-          data.append(`featureCards_${index}_image`, card.image);
-        }
-      });
+
 
       const token = localStorage.getItem("token");
       await axios.put(`${API_URL}/api/layout/home`, data, {
@@ -417,60 +375,7 @@ const UserView = () => {
           </div>
         </div>
 
-        {/* ================= FEATURE CARDS SECTION ================= */}
-        {/* Isko maine bilkul nahi chheda, yeh aapka purana perfectly working code hai */}
-        <div className="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
-          <h3 className="mb-4 text-xl font-bold text-slate-800">"Why Choose Us" Feature Cards</h3>
-          <div className="space-y-6">
-            {formData.featureCards.map((card, index) => (
-              <div key={index} className="p-5 border border-slate-200 rounded-xl bg-slate-50">
-                <h4 className="mb-4 font-bold text-slate-700">Card {index + 1}</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block mb-1 text-xs font-semibold text-slate-600">Title</label>
-                      <input
-                        type="text"
-                        value={card.title}
-                        onChange={(e) => handleCardChange(index, "title", e.target.value)}
-                        required
-                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                    <div>
-                      <label className="block mb-1 text-xs font-semibold text-slate-600">Description</label>
-                      <textarea
-                        value={card.description}
-                        onChange={(e) => handleCardChange(index, "description", e.target.value)}
-                        required
-                        rows="2"
-                        className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block mb-1 text-xs font-semibold text-slate-600">Card Image</label>
-                    {card.existingImage && !card.image && (
-                      <div className="mb-2">
-                        <img src={card.existingImage} alt={`Card ${index + 1}`} className="h-20 rounded shadow object-cover" />
-                      </div>
-                    )}
-                    <input
-                      type="file"
-                      accept="image/png, image/jpeg, image/jpg"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          handleCardFileChange(index, e.target.files[0]);
-                        }
-                      }}
-                      className="w-full px-3 py-2 text-xs text-slate-500 border border-slate-300 rounded-lg file:mr-2 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+
 
         {/* SUBMIT BUTTON */}
         <div className="flex justify-end">
