@@ -15,6 +15,9 @@ const ProductCard = ({ product }) => {
 
   const productId = product?._id || product?.id;
 
+  const length = product?.details?.find((d) => d.key === "LENGTH_ft")?.value;
+  const width = product?.details?.find((d) => d.key === "WIDTH_ft")?.value;
+
   const defaultVariant = product?.variants?.length > 0 ? product.variants[0] : null;
   const defaultAttributes = {};
   const formattedCustomFields = {}; 
@@ -82,6 +85,13 @@ const ProductCard = ({ product }) => {
       </div>
       <div className="flex flex-col flex-grow p-4 sm:p-5">
         <h5 className="mb-1 text-sm sm:text-base font-bold text-gray-900 transition-colors">{product?.name || "Product Name"}</h5>
+        {length && width && (
+          <div className="mt-1">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 rounded-lg">
+              📐 {length} × {width} ft
+            </span>
+          </div>
+        )}
         <div className="flex flex-col pt-4 mt-auto border-t border-gray-100">
           <div className="flex flex-col gap-1">
             <div className="flex items-baseline gap-2 flex-wrap">

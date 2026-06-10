@@ -55,7 +55,7 @@ const sanitizeNum = (val) => {
 
 export const getProducts = async (req, res) => {
   try {
-    const { keyword, category, minPrice, maxPrice, page = 1, limit = 8, sortBy, sortOrder } = req.query;
+    const { keyword, category, minPrice, maxPrice, page = 1, limit = 8, sortBy, sortOrder, length, width } = req.query;
 
     const cacheKey = `${cacheKeys.PRODUCTS_PREFIX}${JSON.stringify({
       keyword: keyword || "",
@@ -65,7 +65,9 @@ export const getProducts = async (req, res) => {
       page,
       limit,
       sortBy: sortBy || "",
-      sortOrder: sortOrder || ""
+      sortOrder: sortOrder || "",
+      length: length || "",
+      width: width || ""
     })}`;
 
     const cachedData = getCache(cacheKey);
@@ -107,6 +109,50 @@ export const getProducts = async (req, res) => {
       matchStage.price = {};
       if (minPrice) matchStage.price.$gte = Number(minPrice);
       if (maxPrice) matchStage.price.$lte = Number(maxPrice);
+    }
+
+    if (length || width) {
+      const detailsConditions = [];
+      if (length) {
+        const lenStr = String(length).trim();
+        const lenNum = Number(lenStr);
+        const possibleStrings = [lenStr];
+        if (!isNaN(lenNum)) {
+          possibleStrings.push(String(lenNum));
+          possibleStrings.push(lenNum.toFixed(1));
+          possibleStrings.push(lenNum.toFixed(2));
+        }
+        detailsConditions.push({
+          details: {
+            $elemMatch: {
+              key: "LENGTH_ft",
+              value: { $in: [...new Set(possibleStrings)] }
+            }
+          }
+        });
+      }
+      if (width) {
+        const widthStr = String(width).trim();
+        const widthNum = Number(widthStr);
+        const possibleStrings = [widthStr];
+        if (!isNaN(widthNum)) {
+          possibleStrings.push(String(widthNum));
+          possibleStrings.push(widthNum.toFixed(1));
+          possibleStrings.push(widthNum.toFixed(2));
+        }
+        detailsConditions.push({
+          details: {
+            $elemMatch: {
+              key: "WIDTH_ft",
+              value: { $in: [...new Set(possibleStrings)] }
+            }
+          }
+        });
+      }
+      if (detailsConditions.length > 0) {
+        matchStage.$and = matchStage.$and || [];
+        matchStage.$and.push(...detailsConditions);
+      }
     }
 
     const skip = (Number(page) - 1) * Number(limit);
@@ -232,7 +278,8 @@ export const getProducts = async (req, res) => {
             attributes: 1,
             variants: 1,
             hasVariants: 1,
-            customFields: 1
+            customFields: 1,
+            details: 1
           }
         }
       );
@@ -248,7 +295,7 @@ export const getProducts = async (req, res) => {
     } else {
       // Normal find path (extremely fast for standard browsing)
       products = await Product.find(matchStage)
-        .select("name price mrp image images baseSku status category categories gstRate shippingCharge attributes variants hasVariants customFields")
+        .select("name price mrp image images baseSku status category categories gstRate shippingCharge attributes variants hasVariants customFields details")
         .sort(sortObj)
         .skip(skip)
         .limit(Number(limit))

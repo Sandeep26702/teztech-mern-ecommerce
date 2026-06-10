@@ -20,6 +20,8 @@ const Products = () => {
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "");
   const [minPrice, setMinPrice] = useState(searchParams.get("minPrice") || "");
   const [maxPrice, setMaxPrice] = useState(searchParams.get("maxPrice") || "");
+  const [customLength, setCustomLength] = useState(searchParams.get("length") || "");
+  const [customWidth, setCustomWidth] = useState(searchParams.get("width") || "");
   const [sortBy, setSortBy] = useState(searchParams.get("sortBy") || "");
   const [sortOrder, setSortOrder] = useState(searchParams.get("sortOrder") || "");
   const [page, setPage] = useState(Number(searchParams.get("page")) || 1);
@@ -89,12 +91,14 @@ const Products = () => {
     if (selectedCategory) params.category = selectedCategory;
     if (minPrice) params.minPrice = minPrice;
     if (maxPrice) params.maxPrice = maxPrice;
+    if (customLength) params.length = customLength;
+    if (customWidth) params.width = customWidth;
     if (sortBy) params.sortBy = sortBy;
     if (sortOrder) params.sortOrder = sortOrder;
     if (page > 1) params.page = String(page);
     
     setSearchParams(params, { replace: true });
-  }, [appliedKeyword, selectedCategory, minPrice, maxPrice, sortBy, sortOrder, page, setSearchParams]);
+  }, [appliedKeyword, selectedCategory, minPrice, maxPrice, customLength, customWidth, sortBy, sortOrder, page, setSearchParams]);
 
   // Fetch Products Function
   const loadProducts = async () => {
@@ -103,6 +107,8 @@ const Products = () => {
       category: selectedCategory || "",
       minPrice: minPrice || "",
       maxPrice: maxPrice || "",
+      customLength: customLength || "",
+      customWidth: customWidth || "",
       page,
       limit: 10,
       sortBy: sortBy || "",
@@ -125,6 +131,8 @@ const Products = () => {
         category: selectedCategory,
         minPrice: minPrice || undefined,
         maxPrice: maxPrice || undefined,
+        length: customLength || undefined,
+        width: customWidth || undefined,
         page,
         limit: 10,
         sortBy: sortBy || undefined,
@@ -151,7 +159,7 @@ const Products = () => {
   useEffect(() => {
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, appliedKeyword, selectedCategory, minPrice, maxPrice, sortBy, sortOrder]);
+  }, [page, appliedKeyword, selectedCategory, minPrice, maxPrice, customLength, customWidth, sortBy, sortOrder]);
 
   const categoryOptions = useMemo(() => {
     const names = categories.map((item) => item.name);
@@ -164,6 +172,8 @@ const Products = () => {
     setSelectedCategory("");
     setMinPrice("");
     setMaxPrice("");
+    setCustomLength("");
+    setCustomWidth("");
     setSortBy("");
     setSortOrder("");
     setPage(1);
@@ -253,39 +263,6 @@ const Products = () => {
               )}
             </div>
 
-            {/* Sort Dropdown */}
-            <div className="relative">
-              <select
-                value={sortBy ? `${sortBy}-${sortOrder}` : "-"}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (val === "-") {
-                    setSortBy("");
-                    setSortOrder("");
-                  } else {
-                    const [by, order] = val.split("-");
-                    setSortBy(by);
-                    setSortOrder(order);
-                  }
-                  setPage(1);
-                }}
-                className="appearance-none flex items-center justify-center pl-4 pr-10 py-3.5 bg-white border border-gray-200 rounded-full shadow-sm text-gray-700 hover:bg-gray-100 hover:border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-bold text-sm cursor-pointer"
-              >
-                <option value="-">Sort By: Default</option>
-                <option value="name-asc">Name: A to Z</option>
-                <option value="name-desc">Name: Z to A</option>
-                <option value="size-asc">Size: Small to Large</option>
-                <option value="size-desc">Size: Large to Small</option>
-                <option value="date-desc">Newest First</option>
-                <option value="date-asc">Oldest First</option>
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                </svg>
-              </div>
-            </div>
-
             {/* Filter Button (Now visible on Desktop too!) */}
             <button
               type="button"
@@ -299,6 +276,60 @@ const Products = () => {
               <span className="hidden ml-2 font-bold md:block">Filters</span>
             </button>
           </div>
+
+          {/* Active Filter Tags */}
+          {(selectedCategory || minPrice || maxPrice || customLength || customWidth || appliedKeyword || sortBy) && (
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mr-1">Active Filters:</span>
+              {appliedKeyword && (
+                <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full">
+                  Search: "{appliedKeyword}"
+                  <button onClick={() => { setKeyword(""); setAppliedKeyword(""); setPage(1); }} className="hover:text-blue-900 text-[10px] font-bold">✕</button>
+                </span>
+              )}
+              {selectedCategory && (
+                <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full">
+                  Category: {selectedCategory}
+                  <button onClick={() => { setSelectedCategory(""); setPage(1); }} className="hover:text-blue-900 text-[10px] font-bold">✕</button>
+                </span>
+              )}
+              {(minPrice || maxPrice) && (
+                <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full">
+                  Price: {minPrice ? `₹${minPrice}` : "₹0"} - {maxPrice ? `₹${maxPrice}` : "∞"}
+                  <button onClick={() => { setMinPrice(""); setMaxPrice(""); setPage(1); }} className="hover:text-blue-900 text-[10px] font-bold">✕</button>
+                </span>
+              )}
+              {customLength && (
+                <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full">
+                  Length: {customLength} ft
+                  <button onClick={() => { setCustomLength(""); setPage(1); }} className="hover:text-blue-900 text-[10px] font-bold">✕</button>
+                </span>
+              )}
+              {customWidth && (
+                <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full">
+                  Width: {customWidth} ft
+                  <button onClick={() => { setCustomWidth(""); setPage(1); }} className="hover:text-blue-900 text-[10px] font-bold">✕</button>
+                </span>
+              )}
+              {sortBy && (
+                <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full">
+                  Sort: {
+                    sortBy === "name" ? (sortOrder === "asc" ? "Name: A-Z" : "Name: Z-A") : 
+                    sortBy === "size" ? (sortOrder === "asc" ? "Size: Small-Large" : "Size: Large-Small") : 
+                    sortBy === "date" ? (sortOrder === "asc" ? "Oldest First" : "Newest First") : 
+                    sortBy
+                  }
+                  <button onClick={() => { setSortBy(""); setSortOrder(""); setPage(1); }} className="hover:text-blue-900 text-[10px] font-bold">✕</button>
+                </span>
+              )}
+              <button 
+                onClick={clearFilters}
+                className="text-xs font-bold text-red-500 hover:text-red-700 transition-colors ml-2 hover:underline"
+              >
+                Clear All
+              </button>
+            </div>
+          )}
 
         </div>
       </div>
@@ -325,7 +356,7 @@ const Products = () => {
           <div className="py-20 text-center bg-white border border-gray-100 shadow-sm rounded-2xl">
             <span className="block mb-4 text-5xl">📦</span>
             <h3 className="text-lg font-bold text-gray-900">No products found</h3>
-            <p className="mt-2 text-gray-500">Try changing category or price filters.</p>
+            <p className="mt-2 text-gray-500">Try changing category, price, or size filters.</p>
             <button onClick={clearFilters} className="mt-6 font-medium text-blue-600 hover:underline">
               Clear all filters
             </button>
@@ -422,6 +453,60 @@ const Products = () => {
                   onChange={(e) => { setMaxPrice(e.target.value); setPage(1); }}
                   className="w-1/2 px-4 py-3 text-sm border border-gray-200 outline-none bg-gray-50 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
+              </div>
+            </div>
+
+            {/* Custom Size (Length & Width) */}
+            <div>
+              <label className="block mb-2 text-sm font-semibold text-gray-700">Custom Size (ft)</label>
+              <div className="flex items-center gap-3">
+                <div className="relative w-1/2">
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="Length (ft)"
+                    value={customLength}
+                    onChange={(e) => {
+                      setCustomLength(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-4 py-3 pr-8 text-sm border border-gray-200 outline-none bg-gray-50 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all"
+                  />
+                  {customLength && (
+                    <button
+                      type="button"
+                      onClick={() => { setCustomLength(""); setPage(1); }}
+                      className="absolute inset-y-0 right-0 px-2.5 text-gray-400 hover:text-red-500 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <span className="font-bold text-gray-400">×</span>
+                <div className="relative w-1/2">
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    placeholder="Width (ft)"
+                    value={customWidth}
+                    onChange={(e) => {
+                      setCustomWidth(e.target.value);
+                      setPage(1);
+                    }}
+                    className="w-full px-4 py-3 pr-8 text-sm border border-gray-200 outline-none bg-gray-50 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 focus:bg-white transition-all"
+                  />
+                  {customWidth && (
+                    <button
+                      type="button"
+                      onClick={() => { setCustomWidth(""); setPage(1); }}
+                      className="absolute inset-y-0 right-0 px-2.5 text-gray-400 hover:text-red-500 text-xs font-bold"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
