@@ -16,7 +16,8 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
     additionalChargeName: '',
     additionalChargeAmount: 0,
     gstPercentage: 0,
-    discountPercentage: 0, 
+    extraDiscountType: 'flat',
+    extraDiscountValue: 0, 
   });
 
   const [_shareLink, setShareLink] = useState('');
@@ -141,8 +142,10 @@ const CreateManualQuotationModal = ({ isOpen, onClose }) => {
 
   const calculateTotals = () => {
     const subtotal = cartItems.reduce((sum, item) => sum + (Number(item.offeredPrice) * Number(item.quantity)), 0);
-    const discountAmount = subtotal * (Number(quoteData.discountPercentage) / 100);
-    const afterDiscount = subtotal - discountAmount;
+    const discountAmount = quoteData.extraDiscountType === "percent"
+      ? (subtotal * (Number(quoteData.extraDiscountValue) / 100))
+      : Number(quoteData.extraDiscountValue) || 0;
+    const afterDiscount = Math.max(0, subtotal - discountAmount);
     const gstAmount = afterDiscount * (Number(quoteData.gstPercentage) / 100);
     const total = afterDiscount + gstAmount + Number(quoteData.shippingCharge) + Number(quoteData.additionalChargeAmount);
     
@@ -174,7 +177,10 @@ const submitQuote = async () => {
         additionalChargeName: quoteData.additionalChargeName,
         additionalChargeAmount: quoteData.additionalChargeAmount,
         gstPercentage: Number(quoteData.gstPercentage) || 0, 
-        discountPercentage: Number(quoteData.discountPercentage) || 0,
+        extraDiscountType: quoteData.extraDiscountType,
+        extraDiscountValue: Number(quoteData.extraDiscountValue) || 0,
+        totalDiscount: totals.discountAmount,
+        finalTotal: totals.total,
         isManualAdminQuote: true
       };
       
@@ -269,7 +275,7 @@ const submitQuote = async () => {
         )}
 
         {activeProduct && (
-          <div className="relative flex flex-col min-h-full mb-6 bg-white border border-gray-200 shadow-sm rounded-xl">
+          <div className="relative flex flex-col h-fit shrink-0 mb-6 bg-white border border-gray-200 shadow-sm rounded-xl">
             <button 
               onClick={() => setActiveProduct(null)} 
               className="absolute top-4 right-4 text-gray-500 hover:text-red-600 bg-gray-100 hover:bg-red-50 p-2.5 rounded-full transition-colors z-10"
@@ -281,7 +287,7 @@ const submitQuote = async () => {
             <div className="grid flex-1 grid-cols-1 gap-8 p-8 md:grid-cols-2">
               
               <div className="w-full">
-                <div className="flex items-center justify-center w-full overflow-hidden bg-gray-200 rounded-lg aspect-square">
+                <div className="flex items-center justify-center w-full h-64 md:h-72 overflow-hidden bg-gray-200 rounded-lg">
                    <img 
                      src={activeProduct.image || activeProduct.images?.[0]} 
                      alt={activeProduct.name} 
@@ -651,9 +657,46 @@ const submitQuote = async () => {
           <div>
             <h3 className="pb-2 mb-4 text-lg font-bold text-gray-800 border-b">Additional Costs</h3>
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-semibold text-gray-600">Total Discount (%)</label>
-                <input type="number" value={quoteData.discountPercentage} onChange={(e) => setQuoteData({...quoteData, discountPercentage: e.target.value})} className="w-24 p-2 text-right border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-blue-500" />
+              <div className="flex items-center justify-between group">
+                <div className="flex flex-col gap-1">
+                  <span className="text-sm font-semibold text-gray-600">Discount</span>
+                  <div className="flex items-center p-0.5 bg-gray-100 rounded-md w-fit border border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => setQuoteData({...quoteData, extraDiscountType: "flat"})}
+                      className={`px-2 py-0.5 text-[10px] font-bold rounded ${quoteData.extraDiscountType === "flat" ? "bg-white text-blue-700 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                    >
+                      ₹ Flat
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuoteData({...quoteData, extraDiscountType: "percent"})}
+                      className={`px-2 py-0.5 text-[10px] font-bold rounded ${quoteData.extraDiscountType === "percent" ? "bg-white text-blue-700 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                    >
+                      % Perc
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <div className="relative flex items-center">
+                    <span className="absolute text-gray-400 text-[11px] left-2">
+                      {quoteData.extraDiscountType === "percent" ? "%" : "₹"}
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      value={quoteData.extraDiscountValue === 0 ? "" : quoteData.extraDiscountValue}
+                      onChange={(e) => setQuoteData({...quoteData, extraDiscountValue: e.target.value})}
+                      className="w-24 py-1.5 pl-6 pr-2 font-semibold text-right transition-all border border-gray-300 outline-none rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
+                      placeholder="0"
+                    />
+                  </div>
+                  {totals.discountAmount > 0 && (
+                    <span className="text-[10px] font-bold text-emerald-600">
+                      - ₹ {totals.discountAmount.toFixed(2)}
+                    </span>
+                  )}
+                </div>
               </div>
               <div className="flex items-center justify-between">
                 <label className="text-sm font-semibold text-gray-600">GST Tax (%)</label>
@@ -717,7 +760,7 @@ const submitQuote = async () => {
       <div className="flex gap-4 mt-8">
         <button onClick={() => {
           setStep(1); setCartItems([]); setShareLink(''); setActiveProduct(null);
-          setQuoteData({ userDetails: {name:'', phone:'', message:''}, shippingCharge: 0, additionalChargeName: '', additionalChargeAmount: 0, gstPercentage: 0, discountPercentage: 0 });
+          setQuoteData({ userDetails: {name:'', phone:'', message:''}, shippingCharge: 0, additionalChargeName: '', additionalChargeAmount: 0, gstPercentage: 0, extraDiscountType: 'flat', extraDiscountValue: 0 });
         }} className="px-8 py-3 font-bold text-blue-600 transition-colors border-2 border-blue-200 hover:bg-blue-50 rounded-xl">
           Create Another Quote
         </button>

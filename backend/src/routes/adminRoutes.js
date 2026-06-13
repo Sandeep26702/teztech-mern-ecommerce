@@ -25,6 +25,13 @@ import {
   getOrderDetail 
 } from "../controllers/orderController.js";
 
+// CRM Client Notes Imports
+import {
+  getAllClientsWithNotes,
+  getClientNotes,
+  addClientNote
+} from "../controllers/clientNoteController.js";
+
 const router = express.Router();
 
 /* ================= MIDDLEWARE ================= */
@@ -65,5 +72,10 @@ router.patch("/quote/:id", respondToQuote);
 // 🛡️ Traffic & Security Logs Routes
 router.get("/logs/export", exportTrafficLogs); // This must come before /logs/:id if there was one
 router.get("/logs", getTrafficLogs);
+
+// 📓 Client Notes CRM Routes
+router.get("/client-notes/clients", getAllClientsWithNotes);
+router.get("/client-notes", getClientNotes);
+router.post("/client-notes", addClientNote);
 
 export default router;

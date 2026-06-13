@@ -96,10 +96,12 @@ const ProductCard = ({ product }) => {
           <div className="flex flex-col gap-1">
             <div className="flex items-baseline gap-2 flex-wrap">
               <span className="text-lg sm:text-xl font-extrabold text-blue-600">₹{displayPrice.toLocaleString("en-IN")}</span>
-              {discountPercent > 0 && (
+              {displayMrp > displayPrice && (
                 <>
                   <span className="text-xs text-gray-400 line-through">₹{displayMrp.toLocaleString("en-IN")}</span>
-                  <span className="text-xs font-bold text-green-600">{discountPercent}% OFF</span>
+                  {discountPercent > 0 && (
+                    <span className="text-xs font-bold text-green-600">{discountPercent}% OFF</span>
+                  )}
                 </>
               )}
             </div>

@@ -130,6 +130,20 @@ const quoteSchema = new mongoose.Schema(
       default: "Pending", 
     },
     validUntil: { type: Date }, 
+    assignedTo: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+    crmNotes: [
+      {
+        author: { type: String, default: "" },
+        remarks: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+        isPublic: { type: Boolean, default: false },
+        role: { type: String, enum: ["client", "admin"] },
+      }
+    ],
   },
   { timestamps: true }
 );

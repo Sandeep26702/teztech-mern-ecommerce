@@ -19,6 +19,8 @@ const Products = lazy(() => import("./pages/Products"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
 const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
 const Quotation = lazy(() => import("./pages/Quotation"));
+const CustomDesignQuotation = lazy(() => import("./pages/CustomDesignQuotation"));
+const QuoteInquiries = lazy(() => import("./pages/QuoteInquiries"));
 const QuoteViewer = lazy(() => import("./pages/QuoteViewer"));
 const QuoteItemViewer = lazy(() => import("./pages/QuoteItemViewer"));
 const Cart = lazy(() => import("./pages/Cart"));
@@ -59,6 +61,7 @@ const AdminAnalytics = lazy(() => import("./admin/pages/AdminAnalytics"));
 const AdminSettings = lazy(() => import("./admin/pages/AdminSettings"));
 const QuotesTable = lazy(() => import("./admin/pages/QuotesTable"));
 const QuoteEditor = lazy(() => import("./admin/pages/QuoteEditor"));
+const ClientNotes = lazy(() => import("./admin/pages/ClientNotes"));
 const AdminLogs = lazy(() => import("./admin/pages/AdminLogs"));
 const AdminOrderDetail = lazy(() => import('./admin/pages/OrderDetail'));
 const ShippingManagement = lazy(() => import('./admin/pages/ShippingManagement'));
@@ -142,6 +145,7 @@ function App() {
 
               <Route path="quotes" element={<QuotesTable />} />
               <Route path="quotes/:id" element={<QuoteEditor />} />
+              <Route path="quotes/notes" element={<ClientNotes />} />
 
               <Route path="users" element={<AdminUsers />} />
               <Route path="subadmins" element={<AdminUsers />} />
@@ -177,6 +181,8 @@ function App() {
               <Route path="/category/:slug" element={<Products />} />
 
               <Route path="/quotation" element={<Quotation />} />
+              <Route path="/custom-design-quotation" element={<CustomDesignQuotation />} />
+              <Route path="/quote-inquiries" element={<QuoteInquiries />} />
               <Route path="/quote/:token" element={<QuoteViewer />} />
               <Route path="/quote/:token/item/:itemId" element={<QuoteItemViewer />} />
               <Route path="/cart" element={<Cart />} />

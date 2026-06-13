@@ -17,6 +17,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import cartRoutes from "./routes/cartRoutes.js";
 import quoteRoutes from "./routes/quoteRoutes.js";
+import customDesignQuoteRoutes from "./routes/customDesignQuoteRoutes.js";
 import shippingRoutes from "./routes/shippingRoutes.js";
 import layoutRoutes from "./routes/layoutRoutes.js";
 
@@ -100,6 +101,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/quote", quoteRoutes);
+app.use("/api/custom-quote", customDesignQuoteRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/shipping", shippingRoutes);
 app.use("/api/layout", layoutRoutes);

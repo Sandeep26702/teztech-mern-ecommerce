@@ -410,7 +410,7 @@ export const createProduct = async (req, res) => {
       attributesMap[v.group].push({
         value: v.option,
         priceAdjustment: Number(v.priceOffset) || 0,
-        meta: { sku: v.sku, stock: v.stock }
+        meta: { sku: v.sku, stock: v.stock, mrp: v.mrp }
       });
     });
     
@@ -504,7 +504,7 @@ export const updateProduct = async (req, res) => {
           attributesMap[v.group].push({
             value: v.option,
             priceAdjustment: Number(v.priceOffset) || 0,
-            meta: { sku: v.sku, stock: v.stock }
+            meta: { sku: v.sku, stock: v.stock, mrp: v.mrp }
           });
         });
         updateData.attributes = Object.keys(attributesMap).map(group => ({
@@ -769,19 +769,51 @@ export const importProductsCsv = async (req, res) => {
             if (lowerKey.startsWith("image")) {
                 images.push(String(val).trim());
             }
-            // 3. Dynamic Variations (_Add)
-            else if (key.endsWith("_Add")) {
-                const numVal = sanitizeNum(val);
-                if (!isNaN(numVal)) {
-                    const parts = key.replace("_Add", "").split("_");
-                    const groupName = parts[0]; 
-                    const optionName = parts.slice(1).join(" "); 
-                    
-                    if (!attributesMap[groupName]) attributesMap[groupName] = [];
-                    attributesMap[groupName].push({
-                        value: optionName,
-                        priceAdjustment: numVal
-                    });
+            // 3. Dynamic Variations (_Add, _SKU, _MRP, _Stock, _Qty)
+            else if (
+                lowerKey.endsWith("_add") || 
+                lowerKey.endsWith("_sku") || 
+                lowerKey.endsWith("_mrp") || 
+                lowerKey.endsWith("_stock") || 
+                lowerKey.endsWith("_qty")
+            ) {
+                let suffix = "";
+                let cleanKey = "";
+                if (lowerKey.endsWith("_add")) { suffix = "add"; cleanKey = key.slice(0, -4); }
+                else if (lowerKey.endsWith("_sku")) { suffix = "sku"; cleanKey = key.slice(0, -4); }
+                else if (lowerKey.endsWith("_mrp")) { suffix = "mrp"; cleanKey = key.slice(0, -4); }
+                else if (lowerKey.endsWith("_stock")) { suffix = "stock"; cleanKey = key.slice(0, -6); }
+                else if (lowerKey.endsWith("_qty")) { suffix = "stock"; cleanKey = key.slice(0, -4); }
+
+                if (suffix) {
+                    const parts = cleanKey.split("_");
+                    const groupName = parts[0].trim().toUpperCase();
+                    const optionName = parts.slice(1).join(" ").trim();
+
+                    if (groupName && optionName) {
+                        if (!attributesMap[groupName]) {
+                            attributesMap[groupName] = [];
+                        }
+                        let optionObj = attributesMap[groupName].find(opt => opt.value === optionName);
+                        if (!optionObj) {
+                            optionObj = {
+                                value: optionName,
+                                priceAdjustment: 0,
+                                meta: { sku: "", stock: "", mrp: "" }
+                            };
+                            attributesMap[groupName].push(optionObj);
+                        }
+
+                        if (suffix === "add") {
+                            optionObj.priceAdjustment = sanitizeNum(val);
+                        } else if (suffix === "sku") {
+                            optionObj.meta.sku = String(val).trim();
+                        } else if (suffix === "mrp") {
+                            optionObj.meta.mrp = String(sanitizeNum(val));
+                        } else if (suffix === "stock") {
+                            optionObj.meta.stock = String(sanitizeNum(val));
+                        }
+                    }
                 }
             }
             // 4. Dynamic Details (Everything else!)

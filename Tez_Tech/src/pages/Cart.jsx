@@ -84,14 +84,14 @@ const Cart = () => {
       <div className="w-full">
         <h1 className="mb-8 text-3xl font-black">Shopping Cart</h1>
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 lg:gap-12">
-          <div className="lg:col-span-7 xl:col-span-8 bg-white border rounded-[2rem]">
+          <div className="lg:col-span-7 xl:col-span-8 bg-white border rounded-[2rem] h-fit">
               {cartItems.map((item) => {
                 const itemKey = getItemKey(item);
                 const unitPrice = getTrueUnitPrice(item); 
                 const selectedOptions = renderSelectedOptions(item);
 
                 return (
-                  <div key={itemKey} className="flex flex-col gap-6 p-6 border-b border-slate-100 sm:flex-row sm:items-center">
+                  <div key={itemKey} className="flex flex-col gap-6 p-6 border-b border-slate-100 last:border-b-0 sm:flex-row sm:items-center">
                     <img src={item.image || item.productId?.image || "https://placehold.co/100x100"} alt="Product" className="object-contain w-24 h-24 border rounded-2xl" />
                     <div className="flex-1">
                       <h3 className="text-lg font-bold">{item.name || item.productId?.name}</h3>

@@ -132,8 +132,23 @@ const ProductDetail = () => {
     return extra;
   }, [selectedAttributes]);
 
+  // Get variant SKU, stock and MRP from selected attributes if present
+  let attributeSku = "";
+  let attributeMrp = 0;
+  let attributeStock = null;
+
+  Object.values(selectedAttributes).forEach((opt) => {
+    if (opt && opt.meta) {
+      if (opt.meta.sku) attributeSku = opt.meta.sku;
+      if (opt.meta.mrp && Number(opt.meta.mrp) > 0) attributeMrp = Number(opt.meta.mrp);
+      if (opt.meta.stock !== undefined && opt.meta.stock !== null && opt.meta.stock !== "") {
+        attributeStock = Number(opt.meta.stock);
+      }
+    }
+  });
+
   const safeBasePrice = Number(selectedVariant?.sellingPrice || selectedVariant?.price || product?.sellingPrice || product?.price) || 0;
-  const safeBaseMrp = Number(selectedVariant?.mrp || product?.mrp) || 0;
+  const safeBaseMrp = Number(selectedVariant?.mrp || attributeMrp || product?.mrp) || 0;
   const safeGstRate = Number(product?.gstRate || product?.GST) || 18;
   
   const rawTotal = safeBasePrice + attributesExtraPrice; 
@@ -143,8 +158,8 @@ const ProductDetail = () => {
   const displayMrp = rawTotalMrp > 0 ? Math.round(rawTotalMrp * (1 + (safeGstRate / 100))) : 0;
   const discountPercent = displayMrp > displayPrice ? Math.round(((displayMrp - displayPrice) / displayMrp) * 100) : 0; 
 
-  const stock = selectedVariant?.stock ?? product?.stock ?? 0;
-  const displaySku = selectedVariant?.sku || product?.baseSku || "N/A";
+  const stock = selectedVariant?.stock ?? attributeStock ?? product?.stock ?? 0;
+  const displaySku = selectedVariant?.sku || attributeSku || product?.baseSku || "N/A";
 
   if (loading) return <div className="p-10 text-center">Loading...</div>;
   if (!product) return <div className="p-10 text-center">Product not found</div>;
@@ -192,10 +207,12 @@ const ProductDetail = () => {
           <div className="mt-6 flex flex-col gap-1">
             <div className="flex items-baseline gap-3 flex-wrap">
               <h2 className="text-3xl font-extrabold text-blue-600">₹{displayPrice.toLocaleString("en-IN")}</h2>
-              {discountPercent > 0 && (
+              {displayMrp > displayPrice && (
                 <>
                   <span className="text-lg text-gray-400 line-through">₹{displayMrp.toLocaleString("en-IN")}</span>
-                  <span className="text-sm font-bold text-green-600">({discountPercent}% OFF)</span>
+                  {discountPercent > 0 && (
+                    <span className="text-sm font-bold text-green-600">({discountPercent}% OFF)</span>
+                  )}
                 </>
               )}
             </div>

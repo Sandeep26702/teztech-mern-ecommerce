@@ -425,10 +425,12 @@ const QuoteViewer = () => {
                           </div>
                         </td>
                         <td className="p-3 text-right text-gray-500 border-b border-gray-200">
-                          {isDiscounted ? <span className="line-through">₹{basePrice.toLocaleString('en-IN')}</span> : "-"}
+                          <span className={isDiscounted ? "line-through" : ""}>
+                            ₹{basePrice.toLocaleString('en-IN')}
+                          </span>
                         </td>
                         <td className="p-3 font-bold text-right text-green-700 border-b border-gray-200">
-                          {isDiscounted && itemDiscPercent > 0 ? `${itemDiscPercent}%` : "-"}
+                          {isDiscounted && itemDiscPercent > 0 ? `${itemDiscPercent}%` : "0%"}
                         </td>
                         <td className="p-3 text-right border-b border-gray-200">
                           {rateChanged && (

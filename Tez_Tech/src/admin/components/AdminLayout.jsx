@@ -3,7 +3,7 @@ import { Link, useNavigate, Outlet, useLocation } from "react-router-dom";
 import { 
   FaBox, FaUsers, FaClipboardList, FaChartLine, 
   FaSignOutAlt, FaBars, FaTimes, FaUserShield, FaFileInvoiceDollar, FaLayerGroup,
-  FaCog, FaTruck, FaDesktop, FaShieldAlt
+  FaCog, FaTruck, FaDesktop, FaShieldAlt, FaRegStickyNote
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 
@@ -24,6 +24,7 @@ const AdminLayout = () => {
     { name: "Products", path: "/admin/products", icon: <FaBox size={20} /> },
     { name: "Categories", path: "/admin/categories", icon: <FaLayerGroup size={20} /> },
     { name: "Quotations", path: "/admin/quotes", icon: <FaFileInvoiceDollar size={20} /> },
+    { name: "Client Notes", path: "/admin/quotes/notes", icon: <FaRegStickyNote size={20} /> },
     { name: "Orders", path: "/admin/orders", icon: <FaClipboardList size={20} /> },
     { name: "Users", path: "/admin/users", icon: <FaUsers size={20} /> },
     { name: "Sub Admins", path: "/admin/subadmins", icon: <FaUserShield size={20} /> },

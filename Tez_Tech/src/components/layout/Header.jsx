@@ -167,21 +167,84 @@ const Header = () => {
                 }}
               ></div>
 
-              {navLinks.map((link, idx) => (
-                <Link
-                  key={link.id}
-                  to={link.path}
-                  onClick={(e) => handleNavClick(e, idx)} 
-                  ref={(el) => (tabRefs.current[idx] = el)}
-                  className={`relative z-10 px-5 py-1.5 text-[15px] font-bold text-center transition-colors duration-300 ${
-                    activeIndex === idx 
-                      ? 'text-white drop-shadow-sm' 
-                      : 'text-gray-500 hover:text-cyan-700' 
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              ))}
+              {navLinks.map((link, idx) => {
+                if (link.id === 'quotation') {
+                  return (
+                    <div
+                      key={link.id}
+                      ref={(el) => (tabRefs.current[idx] = el)}
+                      className="relative z-10 group"
+                    >
+                      <button
+                        className={`px-5 py-1.5 text-[15px] font-bold text-center transition-colors duration-300 focus:outline-none flex items-center gap-1 cursor-pointer ${
+                          activeIndex === idx
+                            ? 'text-white drop-shadow-sm'
+                            : 'text-gray-500 hover:text-cyan-700'
+                        }`}
+                      >
+                        {link.label}
+                        <svg
+                          className={`w-3.5 h-3.5 transition-transform duration-300 group-hover:rotate-180 ${
+                            activeIndex === idx ? 'text-white' : 'text-gray-400'
+                          }`}
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2.5}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
+
+                      {/* Dropdown Menu */}
+                      <div className="absolute left-1/2 -translate-x-1/2 mt-1.5 z-50 invisible w-48 pt-1 transition-all duration-300 opacity-0 group-hover:visible group-hover:opacity-100">
+                        <div className="py-1 bg-slate-950/95 backdrop-blur-xl border border-slate-800 shadow-[0_12px_30px_rgba(0,0,0,0.5)] rounded-none text-left">
+                          <Link
+                            to="/quotation"
+                            onClick={(e) => handleNavClick(e, idx)}
+                            className="block px-4 py-2.5 text-sm font-bold text-slate-300 hover:bg-slate-900 hover:text-cyan-400 transition-colors border-l-2 border-transparent hover:border-cyan-500"
+                          >
+                            Product Quote
+                          </Link>
+                          <Link
+                            to="/custom-design-quotation"
+                            onClick={(e) => handleNavClick(e, idx)}
+                            className="block px-4 py-2.5 text-sm font-bold text-slate-300 hover:bg-slate-900 hover:text-cyan-400 transition-colors border-l-2 border-transparent hover:border-cyan-500"
+                          >
+                            Custom Quote
+                          </Link>
+                          <Link
+                            to="/quote-inquiries"
+                            onClick={(e) => handleNavClick(e, idx)}
+                            className="block px-4 py-2.5 text-sm font-bold text-slate-300 hover:bg-slate-900 hover:text-cyan-400 transition-colors border-l-2 border-transparent hover:border-cyan-500"
+                          >
+                            My Inquiries
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <Link
+                    key={link.id}
+                    to={link.path}
+                    onClick={(e) => handleNavClick(e, idx)}
+                    ref={(el) => (tabRefs.current[idx] = el)}
+                    className={`relative z-10 px-5 py-1.5 text-[15px] font-bold text-center transition-colors duration-300 ${
+                      activeIndex === idx
+                        ? 'text-white drop-shadow-sm'
+                        : 'text-gray-500 hover:text-cyan-700'
+                    }`}
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
             </div>
 
             {(user?.role === "admin" || user?.role === "subadmin") && (
@@ -276,18 +339,56 @@ const Header = () => {
         }`}
       >
         <div className="px-5 py-6 space-y-2 overflow-y-auto max-h-[calc(100vh-4rem)]">
-          {navLinks.map((link, idx) => (
-            <Link 
-              key={idx} 
-              to={link.path} 
-              onClick={toggleMenu} 
-              className="relative flex items-center justify-between px-4 py-3.5 overflow-hidden transition-all duration-300 bg-transparent rounded-2xl group hover:bg-cyan-50"
-            >
-              <span className="relative z-10 text-base font-bold text-gray-700 transition-transform duration-300 group-hover:translate-x-2 group-hover:text-cyan-700">
-                {link.label}
-              </span>
-            </Link>
-          ))}
+          {navLinks.map((link, idx) => {
+            if (link.id === 'quotation') {
+              return (
+                <div key={idx} className="space-y-1 bg-gray-50/50 p-2 border border-gray-100 rounded-none">
+                  <div className="px-3 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                    Quotation Services
+                  </div>
+                  <Link
+                    to="/quotation"
+                    onClick={toggleMenu}
+                    className="relative flex items-center justify-between px-4 py-2.5 overflow-hidden transition-all duration-200 bg-transparent rounded-none group hover:bg-cyan-50"
+                  >
+                    <span className="relative z-10 text-sm font-extrabold text-gray-700 transition-transform duration-300 group-hover:translate-x-1 group-hover:text-cyan-600">
+                      Product Quote
+                    </span>
+                  </Link>
+                  <Link
+                    to="/custom-design-quotation"
+                    onClick={toggleMenu}
+                    className="relative flex items-center justify-between px-4 py-2.5 overflow-hidden transition-all duration-200 bg-transparent rounded-none group hover:bg-cyan-50"
+                  >
+                    <span className="relative z-10 text-sm font-extrabold text-gray-700 transition-transform duration-300 group-hover:translate-x-1 group-hover:text-cyan-600">
+                      Custom Quote
+                    </span>
+                  </Link>
+                  <Link
+                    to="/quote-inquiries"
+                    onClick={toggleMenu}
+                    className="relative flex items-center justify-between px-4 py-2.5 overflow-hidden transition-all duration-200 bg-transparent rounded-none group hover:bg-cyan-50"
+                  >
+                    <span className="relative z-10 text-sm font-extrabold text-gray-700 transition-transform duration-300 group-hover:translate-x-1 group-hover:text-cyan-600">
+                      My Inquiries
+                    </span>
+                  </Link>
+                </div>
+              );
+            }
+            return (
+              <Link
+                key={idx}
+                to={link.path}
+                onClick={toggleMenu}
+                className="relative flex items-center justify-between px-4 py-3.5 overflow-hidden transition-all duration-300 bg-transparent rounded-2xl group hover:bg-cyan-50"
+              >
+                <span className="relative z-10 text-base font-bold text-gray-700 transition-transform duration-300 group-hover:translate-x-2 group-hover:text-cyan-700">
+                  {link.label}
+                </span>
+              </Link>
+            );
+          })}
 
           {(user?.role === "admin" || user?.role === "subadmin") && (
             <Link to="/admin/dashboard" onClick={toggleMenu} className="block px-5 py-4 mt-4 font-bold text-center text-white uppercase bg-gradient-to-r from-cyan-600 to-blue-600 rounded-2xl">

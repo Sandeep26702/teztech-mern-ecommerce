@@ -519,10 +519,20 @@ export const createQuote = async (req, res) => {
   }
 };
 
+const filterClientNotes = (quote) => {
+  if (!quote) return quote;
+  const quoteObj = quote.toObject ? quote.toObject() : quote;
+  if (quoteObj.crmNotes) {
+    quoteObj.crmNotes = quoteObj.crmNotes.filter(note => note.isPublic === true);
+  }
+  return quoteObj;
+};
+
 export const getMyQuotes = async (req, res) => {
   try {
     const quotes = await Quote.find({ user: req.user._id }).sort({ createdAt: -1 });
-    res.status(200).json({ success: true, quotes });
+    const filteredQuotes = quotes.map(q => filterClientNotes(q));
+    res.status(200).json({ success: true, quotes: filteredQuotes });
   } catch (error) {
     console.error("Get My Quotes Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
@@ -533,6 +543,7 @@ export const getQuoteById = async (req, res) => {
   try {
     const quote = await Quote.findById(req.params.id)
       .populate('user', 'name email')
+      .populate('assignedTo', 'name email role')
       .populate('requestedItems.productId', 'name price sellingPrice customFields image images sku details description category categoryPath variants attributes');
     if (!quote) return res.status(404).json({ success: false, message: "Quote not found" });
     const parentId = getParentQuoteId(quote);
@@ -581,7 +592,7 @@ export const getQuoteById = async (req, res) => {
 
 export const getAllQuotes = async (req, res) => {
   try {
-    const quotes = await Quote.find().populate('user', 'name email').sort({ createdAt: -1 });
+    const quotes = await Quote.find().populate('user', 'name email').populate('assignedTo', 'name email role').sort({ createdAt: -1 });
     res.status(200).json({ success: true, quotes });
   } catch (error) {
     console.error("Get All Quotes Error:", error);
@@ -604,6 +615,7 @@ export const respondToQuote = async (req, res) => {
       gstPercentage,
       additionalChargeName,
       additionalChargeAmount,
+      assignedTo,
     } = req.body;
 
     const existingQuote = await Quote.findById(id);
@@ -724,6 +736,8 @@ export const respondToQuote = async (req, res) => {
       version: nextVersion,
       adminUpdateLogs: [...(existingQuote.adminUpdateLogs || []), updateLog],
       quoteLogs: nextLogs,
+      assignedTo: assignedTo !== undefined ? (assignedTo || null) : existingQuote.assignedTo,
+      crmNotes: existingQuote.crmNotes || [],
     });
 
     const savedQuote = await newQuote.save();
@@ -761,9 +775,11 @@ export const getQuoteByToken = async (req, res) => {
       $push: { quoteLogs: buildLogEntry("Viewed by Client", "Client", "Quote viewed by client") },
     });
 
+    const filteredQuote = filterClientNotes(quote);
+
     res.status(200).json({
       success: true,
-      quote,
+      quote: filteredQuote,
       isLatest,
       latestQuoteToken: latestQuote?.quoteToken || null,
       latestQuoteId: latestQuote?._id || null,
@@ -844,6 +860,10 @@ export const createManualQuote = async (req, res) => {
       additionalChargeName = "",
       additionalChargeAmount = 0,
       gstPercentage = 0,
+      extraDiscountType = "flat",
+      extraDiscountValue = 0,
+      totalDiscount = 0,
+      finalTotal = 0,
     } = req.body;
     const userDetails = payloadUserDetails || clientDetails || {};
     const requestedItems = payloadItems || items || [];
@@ -890,6 +910,22 @@ export const createManualQuote = async (req, res) => {
     });
 
     const token = crypto.randomBytes(12).toString('hex');
+
+    const safeDiscountType = extraDiscountType === "percent" ? "percent" : "flat";
+    const rawDiscountValue = toSafeNumber(extraDiscountValue, 0);
+    const safeDiscountValue = safeDiscountType === "percent" ? Math.min(100, Math.max(0, rawDiscountValue)) : Math.max(0, rawDiscountValue);
+
+    const computedSubTotal = itemsWithPrices.reduce(
+      (sum, item) => sum + toSafeNumber(item.offeredPrice, 0) * toSafeNumber(item.quantity, 0),
+      0
+    );
+    const discountAmount = safeDiscountType === "percent" ? Math.round(computedSubTotal * (safeDiscountValue / 100) * 100) / 100 : safeDiscountValue;
+    const safeShipping = Math.max(0, toSafeNumber(shippingCharge, 0));
+    const safeGst = Math.min(100, Math.max(0, toSafeNumber(gstPercentage, 0)));
+    const gstAmount = Math.round((computedSubTotal - discountAmount) * (safeGst / 100) * 100) / 100;
+    const safeAdditional = Math.max(0, toSafeNumber(additionalChargeAmount, 0));
+    const computedFinal = Math.max(0, computedSubTotal - discountAmount + safeShipping + gstAmount + safeAdditional);
+
     const newQuote = new Quote({
       user: req.user ? req.user._id : null,
       userDetails,
@@ -898,10 +934,14 @@ export const createManualQuote = async (req, res) => {
       status: "Offered", 
       version: 1,
       isManual: true,
-      shippingCharge: toSafeNumber(shippingCharge, 0),
+      shippingCharge: safeShipping,
       additionalChargeName,
-      additionalChargeAmount: toSafeNumber(additionalChargeAmount, 0),
-      gstPercentage: toSafeNumber(gstPercentage, 0),
+      additionalChargeAmount: safeAdditional,
+      gstPercentage: safeGst,
+      extraDiscountType: safeDiscountType,
+      extraDiscountValue: safeDiscountValue,
+      totalDiscount: toSafeNumber(totalDiscount, discountAmount),
+      finalTotal: toSafeNumber(finalTotal, computedFinal),
       quoteLogs: [buildLogEntry("Created", "Admin", "Manual quotation created by Admin")],
     });
 
@@ -910,6 +950,112 @@ export const createManualQuote = async (req, res) => {
     res.status(201).json({ success: true, message: "Manual Quote created successfully!", quoteId: newQuote._id, quoteToken: newQuote.quoteToken, quote: newQuote });
   } catch (error) {
     console.error("Create Manual Quote Error:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+// Assign quote to a sales person
+export const assignQuote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { assignedTo } = req.body; // User ID
+
+    const quote = await Quote.findById(id);
+    if (!quote) return res.status(404).json({ success: false, message: "Quote not found" });
+
+    quote.assignedTo = assignedTo || null;
+    await quote.save();
+
+    const updatedQuote = await Quote.findById(id)
+      .populate('user', 'name email')
+      .populate('assignedTo', 'name email role')
+      .populate('requestedItems.productId', 'name price customFields image images sku details description category categoryPath variants attributes');
+
+    res.status(200).json({ success: true, message: "Quote assigned successfully!", quote: updatedQuote });
+  } catch (error) {
+    console.error("Assign Quote Error:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+// Add a CRM note to a quote
+export const addQuoteCrmNote = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { remarks } = req.body;
+
+    if (!remarks || !remarks.trim()) {
+      return res.status(400).json({ success: false, message: "Remarks are required" });
+    }
+
+    const quote = await Quote.findById(id);
+    if (!quote) return res.status(404).json({ success: false, message: "Quote not found" });
+
+    if (!quote.crmNotes) quote.crmNotes = [];
+    quote.crmNotes.push({
+      author: req.user.name || "Sales Team",
+      remarks: remarks.trim(),
+      createdAt: new Date(),
+      isPublic: true, // Always public for direct chat
+      role: "admin",
+    });
+
+    await quote.save();
+
+    const updatedQuote = await Quote.findById(id)
+      .populate('user', 'name email')
+      .populate('assignedTo', 'name email role')
+      .populate('requestedItems.productId', 'name price customFields image images sku details description category categoryPath variants attributes');
+
+    res.status(200).json({ success: true, message: "CRM comment added successfully!", quote: updatedQuote });
+  } catch (error) {
+    console.error("Add Quote CRM Note Error:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+// Add client comment (public only, owner only)
+export const addClientQuoteComment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { remarks } = req.body;
+
+    if (!remarks || !remarks.trim()) {
+      return res.status(400).json({ success: false, message: "Remarks are required" });
+    }
+
+    const quote = await Quote.findById(id);
+    if (!quote) return res.status(404).json({ success: false, message: "Quote not found" });
+
+    // Security check: only the owner can comment
+    if (quote.user && quote.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: "Not authorized to comment on this quote" });
+    }
+
+    if (!quote.crmNotes) quote.crmNotes = [];
+    quote.crmNotes.push({
+      author: "Client",
+      remarks: remarks.trim(),
+      createdAt: new Date(),
+      isPublic: true,
+      role: "client",
+    });
+
+    await quote.save();
+
+    const updatedQuote = await Quote.findById(id)
+      .populate('user', 'name email')
+      .populate('assignedTo', 'name email role')
+      .populate('requestedItems.productId', 'name price customFields image images sku details description category categoryPath variants attributes');
+
+    const quoteObj = updatedQuote.toObject ? updatedQuote.toObject() : updatedQuote;
+    if (quoteObj.crmNotes) {
+      quoteObj.crmNotes = quoteObj.crmNotes.filter(note => note.isPublic === true);
+    }
+
+    res.status(200).json({ success: true, message: "Comment added successfully!", quote: quoteObj });
+  } catch (error) {
+    console.error("Add Client Quote Comment Error:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };

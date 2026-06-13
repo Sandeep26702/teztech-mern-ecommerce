@@ -14,7 +14,10 @@ import {
   respondToQuote, 
   createManualQuote,
   getQuoteByToken, 
-  updateQuoteStatus 
+  updateQuoteStatus,
+  assignQuote,
+  addQuoteCrmNote,
+  addClientQuoteComment
 } from '../controllers/quoteController.js';
 
 // 🛡️ Importing Auth Middlewares (Path check kar lena apne folder ke hisaab se)
@@ -44,6 +47,9 @@ router.post('/create', protect, createQuote);
 // Fetch only the formally submitted quotations belonging to the logged-in user
 router.get('/my-quotes', protect, getMyQuotes);
 
+// Add client comment to their own quote
+router.post('/comment/client/:id', protect, addClientQuoteComment);
+
 /* ============================================================
    3. ADMIN ROUTES (Admin & Subadmin Only)
    Logic: Uses 'protect' + 'admin' middlewares. Blocks normal 
@@ -61,6 +67,10 @@ router.put('/respond/:id', protect, admin, respondToQuote);
 
 // Admin creates manual quotation for WhatsApp clients
 router.post('/manual', protect, admin, createManualQuote);
+
+// CRM routes
+router.put('/assign/:id', protect, admin, assignQuote);
+router.post('/comment/:id', protect, admin, addQuoteCrmNote);
 
 /* ============================================================
    4. PUBLIC ROUTES (Accessible via Shareable Links)

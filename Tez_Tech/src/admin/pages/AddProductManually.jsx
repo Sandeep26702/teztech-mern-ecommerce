@@ -52,7 +52,8 @@ const AddProductManually = () => {
       option: "TEZTECH PolySheet 1.5mm black", 
       priceOffset: "0", 
       sku: "", 
-      stock: "" 
+      stock: "",
+      mrp: ""
     }
   ]);
 
@@ -101,7 +102,8 @@ const AddProductManually = () => {
                     option: opt.value,
                     priceOffset: opt.priceAdjustment || 0,
                     sku: opt.meta?.sku || "",
-                    stock: opt.meta?.stock || ""
+                    stock: opt.meta?.stock || "",
+                    mrp: opt.meta?.mrp || ""
                   });
                 });
               });
@@ -138,7 +140,7 @@ const AddProductManually = () => {
     newVars[index][field] = value;
     setVariations(newVars);
   };
-  const addVariation = () => setVariations([...variations, { group: "", option: "", priceOffset: "0", sku: "", stock: "" }]);
+  const addVariation = () => setVariations([...variations, { group: "", option: "", priceOffset: "0", sku: "", stock: "", mrp: "" }]);
   const removeVariation = (index) => setVariations(variations.filter((_, i) => i !== index));
 
   const handleImageChange = (e) => {
@@ -341,6 +343,10 @@ const AddProductManually = () => {
                     <div className="flex-1 min-w-[100px]">
                       <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Var SKU / Code</label>
                       <input type="text" value={variant.sku} onChange={(e) => handleVarChange(index, "sku", e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg outline-none" />
+                    </div>
+                    <div className="w-24">
+                      <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Var MRP (₹)</label>
+                      <input type="number" placeholder="0.00" value={variant.mrp} onChange={(e) => handleVarChange(index, "mrp", e.target.value)} className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg outline-none" />
                     </div>
                     <div className="w-20">
                       <label className="block mb-1 text-xs font-semibold text-gray-500 uppercase">Stock</label>

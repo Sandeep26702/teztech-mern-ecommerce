@@ -1,11 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuote } from "../context/QuoteContext"; 
+import { useAuth } from "../context/AuthContext";
 import { FaTrashAlt, FaMinus, FaPlus, FaBoxOpen, FaPaperPlane } from "react-icons/fa";
 import api from "../utils/api"; 
 
+const cleanPrefilledValue = (val, fieldName) => {
+  if (!val) return "";
+  
+  // Format address object to string
+  if (typeof val === "object") {
+    const { street, city, state, zipCode } = val;
+    const parts = [street, city, state, zipCode].map(p => String(p || "").trim()).filter(p => p !== "");
+    val = parts.join(", ");
+  }
+
+  const s = String(val).trim();
+  const lower = s.toLowerCase();
+
+  if (
+    lower === "john doe" ||
+    lower === "test user" ||
+    lower === "test otp user" ||
+    lower === "super admin" ||
+    lower.includes("example") ||
+    lower.includes("e.g.") ||
+    lower.includes("[object object]") ||
+    (fieldName === "phone" && (s === "9876543210" || s === "9999999999" || s === "1234567890" || s === "0123456789" || s.startsWith("00000")))
+  ) {
+    return "";
+  }
+
+  return s;
+};
+
 const Quotation = () => {
   const { quoteItems, removeFromQuote, updateQuoteQuantity, clearQuote } = useQuote();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -15,6 +46,17 @@ const Quotation = () => {
     phone: "",
     message: ""
   });
+
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        name: cleanPrefilledValue(user.name, "name"),
+        email: cleanPrefilledValue(user.email, "email"),
+        phone: cleanPrefilledValue(user.phone, "phone"),
+      }));
+    }
+  }, [user]);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -92,7 +134,17 @@ const Quotation = () => {
 
       alert("🎉 Quotation request submitted successfully!");
       
-      setFormData({ name: "", email: "", company: "", phone: "", message: "" });
+      if (user) {
+        setFormData({
+          name: cleanPrefilledValue(user.name, "name"),
+          email: cleanPrefilledValue(user.email, "email"),
+          company: "",
+          phone: cleanPrefilledValue(user.phone, "phone"),
+          message: ""
+        });
+      } else {
+        setFormData({ name: "", email: "", company: "", phone: "", message: "" });
+      }
       clearQuote(); 
 
     } catch (error) {

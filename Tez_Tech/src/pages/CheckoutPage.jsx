@@ -20,6 +20,35 @@ const getUnitPrice = (item) => Number(
   0
 );
 
+const cleanPrefilledValue = (val, fieldName) => {
+  if (!val) return "";
+  
+  // Format address object to string
+  if (typeof val === "object") {
+    const { street, city, state, zipCode } = val;
+    const parts = [street, city, state, zipCode].map(p => String(p || "").trim()).filter(p => p !== "");
+    val = parts.join(", ");
+  }
+
+  const s = String(val).trim();
+  const lower = s.toLowerCase();
+
+  if (
+    lower === "john doe" ||
+    lower === "test user" ||
+    lower === "test otp user" ||
+    lower === "super admin" ||
+    lower.includes("example") ||
+    lower.includes("e.g.") ||
+    lower.includes("[object object]") ||
+    (fieldName === "phone" && (s === "9876543210" || s === "9999999999" || s === "1234567890" || s === "0123456789" || s.startsWith("00000")))
+  ) {
+    return "";
+  }
+
+  return s;
+};
+
 const CheckoutPage = () => {
   const { cartItems, getCartTotal, clearCart } = useCart();
   const { user } = useAuth();
@@ -49,9 +78,9 @@ const CheckoutPage = () => {
   });
 
   const [shippingInfo, setShippingInfo] = useState({
-    fullName: user?.name || "",
+    fullName: cleanPrefilledValue(user?.name, "name"),
     companyName: "",
-    phone: user?.phone || "",
+    phone: cleanPrefilledValue(user?.phone, "phone"),
     address: "",
     city: "",
     state: "",
@@ -62,9 +91,9 @@ const CheckoutPage = () => {
 
   const [isBillingSameAsShipping, setIsBillingSameAsShipping] = useState(true);
   const [billingInfo, setBillingInfo] = useState({
-    fullName: user?.name || "",
+    fullName: cleanPrefilledValue(user?.name, "name"),
     companyName: "",
-    phone: user?.phone || "",
+    phone: cleanPrefilledValue(user?.phone, "phone"),
     address: "",
     city: "",
     state: "",

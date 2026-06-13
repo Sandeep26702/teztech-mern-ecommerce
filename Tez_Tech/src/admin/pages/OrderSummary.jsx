@@ -1,7 +1,16 @@
 import React from "react";
 import { FaLock } from "react-icons/fa";
 
-const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOnly = false }) => {
+const OrderSummary = ({ 
+  items = [], 
+  quoteData = {}, 
+  onUpdateQuoteField, 
+  isViewOnly = false,
+  calculatedSubTotal,
+  calculatedDiscount,
+  calculatedGst,
+  calculatedFinalTotal
+}) => {
   const {
     extraDiscountType = "flat",
     extraDiscountValue = 0,
@@ -12,28 +21,36 @@ const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOn
   } = quoteData;
 
   // 🧮 FIX 1: Robust Subtotal Calculation
-  // Ab ye offeredPrice, unitPrice ya price kisi ko bhi pakad lega
-  const subtotal = items.reduce((sum, item) => {
-    const price = Number(item.offeredPrice) || Number(item.unitPrice) || Number(item.price) || 0;
-    const qty = Number(item.quantity) || 1; // Default quantity 1 agar empty ho
-    return sum + (price * qty);
-  }, 0);
+  const subtotal = calculatedSubTotal !== undefined 
+    ? calculatedSubTotal 
+    : items.reduce((sum, item) => {
+        const price = Number(item.offeredPrice) || Number(item.unitPrice) || Number(item.price) || 0;
+        const qty = Number(item.quantity) || 1;
+        return sum + (price * qty);
+      }, 0);
 
   // 🧮 FIX 2: Safe Discount Calculation
-  let discountAmount = Number(extraDiscountValue) || 0;
-  if (extraDiscountType === "percentage") {
+  let discountAmount = calculatedDiscount !== undefined 
+    ? calculatedDiscount 
+    : (Number(extraDiscountValue) || 0);
+  if (calculatedDiscount === undefined && extraDiscountType === "percent") {
     discountAmount = (subtotal * discountAmount) / 100;
   }
 
-  // 🧮 FIX 3: Taxable Amount Math
-  const shipping = Number(shippingCharge) || 0;
-  const extraCharge = Number(additionalChargeAmount) || 0;
-  
-  const taxableAmount = Math.max(0, subtotal - discountAmount + shipping + extraCharge);
+  // 🧮 FIX 3: GST Base Amount (Subtotal - Discount)
+  const gstBaseAmount = Math.max(0, subtotal - discountAmount);
 
   // 🧮 FIX 4: Tax & Grand Total Math
-  const taxAmount = (taxableAmount * Number(gstPercentage)) / 100 || 0;
-  const grandTotal = taxableAmount + taxAmount;
+  const shipping = Number(shippingCharge) || 0;
+  const extraCharge = Number(additionalChargeAmount) || 0;
+
+  const taxAmount = calculatedGst !== undefined 
+    ? calculatedGst 
+    : ((gstBaseAmount * Number(gstPercentage)) / 100 || 0);
+
+  const grandTotal = calculatedFinalTotal !== undefined 
+    ? calculatedFinalTotal 
+    : (gstBaseAmount + shipping + extraCharge + taxAmount);
 
   return (
     <div className="w-full max-w-md p-6 mt-6 ml-auto bg-white border border-gray-200 shadow-sm rounded-2xl">
@@ -69,8 +86,8 @@ const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOn
                 </button>
                 <button
                   type="button"
-                  onClick={() => onUpdateQuoteField("extraDiscountType", "percentage")}
-                  className={`px-2 py-0.5 text-[10px] font-bold rounded ${extraDiscountType === "percentage" ? "bg-white text-blue-700 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
+                  onClick={() => onUpdateQuoteField("extraDiscountType", "percent")}
+                  className={`px-2 py-0.5 text-[10px] font-bold rounded ${extraDiscountType === "percent" ? "bg-white text-blue-700 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
                 >
                   % Perc
                 </button>
@@ -80,7 +97,7 @@ const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOn
           <div className="flex flex-col items-end gap-1">
             <div className="relative flex items-center">
               <span className="absolute text-gray-400 text-[11px] left-2">
-                {extraDiscountType === "percentage" ? "%" : "₹"}
+                {extraDiscountType === "percent" ? "%" : "₹"}
               </span>
               <input
                 type="number"
@@ -149,7 +166,7 @@ const OrderSummary = ({ items = [], quoteData = {}, onUpdateQuoteField, isViewOn
             <span className="font-medium text-gray-700">GST / Tax</span>
             {taxAmount > 0 && (
               <span className="text-[10px] font-semibold text-gray-500 mt-0.5">
-                On ₹{taxableAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                On ₹{gstBaseAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             )}
           </div>
