@@ -50,6 +50,42 @@ const getStatusBadge = (status) => {
   }
 };
 
+const renderItemSpecs = (item) => {
+  const parts = [];
+  if (item?.selectedVariant) {
+    const variantName = item.selectedVariant.name || Object.values(item.selectedVariant.combination || {}).join(' / ');
+    parts.push({ label: 'Variant', value: variantName });
+  }
+  if (item?.selectedAttributes) {
+    Object.entries(item.selectedAttributes).forEach(([key, val]) => {
+      parts.push({ label: key, value: val.value || val.label || val });
+    });
+  }
+  if (item?.selectedCustomFields) {
+    Object.entries(item.selectedCustomFields).forEach(([key, val]) => {
+      parts.push({ label: key, value: Array.isArray(val) ? val.join(', ') : val });
+    });
+  }
+  if (parts.length === 0 && Array.isArray(item?.selectedOptions)) {
+    item.selectedOptions.forEach(opt => {
+       parts.push({ label: opt.fieldLabel, value: opt.value });
+    });
+  }
+
+  if (parts.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-1 mt-1">
+      {parts.map((p, i) => (
+        <div key={i} className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold text-slate-700 bg-slate-200/60 rounded">
+          <span className="text-slate-400 font-extrabold uppercase">{p.label}:</span>
+          <span className="text-slate-800 font-black">{p.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const QuoteInquiries = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -403,57 +439,73 @@ const QuoteInquiries = () => {
                       <div
                         key={quote._id}
                         onClick={() => {
-                          setSelectedQuote(quote);
-                          if (window.innerWidth < 768) {
-                            setShowMobileChat(true);
-                          }
+                          setSelectedQuote(prev => prev?._id === quote._id ? null : quote);
                         }}
-                        className={`p-6 bg-white border rounded-2xl transition cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-6 shadow-sm ${
+                        className={`p-6 bg-white border rounded-2xl transition cursor-pointer flex flex-col gap-4 shadow-sm ${
                           selectedQuote?._id === quote._id
                             ? "border-blue-500 ring-2 ring-blue-500/10"
                             : "border-slate-200 hover:border-slate-300 hover:shadow"
                         }`}
                       >
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-3">
-                            <span className="text-sm font-extrabold text-slate-800 uppercase">#{quote.quoteNumber.split("-")[1] || quote.quoteNumber}</span>
-                            <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full uppercase border ${getStatusBadge(quote.status)}`}>
-                              {quote.status}
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-500 space-y-1">
-                            <p className="flex items-center gap-1">
-                              <FaCalendarAlt size={10} className="text-slate-400" />
-                              <span>Submitted: {new Date(quote.createdAt).toLocaleDateString("en-IN", { dateStyle: "medium" })}</span>
-                            </p>
-                            <p>Items Requested: <span className="font-semibold text-slate-700">{quote.requestedItems?.length || 0} items</span></p>
-                            {quote.finalTotal > 0 && (
-                              <p className="text-sm font-semibold text-slate-800">
-                                Estimated Amount: <span className="text-blue-600">₹ {quote.finalTotal.toLocaleString("en-IN")}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-extrabold text-slate-800 uppercase">#{quote.quoteNumber.split("-")[1] || quote.quoteNumber}</span>
+                              <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full uppercase border ${getStatusBadge(quote.status)}`}>
+                                {quote.status}
+                              </span>
+                            </div>
+                            <div className="text-xs text-slate-500 space-y-1">
+                              <p className="flex items-center gap-1">
+                                <FaCalendarAlt size={10} className="text-slate-400" />
+                                <span>Submitted: {new Date(quote.createdAt).toLocaleDateString("en-IN", { dateStyle: "medium" })}</span>
                               </p>
-                            )}
+                              <p>Items Requested: <span className="font-semibold text-slate-700">{quote.requestedItems?.length || 0} items</span></p>
+                              {quote.finalTotal > 0 && (
+                                <p className="text-sm font-semibold text-slate-800">
+                                  Estimated Amount: <span className="text-blue-600">₹ {quote.finalTotal.toLocaleString("en-IN")}</span>
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 self-start sm:self-center">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedQuote(quote);
+                                setShowMobileChat(true);
+                              }}
+                              className="flex items-center gap-1 px-4 py-2 border border-blue-200 hover:bg-blue-50/50 text-blue-600 font-bold text-xs rounded-xl transition cursor-pointer md:hidden shadow-sm"
+                            >
+                              <FaComments /> Chat
+                            </button>
+                            <Link
+                              to={`/quote/${quote.quoteToken}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-1.5 px-4 py-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 text-slate-700 hover:text-blue-600 font-bold text-xs rounded-xl transition cursor-pointer shadow-sm bg-white"
+                            >
+                              Details <FaChevronRight size={10} />
+                            </Link>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedQuote(quote);
-                              setShowMobileChat(true);
-                            }}
-                            className="flex items-center gap-1 px-4 py-2 border border-blue-200 hover:bg-blue-50/50 text-blue-600 font-bold text-xs rounded-xl transition cursor-pointer md:hidden shadow-sm"
-                          >
-                            <FaComments /> Chat
-                          </button>
-                          <Link
-                            to={`/quote/${quote.quoteToken}`}
-                            onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1.5 px-4 py-2 border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 text-slate-700 hover:text-blue-600 font-bold text-xs rounded-xl transition cursor-pointer shadow-sm bg-white"
-                          >
-                            Details <FaChevronRight size={10} />
-                          </Link>
-                        </div>
+                        {selectedQuote?._id === quote._id && (
+                          <div className="pt-4 border-t border-slate-150 space-y-3 w-full">
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Requested Items Detail</p>
+                            <div className="space-y-2">
+                              {quote.requestedItems?.map((item, idx) => (
+                                <div key={idx} className="bg-slate-50 border border-slate-200/55 p-3 rounded-xl space-y-1.5">
+                                  <div className="flex justify-between items-start">
+                                    <span className="text-xs font-bold text-slate-800">{item.name}</span>
+                                    <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded font-bold">Qty: {item.quantity}</span>
+                                  </div>
+                                  {renderItemSpecs(item)}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -482,10 +534,7 @@ const QuoteInquiries = () => {
                         <div
                           key={quote._id}
                           onClick={() => {
-                            setSelectedQuote(quote);
-                            if (window.innerWidth < 768) {
-                              setShowMobileChat(true);
-                            }
+                            setSelectedQuote(prev => prev?._id === quote._id ? null : quote);
                           }}
                           className={`p-6 bg-white border rounded-2xl transition cursor-pointer flex flex-col gap-6 shadow-sm ${
                             selectedQuote?._id === quote._id
@@ -524,14 +573,55 @@ const QuoteInquiries = () => {
                                 </p>
                               </div>
 
-                              {/* Displays Designs list */}
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {quote.designs?.map((d, i) => (
-                                  <span key={i} className="px-2.5 py-1 bg-slate-50 rounded-lg text-xs font-semibold text-slate-600 border border-slate-200/60">
-                                    {d.designName} ({d.length} x {d.width} ft)
-                                  </span>
-                                ))}
-                              </div>
+                              {/* Detailed Custom Designs list when selected */}
+                              {selectedQuote?._id === quote._id ? (
+                                <div className="mt-4 pt-4 border-t border-slate-150 space-y-3 w-full">
+                                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Design Specifications</p>
+                                  <div className="space-y-3">
+                                    {quote.designs?.map((d, i) => (
+                                      <div key={i} className="bg-slate-50 border border-slate-200/55 p-3.5 rounded-xl space-y-2.5 text-xs text-slate-600">
+                                        <div className="flex justify-between items-start">
+                                          <span className="font-bold text-slate-800 text-sm">{d.designName}</span>
+                                          <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded font-bold uppercase">{d.ledType} LED</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px] font-semibold text-slate-500">
+                                          <div>📏 Size: <span className="text-slate-800 font-bold">{d.length} x {d.width} ft</span></div>
+                                          <div>🎨 Sheet Color: <span className="text-slate-800 font-bold">{d.sheetColor}</span></div>
+                                          <div>📏 Thickness: <span className="text-slate-800 font-bold">{d.thickness} mm</span></div>
+                                          <div>📅 Needed: <span className="text-slate-800 font-bold">{new Date(d.requiredDate).toLocaleDateString()}</span></div>
+                                        </div>
+                                        {d.specialInstructions && (
+                                          <div className="bg-amber-50 border border-amber-200/50 p-2.5 rounded text-[11px] text-amber-950 leading-relaxed font-medium">
+                                            <span className="font-bold block mb-0.5">Special Instructions:</span>
+                                            {d.specialInstructions}
+                                          </div>
+                                        )}
+                                        {d.referenceUrl && (
+                                          <div className="pt-1">
+                                            <a 
+                                              href={d.referenceUrl} 
+                                              target="_blank" 
+                                              rel="noreferrer"
+                                              className="text-blue-600 hover:text-blue-800 font-bold text-[10px] inline-flex items-center gap-1 transition"
+                                            >
+                                              View Reference Upload ↗
+                                            </a>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ) : (
+                                /* Simple Displays Designs list when not selected */
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  {quote.designs?.map((d, i) => (
+                                    <span key={i} className="px-2.5 py-1 bg-slate-50 rounded-lg text-xs font-semibold text-slate-600 border border-slate-200/60">
+                                      {d.designName} ({d.length} x {d.width} ft)
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
                             </div>
 
                             <div className="flex flex-col items-start md:items-end gap-3 min-w-[180px] self-center md:self-start">
@@ -602,7 +692,6 @@ const QuoteInquiries = () => {
             <div className="flex-1 flex flex-col h-full overflow-hidden">
               {renderChatBox(true, () => {
                 setShowMobileChat(false);
-                setSelectedQuote(null);
               })}
             </div>
           </div>

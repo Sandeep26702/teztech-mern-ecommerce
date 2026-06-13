@@ -57,10 +57,20 @@ const customDesignQuoteSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-customDesignQuoteSchema.pre("validate", function () {
+customDesignQuoteSchema.pre("validate", async function (next) {
   if (!this.quoteNumber) {
-    this.quoteNumber = `CDQ-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+    let isUnique = false;
+    while (!isUnique) {
+      const num = Math.floor(1000 + Math.random() * 9000); // 1000 to 9999
+      const generated = `CDQ-${num}`;
+      const exists = await this.constructor.findOne({ quoteNumber: generated });
+      if (!exists) {
+        this.quoteNumber = generated;
+        isUnique = true;
+      }
+    }
   }
+  next();
 });
 
 export default mongoose.model("CustomDesignQuote", customDesignQuoteSchema);

@@ -149,11 +149,20 @@ const quoteSchema = new mongoose.Schema(
 );
 
 // ⚙️ Pre-validate Hook: Auto-generate 'quoteNumber' before saving to Database
-quoteSchema.pre("validate", function () {
+quoteSchema.pre("validate", async function (next) {
   if (!this.quoteNumber) {
-    // Low-collision, human-readable quote number.
-    this.quoteNumber = `QT-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+    let isUnique = false;
+    while (!isUnique) {
+      const num = Math.floor(1000 + Math.random() * 9000); // 1000 to 9999
+      const generated = `QT-${num}`;
+      const exists = await this.constructor.findOne({ quoteNumber: generated });
+      if (!exists) {
+        this.quoteNumber = generated;
+        isUnique = true;
+      }
+    }
   }
+  next();
 });
 
 // ==========================================
