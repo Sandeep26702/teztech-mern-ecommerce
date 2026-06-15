@@ -81,15 +81,15 @@ const PaymentSection = ({
               <div className="flex gap-3 p-4 border border-blue-100 bg-blue-50 rounded-xl">
                 <FaInfoCircle className="flex-shrink-0 mt-1 text-blue-500" />
                 <p className="text-xs leading-relaxed text-blue-700">
-                  Please upload the payment screenshot and enter the 12-digit UTR/Transaction ID for faster order verification.
+                  Please upload the payment screenshot and enter the 12-digit UTR/Transaction ID for faster order verification (Optional).
                 </p>
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">UTR / Transaction ID</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">UTR / Transaction ID (Optional)</label>
                 <input 
                   type="text" 
-                  placeholder="Enter 12 digit UTR number"
+                  placeholder="Enter 12 digit UTR number (Optional)"
                   className="w-full p-4 font-bold bg-white border outline-none border-slate-200 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-slate-900"
                   value={paymentDetails.utrNumber}
                   onChange={(e) => setPaymentDetails({...paymentDetails, utrNumber: e.target.value})}
@@ -97,7 +97,7 @@ const PaymentSection = ({
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Payment Screenshot</label>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Payment Screenshot (Optional)</label>
                 <div className="relative group">
                   <input 
                     type="file" 
@@ -108,7 +108,7 @@ const PaymentSection = ({
                   <div className="flex flex-col items-center justify-center p-6 transition-all bg-white border-2 border-dashed border-slate-200 rounded-xl group-hover:border-blue-400">
                     <FaCloudUploadAlt className="mb-2 text-3xl transition-colors text-slate-300 group-hover:text-blue-500" />
                     <p className="text-xs font-bold text-slate-500">
-                      {paymentDetails.screenshot ? paymentDetails.screenshot.name : "Click to upload screenshot"}
+                      {paymentDetails.screenshot ? paymentDetails.screenshot.name : "Click to upload screenshot (Optional)"}
                     </p>
                   </div>
                 </div>

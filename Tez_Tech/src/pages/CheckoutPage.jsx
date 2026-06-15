@@ -231,11 +231,7 @@ const CheckoutPage = () => {
     e.preventDefault();
     if (cartItems.length === 0) return alert("Your cart is empty.");
     
-    if (paymentMethod === "MANUAL") {
-      if (!paymentDetails.utrNumber || !paymentDetails.screenshot) {
-        return alert("Please enter UTR Number and upload Payment Screenshot to proceed.");
-      }
-    }
+    // UTR and screenshot are optional for manual transfer/payment
 
     setLoading(true);
 
