@@ -38,7 +38,7 @@ router.get("/me", protect, getMe);
 router.post("/logout", protect, logout);
 
 /* ================= ADMIN ROUTES (Role Based) ================= */
-// 🔐 Sirf Admin hi is route ko access kar sakta hai
+// 🔐 Only Admins can access this route
 router.post(
   "/create-subadmin", 
   protect, 

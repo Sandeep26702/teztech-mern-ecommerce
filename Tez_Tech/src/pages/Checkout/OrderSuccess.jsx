@@ -1,133 +1,121 @@
-import React, { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import React from "react";
+import { Link, useLocation } from "react-router-dom";
 
 const OrderSuccess = () => {
   const location = useLocation();
-  const navigate = useNavigate();
-  const [showParticles, setShowParticles] = useState(false);
 
+  // Retrieve order reference or fallback to a mock one
   const orderId = location.state?.orderId || `TZ-${Math.floor(100000 + Math.random() * 900000)}`;
 
-  useEffect(() => {
-    setShowParticles(true);
-  }, [navigate]);
-
   return (
-    <div className="relative flex items-center justify-center min-h-screen px-4 py-12 overflow-hidden bg-[#0f172a] font-sans selection:bg-blue-500 selection:text-white">
+    <div className="relative flex items-center justify-center min-h-screen px-4 py-16 overflow-hidden bg-[#06080d] font-sans selection:bg-indigo-500 selection:text-white">
       
-      {/* 🌟 CLEAN CSS ANIMATIONS (No backslash issues) */}
+      {/* 🌟 PREMIUM MINIMALIST CSS ANIMATIONS */}
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes drawCheck {
-          0% { stroke-dashoffset: 100; opacity: 0; }
+          0% { stroke-dashoffset: 80; opacity: 0; }
           10% { opacity: 1; }
           100% { stroke-dashoffset: 0; opacity: 1; }
         }
         .animate-draw-check {
-          stroke-dasharray: 100;
-          stroke-dashoffset: 100;
-          animation: drawCheck 1s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-          animation-delay: 0.3s;
+          stroke-dasharray: 80;
+          stroke-dashoffset: 80;
+          animation: drawCheck 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          animation-delay: 0.2s;
         }
-        
-        @keyframes floatUp {
-          0% { transform: translateY(100vh) scale(0) rotate(0deg); opacity: 1; }
-          100% { transform: translateY(-20vh) scale(1.5) rotate(360deg); opacity: 0; }
+
+        @keyframes subtleOrbRotate {
+          0%, 100% { transform: translate(0, 0) scale(1); }
+          50% { transform: translate(20px, -30px) scale(1.1); }
         }
-        .particle {
-          position: absolute;
-          animation: floatUp 4s ease-in forwards;
+        .orb-animate-1 {
+          animation: subtleOrbRotate 10s ease-in-out infinite;
         }
-        
-        @keyframes pulseGlow {
-          0%, 100% { box-shadow: 0 0 40px rgba(16, 185, 129, 0.2); transform: scale(1); }
-          50% { box-shadow: 0 0 80px rgba(16, 185, 129, 0.5); transform: scale(1.02); }
+        .orb-animate-2 {
+          animation: subtleOrbRotate 12s ease-in-out infinite alternate;
         }
-        .animate-pulse-glow {
-          animation: pulseGlow 3s ease-in-out infinite;
+
+        @keyframes cardFadeIn {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-card-fade {
+          animation: cardFadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
       `}} />
 
-      {/* 🎉 CSS CONFETTI / PARTICLES (Error Fixed: Clean Template Literals) */}
-      {showParticles && Array.from({ length: 30 }).map((_, i) => {
-        const size = Math.random() * 10 + 5;
-        const colors = ['bg-emerald-400', 'bg-blue-400', 'bg-cyan-400', 'bg-fuchsia-400', 'bg-orange-400'];
-        const color = colors[Math.floor(Math.random() * colors.length)];
-        
-        // Clean inline styles (No extra escaping)
-        return (
-          <div 
-            key={i}
-            className={`particle rounded-full ${color} mix-blend-screen blur-[1px]`}
-            style={{
-              left: `${Math.random() * 100}%`,
-              width: `${size}px`,
-              height: `${size}px`,
-              animationDelay: `${Math.random() * 0.5}s`,
-              animationDuration: `${Math.random() * 2 + 3}s`
-            }}
-          />
-        );
-      })}
+      {/* 🔮 Background Glow Mesh Orbs (Premium Luxury Aesthetic) */}
+      <div className="absolute top-[10%] left-[20%] w-[500px] h-[500px] bg-indigo-600/10 rounded-full blur-[130px] pointer-events-none orb-animate-1"></div>
+      <div className="absolute bottom-[10%] right-[20%] w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[140px] pointer-events-none orb-animate-2"></div>
 
-      {/* 🔮 Background Glow Orbs */}
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-emerald-500/20 rounded-full blur-[120px] pointer-events-none animate-pulse"></div>
-
-      {/* 💳 MAIN PREMIUM SUCCESS CARD */}
-      <div className="relative z-10 w-full max-w-lg p-10 text-center transition-all duration-700 ease-out transform bg-white/10 backdrop-blur-2xl border border-white/20 shadow-2xl rounded-[3rem] animate-pulse-glow">
+      {/* 💳 REDESIGNED DIGITAL RECEIPT SUCCESS CARD */}
+      <div className="relative z-10 w-full max-w-md p-8 sm:p-10 text-center bg-slate-950/30 backdrop-blur-3xl border border-white/[0.04] shadow-[0_24px_80px_rgba(0,0,0,0.6)] rounded-[2.5rem] animate-card-fade hover:border-white/[0.07] transition-colors duration-500">
         
-        {/* Animated Checkmark Circle */}
-        <div className="relative flex items-center justify-center w-24 h-24 mx-auto mb-8 rounded-full shadow-lg bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-emerald-500/40">
-          <div className="absolute inset-0 bg-white rounded-full opacity-20 animate-ping"></div>
-          <svg className="w-12 h-12 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {/* Glowing Success Badge */}
+        <div className="relative flex items-center justify-center w-20 h-20 mx-auto mb-8 rounded-full border border-emerald-500/25 bg-emerald-500/5 shadow-[0_0_35px_rgba(16,185,129,0.1)]">
+          <div className="absolute inset-0 bg-emerald-500/5 rounded-full animate-ping opacity-30" style={{ animationDuration: '3s' }}></div>
+          <svg className="w-10 h-10 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path 
               className="animate-draw-check" 
               strokeLinecap="round" 
               strokeLinejoin="round" 
-              strokeWidth="4" 
+              strokeWidth="3.5" 
               d="M5 13l4 4L19 7" 
             />
           </svg>
         </div>
 
         {/* Headings */}
-        <h1 className="mb-2 text-4xl font-black tracking-tight text-white drop-shadow-md">
-          Order Placed.
+        <h1 className="mb-2 text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+          Order Completed
         </h1>
-        <p className="mb-8 text-lg font-medium text-emerald-300">
-          Congratulations! Your premium electronics are on their way.
+        <p className="mb-8 text-sm text-slate-400 leading-relaxed max-w-sm mx-auto">
+          Thank you for your purchase. Your premium order has been received and is now being processed.
         </p>
 
-        {/* Order Details Box */}
-        <div className="p-6 mb-8 text-left border bg-slate-900/50 rounded-2xl border-white/10 backdrop-blur-sm">
-          <div className="flex items-center justify-between pb-4 mb-4 border-b border-white/10">
-            <span className="text-slate-400">Order Reference</span>
-            <span className="font-mono text-lg font-bold text-cyan-400">{orderId}</span>
+        {/* Minimalist Digital Receipt Container */}
+        <div className="p-5 mb-8 border border-white/[0.03] bg-slate-950/40 rounded-2xl space-y-4 text-left">
+          
+          <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.03]">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Order Number</span>
+            <span className="font-mono text-sm font-extrabold text-indigo-400 select-all hover:text-indigo-300 transition-colors">
+              {orderId}
+            </span>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="text-slate-400">Status</span>
-            <span className="flex items-center gap-2 px-3 py-1 text-sm font-bold rounded-full text-emerald-900 bg-emerald-400">
-              <span className="w-2 h-2 rounded-full bg-emerald-900 animate-pulse"></span>
+
+          <div className="flex items-center justify-between pb-3.5 border-b border-white/[0.03]">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Status</span>
+            <span className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-full border border-emerald-500/20 text-emerald-400 bg-emerald-950/30">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
               Processing
             </span>
           </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Delivery Estimate</span>
+            <span className="text-xs font-extrabold tracking-wide uppercase text-slate-300">
+              3 - 5 Business Days
+            </span>
+          </div>
+
         </div>
 
-        {/* Next Steps text */}
-        <p className="mb-8 text-sm leading-relaxed text-slate-300">
-          We've sent a confirmation email with your order details. We'll notify you as soon as it ships.
+        {/* Helper Note */}
+        <p className="mb-8 text-xs text-slate-500 leading-relaxed">
+          A confirmation email has been sent to your registered address. We'll update you as soon as your package ships.
         </p>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
+        {/* Premium Action CTAs */}
+        <div className="flex flex-col gap-3">
           <Link 
             to="/orders" 
-            className="flex items-center justify-center w-full px-8 py-4 font-bold text-white transition-all shadow-lg sm:w-auto bg-gradient-to-r from-blue-600 to-cyan-500 rounded-xl hover:from-blue-500 hover:to-cyan-400 hover:shadow-cyan-500/25 active:scale-95"
+            className="flex items-center justify-center w-full py-4 text-sm font-bold text-white transition-all bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 rounded-xl shadow-[0_4px_20px_rgba(59,130,246,0.2)] hover:shadow-[0_4px_30px_rgba(59,130,246,0.35)] active:scale-98"
           >
             Track Order
           </Link>
           <Link 
             to="/products" 
-            className="flex items-center justify-center w-full px-8 py-4 font-bold text-white transition-all border sm:w-auto border-white/20 bg-white/5 rounded-xl hover:bg-white/10 active:scale-95"
+            className="flex items-center justify-center w-full py-4 text-sm font-bold text-slate-300 transition-all border border-white/[0.07] bg-white/[0.02] rounded-xl hover:bg-white/[0.06] hover:text-white active:scale-98"
           >
             Continue Shopping
           </Link>

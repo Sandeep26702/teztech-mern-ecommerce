@@ -1,7 +1,7 @@
 import React from "react";
 
 const Dashboard = () => {
-  // Industry standard: Data ko array mein rakhna taaki code clean rahe aur future mein API se map karna aasan ho
+  // Industry standard: Store data in an array to keep code clean and make it easier to map from API in the future
   const cards = [
     {
       id: 1,
@@ -59,7 +59,7 @@ const Dashboard = () => {
               key={card.id}
               className="relative p-6 overflow-hidden transition-all duration-300 bg-white border border-gray-100 shadow-sm cursor-pointer group rounded-2xl hover:border-transparent hover:-translate-y-2 hover:shadow-xl"
             >
-              {/* Masala: Top border gradient line jo hover par show hogi */}
+              {/* Visual: Top border gradient line that will show on hover */}
               <div 
                 className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${card.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`}
               ></div>

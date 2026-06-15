@@ -17,13 +17,13 @@ const draftItemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
-    // 👇 Ye dono naye fields add kiye hain 👇
+    // 👇 Added these two fields 👇
     selectedVariant: {
-      type: mongoose.Schema.Types.Mixed, // Mixed use kiya taaki Object ya String kuch bhi easily save ho jaye
+      type: mongoose.Schema.Types.Mixed, // Mixed type allows storing objects or strings easily
       default: null,
     },
     selectedAttributes: {
-      type: mongoose.Schema.Types.Mixed, // Object store karne ke liye
+      type: mongoose.Schema.Types.Mixed, // For storing variant attributes object
       default: {},
     },
   },
@@ -36,7 +36,7 @@ const quoteDraftSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      unique: true, // Ek user ka ek hi active draft hoga
+      unique: true, // A user can have only one active draft
     },
     items: [draftItemSchema],
   },

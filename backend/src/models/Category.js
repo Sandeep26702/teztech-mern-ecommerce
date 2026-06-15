@@ -5,7 +5,7 @@ const categorySchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      // Toh humne 'unique: true' hata diya taaki duplicate names with different parents allowed hon.
+      // Removed 'unique: true' to allow duplicate names under different parents.
     },
     slug: {
       type: String,
@@ -46,7 +46,7 @@ const categorySchema = new mongoose.Schema(
     parent: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",
-      default: null, // Level 1 (Main) ke liye ye null rahega
+      default: null, // This is null for Level 1 (Main) categories
     },
     showOnHome: {
       type: Boolean,

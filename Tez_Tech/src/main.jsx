@@ -8,7 +8,7 @@ import { AuthProvider } from './context/AuthContext.jsx';
 import { CartProvider } from './context/CartContext.jsx';
 import { QuoteProvider } from './context/QuoteContext.jsx'; 
 
-// ❌ Yahan se Toaster ka import hata diya hai
+// ❌ Removed Toaster import from here
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -16,7 +16,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <AuthProvider>
         <CartProvider>
           <QuoteProvider> 
-            {/* ❌ Yahan se <Toaster /> hata diya hai taaki double popup na aaye */}
+            {/* ❌ Removed <Toaster /> from here to prevent double popups */}
             <App />
           </QuoteProvider>
         </CartProvider>

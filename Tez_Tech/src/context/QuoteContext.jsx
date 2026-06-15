@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import api from "../utils/api"; 
-// 🔥 NAYA: toast import kiya
+// 🔥 NEW: Imported toast from react-hot-toast
 import toast from 'react-hot-toast';
 
 const QuoteContext = createContext();
@@ -9,7 +9,7 @@ export const QuoteProvider = ({ children }) => {
   const [quoteItems, setQuoteItems] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // 🚀 BULLETPROOF HELPER: Har API call me token lagane ke liye
+  // 🚀 BULLETPROOF HELPER: For attaching the token to every API call
   const getAuthConfig = () => {
     const token = localStorage.getItem("token");
     return {

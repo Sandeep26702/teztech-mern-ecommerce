@@ -1,12 +1,12 @@
 import axios from 'axios';
 import { getApiUrl } from '../utils/api.js';
 
-// Ek professional central API instance banate hain
+// Create a professional central API instance
 const API = axios.create({
   baseURL: `${getApiUrl()}/orders`,
 });
 
-// Request Interceptor: Har request se pehle token check karega aur lagayega
+// Request Interceptor: Checks and attaches the token before every request
 API.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -18,15 +18,15 @@ API.interceptors.request.use((config) => {
 });
 
 /**
- * @description 1. User: Naya Order Place Karne ke liye
+ * @description 1. User: For placing a new order
  */
 export const placeNewOrder = async (orderData) => {
   try {
-    // 🔥 THE FIX: Check agar data FormData hai (matlab usme image hai)
+    // 🔥 THE FIX: Check if data is FormData (meaning it contains an image)
     const isFormData = orderData instanceof FormData;
 
     const { data } = await API.post('/create', orderData, {
-      // Agar image hai toh explicitly header set karo, warna blank chhod do
+      // If there is an image, set the header explicitly, otherwise leave it blank
       headers: isFormData ? { 'Content-Type': 'multipart/form-data' } : {}
     });
     return data;
@@ -37,7 +37,7 @@ export const placeNewOrder = async (orderData) => {
 };
 
 /**
- * @description 2. User: Sirf apne orders dekhne ke liye (My Orders Page)
+ * @description 2. User: For viewing only their own orders (My Orders Page)
  */
 export const getMyOrders = async () => {
   try {
@@ -49,7 +49,7 @@ export const getMyOrders = async () => {
 };
 
 /**
- * @description 3. Admin: Saare users ke orders dekhne ke liye
+ * @description 3. Admin: For viewing orders of all users
  */
 export const fetchAdminOrders = async () => {
   try {
@@ -61,7 +61,7 @@ export const fetchAdminOrders = async () => {
 };
 
 /**
- * @description 4. Admin/User: Kisi ek order ki detail nikalne ke liye
+ * @description 4. Admin/User: For retrieving details of a single order
  */
 export const getOrderById = async (orderId) => {
   try {
@@ -73,7 +73,7 @@ export const getOrderById = async (orderId) => {
 };
 
 /**
- * @description 5. Admin: Order ka status update karne ke liye (Shipped, Delivered etc.)
+ * @description 5. Admin: For updating order status (Shipped, Delivered, etc.)
  */
 export const updateAdminOrderStatus = async (orderId, statusData) => {
   try {

@@ -20,7 +20,7 @@ import {
   addClientQuoteComment
 } from '../controllers/quoteController.js';
 
-// 🛡️ Importing Auth Middlewares (Path check kar lena apne folder ke hisaab se)
+// 🛡️ Importing Auth Middlewares (Ensure the path is correct relative to this folder)
 import { protect, admin } from '../middleware/auth.Middleware.js'; 
 
 const router = express.Router();

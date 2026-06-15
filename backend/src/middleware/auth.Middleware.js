@@ -10,19 +10,19 @@ export const protect = async (req, res, next) => {
 
   // 🚀 DOUBLE GUARD FIX: Check both Header and Cookie
 
-  // Check 1: Headers mein check karega (Axios Interceptor wala)
+  // Check 1: Check Authorization Headers (Axios Interceptor)
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")
   ) {
     token = req.headers.authorization.split(" ")[1];
   } 
-  // Check 2: Agar header mein nahi mila, toh Cookies mein dhoondhega
+  // Check 2: If not found in headers, check incoming Cookies
   else if (req.cookies && req.cookies.token) {
     token = req.cookies.token;
   }
 
-  // Agar dono jagah token nahi mila
+  // If no token was found in either location
   if (!token) {
     return res.status(401).json({ success: false, message: "Not authorized, please login again" });
   }

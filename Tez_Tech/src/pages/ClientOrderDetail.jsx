@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaDownload, FaCheckCircle } from "react-icons/fa";
 import { getOrderById } from "../services/orderService"; 
 import TaxInvoice from "../admin/components/TaxInvoice";
+import Skeleton from "../components/skeletons/Skeleton";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -108,8 +109,20 @@ const ClientOrderDetail = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50">
-        <div className="w-10 h-10 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
+      <div className="min-h-screen pt-24 pb-16 bg-slate-50">
+        <div className="max-w-5xl px-4 mx-auto space-y-6">
+          <Skeleton className="h-8 w-48 rounded-lg" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-2 space-y-4">
+              <Skeleton className="h-40 w-full rounded-2xl" />
+              <Skeleton className="h-60 w-full rounded-2xl" />
+            </div>
+            <div className="space-y-4">
+              <Skeleton className="h-48 w-full rounded-2xl" />
+              <Skeleton className="h-32 w-full rounded-2xl" />
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -125,7 +138,7 @@ const ClientOrderDetail = () => {
     );
   }
 
-  // 🔥 THE FIX: Subtotal humesha Total me se shipping hata kar dikhayenge, taaki math exactly match ho customer ke liye.
+  // 🔥 THE FIX: Subtotal is calculated by subtracting shipping amount from total to ensure mathematical alignment.
   const displaySubtotal = (order.totalAmount || 0) - (order.shippingAmount || 0);
   const totalGstAmount = order.gstAmount || 0;
 
@@ -241,7 +254,7 @@ const ClientOrderDetail = () => {
               <div className="space-y-3 text-sm font-medium">
                 <div className="flex justify-between text-slate-600">
                   <span>Subtotal</span>
-                  {/* 🔥 Update yahan hai */}
+                  {/* 🔥 Subtotal update location */}
                   <span className="text-slate-900">{formatCurrency(displaySubtotal)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">

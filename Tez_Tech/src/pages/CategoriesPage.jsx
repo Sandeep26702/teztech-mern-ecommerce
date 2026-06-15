@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import { getApiUrl, optimizeCloudinaryUrl } from "../utils/api.js";
+import Skeleton from "../components/skeletons/Skeleton";
 
 const API_URL = getApiUrl();
 
@@ -10,7 +11,7 @@ const CategoriesPage = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // Naya State: Track karne ke liye ki hum kis folder ke andar hain
+  // New State: Track which folder we are currently in
   const [selectedPath, setSelectedPath] = useState([]); 
   const navigate = useNavigate();
 
@@ -30,13 +31,13 @@ const CategoriesPage = () => {
     loadCategories();
   }, []);
 
-  // Current parent nikalna (Agar path khali hai toh Level 1 par hain)
+  // Calculate current parent (If the path is empty, we are at Level 1)
   const currentParentId = selectedPath.length > 0 ? selectedPath[selectedPath.length - 1]._id : null;
 
   const displayCategories = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
     
-    // Agar kuch search ho raha hai, toh poori list me dhoondho (Flat Search)
+    // If searching, search the entire list (Flat Search)
     if (q) {
       return categories.filter((c) =>
         c.name?.toLowerCase().includes(q) || c.description?.toLowerCase().includes(q)
@@ -46,33 +47,33 @@ const CategoriesPage = () => {
     // Warna step-by-step (Drill-down) dikhao
     return categories.filter((c) => {
       const parentId = c.parentCategory?._id || c.parentCategory; // ObjectId ya populated string
-      if (!currentParentId) return !parentId; // Level 1 (Jiska koi baap nahi)
+      if (!currentParentId) return !parentId; // Level 1 (Root categories with no parent)
       return parentId === currentParentId; // Level 2 ya 3 (Jo selected parent ke bacche hain)
     });
   }, [categories, searchQuery, currentParentId]);
 
-  // Check karne ke liye ki is category ke aage sub-categories hain ya nahi
+  // Check if this category has sub-categories
   const hasChildren = (categoryId) => {
     return categories.some(c => (c.parentCategory?._id || c.parentCategory) === categoryId);
   };
 
   // Card Click Logic
   const handleCategoryClick = (category, e) => {
-    if (searchQuery) return; // Search mode me direct link kaam karega
+    if (searchQuery) return; // In search mode, direct links are active
     
     if (hasChildren(category._id)) {
-      e.preventDefault(); // Link ko dusre page par jaane se roko
+      e.preventDefault(); // Prevent navigating to another page if children exist
       setSelectedPath([...selectedPath, category]); // Andar wale folder me jao
     }
-    // Agar children nahi hain, toh Link default behave karega aur /category/:slug par le jayega
+    // If no children, default navigation will redirect to /category/:slug
   };
 
-  // Breadcrumb Click Logic (Peeche aane ke liye)
+  // Breadcrumb Click Logic (For going back)
   const handleBreadcrumbClick = (index) => {
     if (index === -1) {
-      setSelectedPath([]); // Wapas Home/Level 1 par
+      setSelectedPath([]); // Go back to Home/Level 1
     } else {
-      setSelectedPath(selectedPath.slice(0, index + 1)); // Kisi specific level par wapas
+      setSelectedPath(selectedPath.slice(0, index + 1)); // Go back to a specific level
     }
   };
 
@@ -87,7 +88,7 @@ const CategoriesPage = () => {
           Explore <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-cyan-500">Categories</span>
         </h1>
         <p className="max-w-2xl mx-auto text-lg text-gray-500">
-          Step-by-step products browse karein aur apni pasand ka design dhoondhein.
+          Browse products step-by-step and find your favorite design.
         </p>
       </div>
 
@@ -143,7 +144,15 @@ const CategoriesPage = () => {
       {/* ========================================== */}
       <div className="px-4 mt-8 w-full sm:px-8 lg:px-12">
         {loading ? (
-          <div className="py-16 text-center text-gray-500">Loading categories...</div>
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="flex flex-col items-center bg-white p-4 border border-gray-100 shadow-sm rounded-none w-full">
+                <Skeleton className="w-full aspect-square rounded-none mb-4" />
+                <Skeleton className="h-5 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ))}
+          </div>
         ) : displayCategories.length > 0 ? (
           <div className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5">
             {displayCategories.map((category) => {

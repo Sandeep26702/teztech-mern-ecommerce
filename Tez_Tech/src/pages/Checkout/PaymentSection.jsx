@@ -17,7 +17,7 @@ const PaymentSection = ({
   };
 
   return (
-    // 👇 Yahan se Main Dabba (Parent) shuru hota hai
+    // 👇 Main Parent Container Start
     <div className="p-6 bg-white border border-slate-100 rounded-[2rem] shadow-sm">
       <h2 className="mb-4 text-xl font-bold tracking-tight text-slate-900">Payment Information</h2>
       <p className="mb-6 text-sm text-slate-500">Choose your preferred payment method:</p>
@@ -131,7 +131,7 @@ const PaymentSection = ({
           ></textarea>
       </div>
     </div> 
-    // 👆 Yahan Main Dabba (Parent) band ho gaya
+    // 👆 Main Parent Container End
   );
 };
 

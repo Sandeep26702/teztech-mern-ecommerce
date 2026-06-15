@@ -134,10 +134,10 @@ const Home = () => {
             {slides.map((slide, index) => (
               <SwiperSlide key={index} className="relative w-full h-full">
 
-                {/* Media Render Hoga */}
+                {/* Render Media Slider Content */}
                 {renderSlideMedia(slide)}
 
-                {/* Dark Overlay Taki Text Padhne Mein Aaye */}
+                {/* Dark Overlay for better text readability */}
                 <div className="absolute top-0 left-0 w-full h-full bg-black/40 z-10 pointer-events-none"></div>
 
                 <div className="absolute inset-0 z-20 flex flex-col items-center justify-center px-4 text-center w-full pointer-events-none">

@@ -8,7 +8,7 @@ import {
     updateOrderStatus, 
     getOrderDetail,
     getMyOrders,
-    createAdminOrder, // 🟢 NAYA ADD KIYA: Admin Order Controller
+    createAdminOrder, // 🟢 NEW ADDED: Admin Order Controller
     editAdminOrder
 } from '../controllers/orderController.js';
 import { protect, authorize } from '../middleware/auth.Middleware.js'; 
@@ -19,7 +19,7 @@ const router = express.Router();
 // Apply traffic logger to all order routes
 router.use(trafficLogger);
 
-// ☁️ Cloudinary Configuration (Aapke .env variables ke hisaab se)
+// ☁️ Cloudinary Configuration (Using values from .env variables)
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
@@ -30,7 +30,7 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'teztech_payments', // Cloudinary me is naam ka folder ban jayega
+    folder: 'teztech_payments', // This folder will be created in Cloudinary
     allowed_formats: ['jpg', 'png', 'jpeg', 'webp'], // webp added for better support
   },
 });
@@ -38,7 +38,7 @@ const storage = new CloudinaryStorage({
 const upload = multer({ storage });
 
 // --- USER ROUTES ---
-// Frontend se 'paymentScreenshot' aayegi aur seedha Cloudinary par jayegi
+// Frontend sends 'paymentScreenshot' which is uploaded directly to Cloudinary
 router.post('/create', protect, upload.single('paymentScreenshot'), createOrder);
 
 router.get('/my-orders', protect, getMyOrders); 
@@ -48,10 +48,10 @@ router.get('/detail/:id', protect, getOrderDetail);
 router.get('/admin/all', protect, authorize("admin", "subadmin"), getAllOrdersForAdmin);
 router.put('/admin/update/:orderId', protect, authorize("admin", "subadmin"), updateOrderStatus);
 
-// 🟢 NAYA ROUTE: Admin Order Create karne ke liye (Secure with authorize)
+// 🟢 NEW ROUTE: For Admin Order Creation (Secured with authorization)
 router.post('/admin/create', protect, authorize("admin", "subadmin"), createAdminOrder);
 
-// 🟢 NAYA ROUTE: Admin Edit Order karne ke liye
+// 🟢 NEW ROUTE: For Admin Order Editing
 router.put('/admin/edit/:orderId', protect, authorize("admin", "subadmin"), editAdminOrder);
 
 export default router;

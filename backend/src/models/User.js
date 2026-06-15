@@ -59,7 +59,7 @@ const userSchema = new mongoose.Schema(
 );
 
 /* ================= MIDDLEWARE: Password Hashing ================= */
-// ⚡ Humne 'next' hata diya hai, Async/Await khud handle karega
+// ⚡ Removed 'next' callback, Async/Await handles completion automatically
 userSchema.pre("save", async function () {
   if (!this.isModified("password")) return;
 

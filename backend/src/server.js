@@ -2,7 +2,7 @@ import 'dotenv/config';
 import express from "express";
 import cors from "cors";
 import path from "path";
-import cookieParser from "cookie-parser"; // 🚀 NAYA: Cookie padhne ke liye tool
+import cookieParser from "cookie-parser"; // 🚀 NEW: Tool for parsing incoming cookies
 import connectDB from "./config/db.js";
 import seedAdmin from "./utils/seedAdmin.js";
 import compression from "compression";
@@ -76,10 +76,10 @@ app.use("/api", globalLimiter);
 
 app.use(express.json());
 
-// 🚀 NAYA: Backend ko sikhaya ki aane wali cookies ko kaise padhna hai
+// 🚀 NEW: Middleware to read and parse cookies in incoming requests
 app.use(cookieParser());
 
-// Uploads folder ko public banaya aur cache controls set kiya taaki browser media locally store kar sake
+// Make uploads folder public and set cache control so browsers cache media locally
 app.use(
   '/uploads',
   express.static(path.join(process.cwd(), 'uploads'), {

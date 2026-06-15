@@ -17,7 +17,7 @@ const cartItemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
-    // 🔥 YAHAN FIX KIYA HAI: Variations ko save karne ke liye nayi fields allow kar di hain 🔥
+    // 🔥 FIXED: Added new fields to support saving variations 🔥
     variant: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
@@ -37,7 +37,7 @@ const cartItemSchema = new mongoose.Schema(
   { _id: true }
 );
 
-// Agar future mein koi logic likhna ho, toh async hook aise likhein (bina next ke):
+// In the future, write any async hooks without using the next callback:
 // cartItemSchema.pre("save", async function () {
 //   // Custom logic here
 // });

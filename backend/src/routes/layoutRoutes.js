@@ -2,7 +2,7 @@ import express from "express";
 import { getHomeLayout, updateHomeLayout } from "../controllers/layoutController.js";
 import { protect, authorize } from "../middleware/auth.Middleware.js";
 
-// 🔥 Naya Cloudinary wala upload import kar rahe hain (path check kar lena)
+// 🔥 NEW: Importing the Cloudinary upload utility (verify the path)
 import upload from "../utils/upload.js"; 
 
 const router = express.Router();
@@ -19,7 +19,7 @@ router.get("/home", getHomeLayout);
  * @desc    Update home layout data
  * @access  Private (Admin/Subadmin only)
  */
-// 🔥 upload.any() laga diya taaki video aur sari images bina kisi limit ke Cloudinary chali jayein
+// 🔥 Enabled upload.any() so that video and all images upload directly to Cloudinary without limits
 router.put(
   "/home", 
   protect, 

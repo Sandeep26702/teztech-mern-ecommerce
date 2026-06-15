@@ -3,7 +3,7 @@ import { CloudinaryStorage } from 'multer-storage-cloudinary';
 import multer from 'multer';
 import dotenv from 'dotenv';
 
-// Load environment variables (.env file se API keys lene ke liye)
+// Load environment variables (to get API keys from .env file)
 dotenv.config();
 
 // 1. Cloudinary Credentials Setup
@@ -17,16 +17,16 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: {
-    folder: 'teztech_uploads', // Cloudinary mein is naam ka folder ban jayega
-    resource_type: 'auto', // 🔥 IMPORTANT: 'auto' isliye taaki Images aur Videos dono upload ho sakein
-    allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'mp4', 'webm'], // Video formats add kar diye
+    folder: 'teztech_uploads', // This folder will be created in Cloudinary
+    resource_type: 'auto', // 🔥 IMPORTANT: 'auto' so that both Images and Videos can be uploaded
+    allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'mp4', 'webm'], // Supported image and video formats
   },
 });
 
 // 3. Create Multer Instance
 const upload = multer({
   storage: storage,
-  limits: { fileSize: 1024 * 1024 * 50 }, // 🔥 Limit 50MB kar di hai taaki hero video upload ho sake
+  limits: { fileSize: 1024 * 1024 * 50 }, // 🔥 Set 50MB limit to allow uploading large hero videos
 });
 
 // ✅ MUST HAVE DEFAULT EXPORT (Jaisa aapne bataya tha)

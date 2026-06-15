@@ -21,10 +21,10 @@ const API_URL = getApiUrl();
 const api = axios.create({
   baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
-  withCredentials: true, // 🚀 VERY IMPORTANT: Live server pe third-party cookies ke liye
+  withCredentials: true, // 🚀 VERY IMPORTANT: Enable cookies for live server (third-party cookies)
 });
 
-// REQUEST INTERCEPTOR: Har API call me token khud lag jayega
+// REQUEST INTERCEPTOR: Automatically attaches token to every API call
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
@@ -58,7 +58,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const hasVerifiedRef = useRef(false);
 
-  // 1. VERIFY USER (Page refresh par login bachata hai)
+  // 1. VERIFY USER (Preserves login state on page refresh)
   useEffect(() => {
     if (hasVerifiedRef.current) return;
     hasVerifiedRef.current = true;
@@ -102,7 +102,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // 🚀 HELPER: Guest Cart ko Database me merge karna
+  // 🚀 HELPER: Merge guest cart into database
   const handleCartMerge = async (token) => {
     try {
       const storedCart = localStorage.getItem("guestCart");
@@ -157,7 +157,7 @@ export const AuthProvider = ({ children }) => {
         
         await handleCartMerge(res.data.token);
         
-        // Delay taaki local storage theek se save ho jaye
+        // Delay to allow localStorage to save properly
         setTimeout(() => {
           window.location.href = "/"; 
         }, 400);
@@ -196,7 +196,7 @@ export const AuthProvider = ({ children }) => {
         
         await handleCartMerge(res.data.token);
         
-        // Delay taaki local storage theek se save ho jaye
+        // Delay to allow localStorage to save properly
         setTimeout(() => {
             window.location.href = "/"; 
         }, 400);

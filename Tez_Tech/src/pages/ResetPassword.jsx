@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../utils/api"; // Axios instance with interceptors for seamless API calls and error handling
-import { FaKey } from "react-icons/fa"; // 🔑 Ek badhiya icon add kiya hai
+import { FaKey } from "react-icons/fa"; // 🔑 Added a key icon
 
 const ResetPassword = () => {
   const { token } = useParams();
@@ -61,7 +61,7 @@ const ResetPassword = () => {
     // 🌟 Premium Background Gradient
     <div className="flex items-center justify-center min-h-screen px-4 py-10 font-sans bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-white to-purple-50 sm:px-6 lg:px-8">
       
-      {/* 💳 Tadka Bhadka Card */}
+      {/* 💳 Visual Card Container */}
       <div className="w-full max-w-md p-8 bg-white border border-white shadow-2xl rounded-3xl sm:p-10 backdrop-blur-sm bg-opacity-90">
         
         {/* 🌟 Header Section */}

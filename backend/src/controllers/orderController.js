@@ -35,7 +35,7 @@ const getNextOrderNumber = async () => {
 
 const buildOrderCode = (orderNumber) => `TZ-${String(orderNumber).padStart(6, "0")}`;
 
-// 🛠️ UNIVERSAL PAYMENT FORMATTER (Frontend ko Database ke hisaab se theek karega)
+// 🛠️ UNIVERSAL PAYMENT FORMATTER (Aligns payment methods from frontend to match database values)
 const formatPaymentMethod = (method) => {
   if (!method) return "ONLINE";
   const pmUpper = method.toUpperCase();

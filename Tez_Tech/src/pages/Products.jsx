@@ -4,10 +4,11 @@ import axios from "axios";
 import { getApiUrl } from "../utils/api.js";
 import { getProducts } from "../services/productService";
 import ProductCard from "../components/common/ProductCard";
+import ProductCardSkeleton from "../components/skeletons/ProductCardSkeleton";
 
 const API_URL = getApiUrl();
 
-// Cache ko bahar rakha hai taaki performance achhi rahe
+// Keep cache external to ensure good performance
 const productsListCache = new Map();
 
 const Products = () => {
@@ -32,7 +33,7 @@ const Products = () => {
   const [loading, setLoading] = useState(true);
   const [breadcrumbPath, setBreadcrumbPath] = useState([]);
 
-  // Universal Filter Modal State (Ab ye Desktop + Mobile dono pe chalega)
+  // Universal Filter Modal State (Now works on both Desktop + Mobile)
   const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
 
   useEffect(() => {
@@ -182,7 +183,7 @@ const Products = () => {
 
   const activeCategoryLabel = slug ? categories.find((item) => item.slug === slug)?.name : selectedCategory;
 
-  // Jab modal open ho toh background scroll disable karne ke liye
+  // To disable background scroll when the modal is open
   useEffect(() => {
     if (isFilterModalOpen) {
       document.body.style.overflow = "hidden";
@@ -272,7 +273,7 @@ const Products = () => {
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
               </svg>
-              {/* Desktop par "Filters" likha hua aayega icon ke sath */}
+              {/* On Desktop, "Filters" text will appear along with the icon */}
               <span className="hidden ml-2 font-bold md:block">Filters</span>
             </button>
           </div>
@@ -337,12 +338,10 @@ const Products = () => {
       {/* 3. SCROLLABLE PRODUCTS GRID */}
       <div className="px-4 mt-8 sm:px-8 lg:px-12 w-full">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <svg className="w-10 h-10 mb-4 text-blue-600 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-            </svg>
-            <p className="font-medium text-gray-500">Loading products...</p>
+          <div className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <ProductCardSkeleton key={i} />
+            ))}
           </div>
         ) : products.length > 0 ? (
           <div className="grid grid-cols-2 gap-4 sm:gap-6 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5">

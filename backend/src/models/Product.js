@@ -262,7 +262,7 @@ productSchema.index({ name: "text", searchIndex: "text" });
 // 🔥 AUTO SLUG + SEARCH INDEX (ORDER CRASH FIX APPLIED)
 // ==========================
 productSchema.pre("save", async function () {
-  // Slug tabhi banega jab product naya ho ya naam update ho
+  // Generate slug only if the product is new or the name is updated
   if (this.isModified("name") && this.name) {
     this.slug = this.name
       .toLowerCase()
@@ -272,7 +272,7 @@ productSchema.pre("save", async function () {
 
   const tags = Array.isArray(this.searchTags) ? this.searchTags : [];
 
-  // .filter(Boolean) undefined errors ko rokega
+  // .filter(Boolean) prevents undefined errors
   this.searchIndex = [
     this.name,
     this.baseSku,
@@ -285,7 +285,7 @@ productSchema.pre("save", async function () {
     .toLowerCase();
 });
 
-// Nodemon auto-restart me model overwrite error se bachne ke liye
+// Prevent Mongoose Model Overwrite errors on Nodemon auto-restart
 const Product = mongoose.models.Product || mongoose.model("Product", productSchema);
 
 export default Product;

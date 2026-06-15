@@ -23,7 +23,7 @@ const requestedItemSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
-    // 👇🔥 ADDED: Ye dono fields lazmi hain variant/options capture karne ke liye
+    // 👇🔥 ADDED: These two fields are required to capture variants and attributes
     selectedVariant: {
       type: mongoose.Schema.Types.Mixed, 
       default: null,

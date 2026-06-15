@@ -486,15 +486,16 @@ const CustomDesignQuotation = () => {
                     {/* Thickness */}
                     <div>
                       <label className="block text-xs font-semibold text-slate-400 mb-1">Thickness (mm) *</label>
-                      <input
-                        type="number"
+                      <select
                         required
-                        min="1"
-                        placeholder=""
                         value={design.thickness}
                         onChange={(e) => handleDesignChange(index, "thickness", e.target.value)}
-                        className="w-full px-3 py-2 text-sm bg-slate-900/80 border border-slate-700 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:outline-none placeholder-slate-500 text-slate-100 transition"
-                      />
+                        className="w-full px-3 py-2 text-sm bg-slate-900/80 border border-slate-700 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:outline-none text-slate-100 transition cursor-pointer"
+                      >
+                        <option value="" disabled>Select Thickness</option>
+                        <option value="1.5">1.5 mm</option>
+                        <option value="2">2 mm</option>
+                      </select>
                     </div>
 
                     {/* Required Date */}

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-// 🔥 NAYA: FaShareAlt icon import kiya share button ke liye
+// 🔥 NEW: Imported FaShareAlt icon for the share button
 import { FaRegHeart, FaShareAlt } from "react-icons/fa"; 
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useCart } from "../context/CartContext";
 import { useQuote } from "../context/QuoteContext";
 import { getProductById } from "../services/productService";
-// 🔥 NAYA: Link copy hone par message dikhane ke liye
+// 🔥 NEW: For displaying a message when the link is copied
 import toast from 'react-hot-toast';
 import { optimizeCloudinaryUrl } from "../utils/api.js";
+import ProductDetailSkeleton from "../components/skeletons/ProductDetailSkeleton";
 
 const ProductDetail = () => {
   const { id } = useParams();
@@ -96,7 +97,7 @@ const ProductDetail = () => {
     setSearchParams(searchParams, { replace: true });
   };
 
-  // 🔥 NAYA: Share Functionality (Mobile me native share, PC me copy link)
+  // 🔥 NEW: Share Functionality (Native share on mobile, copy link on PC)
   const handleShare = async () => {
     const shareData = {
       title: product.name,
@@ -105,11 +106,11 @@ const ProductDetail = () => {
     };
 
     try {
-      // Agar browser Web Share API support karta hai (mostly mobiles)
+      // If the browser supports the Web Share API (mostly mobiles)
       if (navigator.share) {
         await navigator.share(shareData);
       } else {
-        // Agar PC/Laptop hai toh Link Copy kar do
+        // If on PC/Laptop, copy the link to the clipboard
         await navigator.clipboard.writeText(window.location.href);
         toast.success("Product link copied to clipboard!", {
           style: {
@@ -161,7 +162,7 @@ const ProductDetail = () => {
   const stock = selectedVariant?.stock ?? attributeStock ?? product?.stock ?? 0;
   const displaySku = selectedVariant?.sku || attributeSku || product?.baseSku || "N/A";
 
-  if (loading) return <div className="p-10 text-center">Loading...</div>;
+  if (loading) return <ProductDetailSkeleton />;
   if (!product) return <div className="p-10 text-center">Product not found</div>;
 
   return (
@@ -171,11 +172,11 @@ const ProductDetail = () => {
         
         {/* Left Side: Images */}
         <div>
-          {/* 🔥 NAYA: relative lagaya taaki share button top-right me fix rahe */}
+          {/* 🔥 NEW: Added relative position so that share button is fixed at top-right */}
           <div className="relative bg-[#f8f8f8] p-4 rounded-md group">
             <img src={optimizeCloudinaryUrl(images[activeImageIndex], 800)} alt={product.name} className="w-full object-contain max-h-[600px] mix-blend-multiply transition-transform duration-500 ease-in-out group-hover:scale-105" />
             
-            {/* 🔥 NAYA: Premium Animated Share Button */}
+            {/* 🔥 NEW: Premium Animated Share Button */}
             <button
               onClick={handleShare}
               title="Share this product"

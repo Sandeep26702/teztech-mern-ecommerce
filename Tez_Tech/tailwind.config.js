@@ -2,7 +2,7 @@
 export default {
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}", // Ye line sabse zaroori hai
+    "./src/**/*.{js,ts,jsx,tsx}", // This line is essential
   ],
   theme: {
     extend: {

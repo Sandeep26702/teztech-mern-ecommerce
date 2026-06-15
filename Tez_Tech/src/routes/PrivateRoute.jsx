@@ -5,23 +5,23 @@ const PrivateRoute = ({ allowedRoles }) => {
   const { user, loading, isAuthenticated } = useAuth();
   const location = useLocation();
 
-  // 1. Loading State: Jab tak user check ho raha hai, blank/loader dikhayein
+  // 1. Loading State: Show a loading indicator while user authentication is being verified
   if (loading) {
     return <div>Loading...</div>; 
   }
 
-  // 2. Authentication Check: Agar user login nahi hai
+  // 2. Authentication Check: If the user is not logged in
   if (!isAuthenticated) {
-    // User ko Login page pe bhejein, lekin yaad rakhein wo kahan jaana chahta tha
+    // Redirect the user to the Login page, but remember where they were trying to go
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // 3. Authorization Check: Agar role match nahi karta (e.g., User trying to access Admin Dashboard)
+  // 3. Authorization Check: If the user's role is not authorized (e.g., User trying to access Admin Dashboard)
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to="/" replace />; // Unauthorized users go to Home
   }
 
-  // 4. Access Granted: Child routes render karein
+  // 4. Access Granted: Render child routes
   return <Outlet />;
 };
 

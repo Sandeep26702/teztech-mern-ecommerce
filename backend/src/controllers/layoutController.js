@@ -15,15 +15,15 @@ export const getHomeLayout = async (req, res) => {
 
     let layout = await HomeLayout.findOne();
 
-    // Agar database khali hai, toh ek Default Slider aur Cards bhejenge
+    // If database is empty, return a default slider and default feature cards
     if (!layout) {
       layout = {
         heroSlides: [
           {
             mediaType: "image",
             sourceType: "upload",
-            mediaUrl: "", // Admin aakar update karega
-            mobileMediaUrl: "", // Mobile ke liye
+            mediaUrl: "", // Admin will update this later
+            mobileMediaUrl: "", // For mobile
             title: "",
             subtitle: "",
           }
@@ -65,7 +65,7 @@ export const getHomeLayout = async (req, res) => {
  */
 export const updateHomeLayout = async (req, res) => {
   try {
-    // Ab frontend se heroSlides array aur featureCards array JSON string banke aayegi
+    // Frontend will send heroSlides and featureCards arrays serialized as JSON strings
     const { heroSlides, featureCards } = req.body;
     let layout = await HomeLayout.findOne();
 
@@ -73,7 +73,7 @@ export const updateHomeLayout = async (req, res) => {
       layout = new HomeLayout();
     }
 
-    // 1. JSON Strings ko wapas Arrays mein convert karna
+    // 1. Parse JSON strings back into arrays
     let parsedSlides = [];
     let parsedCards = [];
 
@@ -84,7 +84,7 @@ export const updateHomeLayout = async (req, res) => {
       return res.status(400).json({ message: "Invalid data format sent from frontend" });
     }
 
-    // Cloudinary se upload hui files yahan milengi
+    // Files uploaded to Cloudinary will be available in req.files
     const files = req.files || [];
 
     // ==========================================
@@ -93,7 +93,7 @@ export const updateHomeLayout = async (req, res) => {
     for (let i = 0; i < parsedSlides.length; i++) {
       const slide = parsedSlides[i];
 
-      // Agar admin ne PC se file "upload" ki hai
+      // If the admin uploaded a file from their local computer
       if (slide.sourceType === "upload") {
         // Desktop File
         const desktopFieldName = `slide_${i}_file`; 
@@ -113,7 +113,7 @@ export const updateHomeLayout = async (req, res) => {
           slide.mobileMediaUrl = slide.existingMobileUrl || slide.mobileMediaUrl || "";
         }
       } 
-      // Agar admin ne "link" select kiya hai
+      // If the admin selected external link option
       else if (slide.sourceType === "link") {
         slide.mediaUrl = slide.mediaUrl || "";
         slide.mobileMediaUrl = slide.mobileMediaUrl || "";
@@ -130,7 +130,7 @@ export const updateHomeLayout = async (req, res) => {
       if (uploadedImage) {
         parsedCards[i].image = uploadedImage.path; // Naya Cloudinary URL
       } else {
-        // Agar image badli nahi, toh purani retain karo
+        // If the image did not change, retain the existing one
         parsedCards[i].image = parsedCards[i].existingImage || parsedCards[i].image || "";
       }
     }

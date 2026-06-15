@@ -139,7 +139,7 @@ const Header = () => {
       <div className="px-4 w-full sm:px-8 lg:px-12">
         <div className="flex items-center justify-between h-16">
           
-          {/* Brand Logo - UPDATE KIYA GAYA HISSA */}
+          {/* Brand Logo - Updated Section */}
           <div className="flex items-center flex-shrink-0">
             <Link to="/" className="flex items-center gap-2 group">
               <img 

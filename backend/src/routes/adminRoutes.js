@@ -18,7 +18,7 @@ import {
 // Quote Controller Imports
 import { getQuoteById, respondToQuote } from "../controllers/quoteController.js";
 
-// 🔥 NAYA FIX: getOrderDetail ko yahan add kiya hai
+// Order Controller Imports
 import { 
   getAllOrdersForAdmin, 
   updateOrderStatus, 
@@ -35,10 +35,10 @@ import {
 const router = express.Router();
 
 /* ================= MIDDLEWARE ================= */
-// Sabhi routes ke liye Login zaroori hai
+// Login is required for all routes
 router.use(protect); 
 
-// Sabhi routes ke liye Admin ya Sub-admin hona zaroori hai
+// Must be an Admin or Sub-admin to access these routes
 router.use(authorize("admin", "subadmin")); 
 
 /* ================= ROUTES ================= */
@@ -49,7 +49,7 @@ router.get("/dashboard-stats", getDashboardStats);
 // 📦 Order Management Routes 
 router.get("/orders", getAllOrdersForAdmin); 
 
-// 🔥 NAYA FIX: Single order detail fetch karne ka route (404 Error yahan se theek hoga)
+// 🔥 NEW FIX: Endpoint to fetch details of a single order (resolves 404 error)
 router.get("/orders/:id", getOrderDetail); 
 
 router.put("/orders/:orderId/status", updateOrderStatus); 

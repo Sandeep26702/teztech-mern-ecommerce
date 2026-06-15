@@ -90,7 +90,7 @@ const ProfilePage = () => {
 
           <main className="p-6 bg-white border border-gray-100 shadow-sm rounded-xl">
             <h1 className="mb-1 text-xl font-bold text-gray-900">Profile Information</h1>
-            <p className="mb-6 text-sm text-gray-500">Data refresh ke baad bhi yahi se load hoga.</p>
+            <p className="mb-6 text-sm text-gray-500">Your profile data will load here even after a refresh.</p>
 
             {message && <p className="p-3 mb-5 text-sm rounded-lg bg-gray-50 text-gray-700">{message}</p>}
 

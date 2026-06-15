@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 
 // ==========================================
-// 1. Naya Slide Schema (Har ek slider item ke liye)
+// 1. Slide Schema (For each slider item)
 // ==========================================
 const slideSchema = new mongoose.Schema({
   mediaType: { 
@@ -12,13 +12,13 @@ const slideSchema = new mongoose.Schema({
   },
   sourceType: { 
     type: String, 
-    enum: ['upload', 'link'], // 'upload' matlab Cloudinary, 'link' matlab YouTube/External
+    enum: ['upload', 'link'], // 'upload' means Cloudinary, 'link' means YouTube/External
     required: true,
     default: 'upload'
   },
   mediaUrl: { 
     type: String, 
-    required: true // Cloudinary URL ya YouTube/External Link yahan save hoga (Desktop)
+    required: true // Cloudinary URL or YouTube/External Link will be saved here (Desktop)
   },
   mobileMediaUrl: {
     type: String,
@@ -26,11 +26,11 @@ const slideSchema = new mongoose.Schema({
   },
   title: { 
     type: String, 
-    default: "" // Admin aakar update karega, shuru mein blank rakhte hain taaki frontend pe placeholder dikh sake
+    default: "" // Saved as empty initially, Admin will update it later
   },
   subtitle: { 
     type: String, 
-    default: "" // Admin aakar update karega, shuru mein blank rakhte hain taaki frontend pe placeholder dikh sake  
+    default: "" // Saved as empty initially, Admin will update it later
   }
 });
 // ==========================================
@@ -39,7 +39,7 @@ const slideSchema = new mongoose.Schema({
 const featureCardSchema = new mongoose.Schema({
   image: {
     type: String, // Cloudinary URL
-    default: "", // begin mein blank rakhte hain, admin aakar update karega
+    default: "", // Saved as empty initially, Admin will update it later
   },
   title: {
     type: String,
@@ -56,12 +56,12 @@ const featureCardSchema = new mongoose.Schema({
 // ==========================================
 const homeLayoutSchema = new mongoose.Schema(
   {
-    // Hero Section ab ek Array (Slider) ban gaya hai
+    // Hero Section is now an Array (Slider)
     heroSlides: {
       type: [slideSchema],
       validate: {
         validator: function (v) {
-          return v.length <= 5; // Slider mein max 5 items rakh sakte hain taaki page load fast rahe
+          return v.length <= 5; // Maximum of 5 items allowed in slider for page loading performance
         },
         message: "You can only have up to 5 slides in the hero section.",
       },
@@ -81,7 +81,7 @@ const homeLayoutSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Mongoose overwrite error se bachne ke liye `mongoose.models` check lagaya hai
+// Prevent Mongoose Model Overwrite errors by checking if model exists
 const HomeLayout = mongoose.models.HomeLayout || mongoose.model("HomeLayout", homeLayoutSchema);
 
 export default HomeLayout;

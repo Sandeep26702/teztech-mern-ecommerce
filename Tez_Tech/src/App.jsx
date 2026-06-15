@@ -130,12 +130,12 @@ function App() {
 
               <Route path="products" element={<AdminProducts />} />
               <Route path="products/csv-management" element={<AdminProductCsvManagement />} />
-              {/* 🔥 NAYI ROUTE ADD KI GAYI HAI 👇 */}
+              {/* 🔥 NEW ROUTE ADDED 👇 */}
               <Route path="products/add" element={<AddProductManually />} />
               <Route path="products/edit/:id" element={<AddProductManually />} />
               <Route path="categories" element={<AdminCategoryManagement />} />
 
-              {/* ✅ ORDER ROUTES: 'create' hamesha ':id' se upar hona chahiye */}
+              {/* ✅ ORDER ROUTES: 'create' must always be above ':id' */}
               <Route path="orders" element={<AdminOrders />} />
               <Route path="orders/create" element={<AdminCreateOrder />} />
               <Route path="orders/edit/:id" element={<AdminEditOrder />} />

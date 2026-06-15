@@ -18,7 +18,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  // 🚀 Ise ON kar diya hai taaki Live Server (Render) token accept kar sake
+  // 🚀 Enabled so that Live Server (Render) can accept the credentials/token
   withCredentials: true 
 });
 
@@ -27,7 +27,7 @@ const api = axios.create({
 // ==========================================
 api.interceptors.request.use(
   (config) => {
-    // LocalStorage se token nikal kar har request me bhejenge (Double Security)
+    // Retrieve token from LocalStorage and send it in each request (Double Security)
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -44,17 +44,17 @@ api.interceptors.request.use(
 // ==========================================
 api.interceptors.response.use(
   (response) => {
-    // Agar response sahi hai, toh use aage bhej do
+    // If the response is valid, forward it
     return response;
   },
   (error) => {
-    // Agar Backend se "401 Unauthorized" (token expire/invalid) aaye
+    // If Backend returns "401 Unauthorized" (token expired/invalid)
     if (error.response?.status === 401) {
       console.warn("Session Expired or Invalid Token. Logging out...");
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       
-      // User ko login page par dhakel dein
+      // Redirect the user to the login page
       window.location.href = '/login'; 
     }
     return Promise.reject(error);

@@ -21,7 +21,7 @@ const EditProfileModal = ({ user, onClose, onUpdate }) => {
 
     try {
       const res = await updateProfile(form);
-      onUpdate(res.data); // parent ko updated user bhejna
+      onUpdate(res.data); // send the updated user to the parent component
       onClose();
     } catch (err) {
       alert(err.response?.data?.message || "Update failed");

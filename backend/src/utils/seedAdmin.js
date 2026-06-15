@@ -2,11 +2,11 @@ import User from "../models/User.js";
 
 const seedAdmin = async () => {
   try {
-    // .env se sahi naam waale variables uthao
+    // Fetch the correct admin credential variables from .env
     const adminEmail = process.env.SUPER_ADMIN_EMAIL;
     const adminPassword = process.env.SUPER_ADMIN_PASSWORD;
 
-    // Check agar wo specific email wala admin pehle se hai
+    // Check if the admin account with the specified email already exists
     const adminExists = await User.findOne({ email: adminEmail });
     
     if (adminExists) {
@@ -14,7 +14,7 @@ const seedAdmin = async () => {
       return;
     }
 
-    // Naya Admin Create Karein (Hashing Model ka pre-save hook handle karega)
+    // Create the new Admin (Password hashing is handled by the model pre-save hook)
     await User.create({
       name: "Super Admin",
       email: adminEmail,
