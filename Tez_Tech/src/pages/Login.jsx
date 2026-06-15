@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { motion } from "framer-motion";
-import { Mail, Lock, Sparkles, ShieldCheck, Zap, ArrowRight, Loader2 } from "lucide-react";
+import { Mail, Lock, Sparkles, ShieldCheck, Zap, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 
 const Login = () => {
@@ -16,6 +16,7 @@ const Login = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   /* ================= AUTO REDIRECT ================= */
   useEffect(() => {
@@ -153,7 +154,23 @@ const Login = () => {
                 <InputGroup disabled={loading} label="Email Address" name="email" type="email" value={formData.email} onChange={handleChange} />
                 
                 <div className="space-y-2">
-                  <InputGroup disabled={loading} label="Password" name="password" type="password" value={formData.password} onChange={handleChange} />
+                  <InputGroup 
+                    disabled={loading} 
+                    label="Password" 
+                    name="password" 
+                    type={showPassword ? "text" : "password"} 
+                    value={formData.password} 
+                    onChange={handleChange} 
+                    rightElement={
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200 focus:outline-none"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    }
+                  />
                   <div className="flex justify-end">
                     <Link to="/forgot-password" className="text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors">
                       Forgot Password?
@@ -219,8 +236,8 @@ const FeatureItem = ({ icon, title, desc }) => (
 );
 
 // Glassmorphism Input Group
-const InputGroup = ({ label, disabled, ...props }) => (
-  <div className="relative group">
+const InputGroup = ({ label, disabled, rightElement, ...props }) => (
+  <div className="relative group flex items-center">
     <input
       {...props}
       disabled={disabled}
@@ -230,7 +247,7 @@ const InputGroup = ({ label, disabled, ...props }) => (
         ${disabled 
           ? 'bg-gray-100 dark:bg-slate-800/30 border-gray-200 dark:border-slate-700/30 text-gray-500 dark:text-slate-500 cursor-not-allowed' 
           : 'bg-white/60 dark:bg-slate-900/50 border border-gray-300 dark:border-slate-700/50 text-gray-900 dark:text-white focus:border-blue-500 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800/80 hover:border-gray-400 dark:hover:border-slate-600/80'
-        }`}
+        } ${rightElement ? 'pr-12' : ''}`}
     />
     <label className={`absolute z-20 left-4 transition-all duration-300 pointer-events-none origin-[0]
       top-1/2 -translate-y-1/2 text-sm font-medium
@@ -239,6 +256,11 @@ const InputGroup = ({ label, disabled, ...props }) => (
       ${disabled ? 'text-gray-400 dark:text-slate-600' : 'text-gray-500 dark:text-slate-400 peer-focus:text-blue-600 dark:peer-focus:text-blue-400'}`}>
       {label}
     </label>
+    {rightElement && (
+      <div className="absolute right-4 z-20 flex items-center cursor-pointer select-none">
+        {rightElement}
+      </div>
+    )}
   </div>
 );
 

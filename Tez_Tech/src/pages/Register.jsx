@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { motion } from "framer-motion";
-import { User, Mail, Phone, Lock, Sparkles, ShieldCheck, Zap, ArrowRight, Loader2 } from "lucide-react";
+import { User, Mail, Phone, Lock, Sparkles, ShieldCheck, Zap, ArrowRight, Loader2, Eye, EyeOff } from "lucide-react";
 import toast from "react-hot-toast";
 
 const Register = () => {
@@ -19,6 +19,8 @@ const Register = () => {
   });
 
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -131,8 +133,40 @@ const Register = () => {
                 <InputGroup disabled={loading} label="Mobile Number" name="phone" type="tel" value={formData.phone} onChange={handleChange} />
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <InputGroup disabled={loading} label="Password" name="password" type="password" value={formData.password} onChange={handleChange} />
-                  <InputGroup disabled={loading} label="Confirm Password" name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} />
+                  <InputGroup 
+                    disabled={loading} 
+                    label="Password" 
+                    name="password" 
+                    type={showPassword ? "text" : "password"} 
+                    value={formData.password} 
+                    onChange={handleChange} 
+                    rightElement={
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200 focus:outline-none"
+                      >
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    }
+                  />
+                  <InputGroup 
+                    disabled={loading} 
+                    label="Confirm Password" 
+                    name="confirmPassword" 
+                    type={showConfirmPassword ? "text" : "password"} 
+                    value={formData.confirmPassword} 
+                    onChange={handleChange} 
+                    rightElement={
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200 focus:outline-none"
+                      >
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    }
+                  />
                 </div>
 
                 <motion.button
@@ -193,8 +227,8 @@ const FeatureItem = ({ icon, title, desc }) => (
 );
 
 // Glassmorphism Input Group
-const InputGroup = ({ label, disabled, ...props }) => (
-  <div className="relative group">
+const InputGroup = ({ label, disabled, rightElement, ...props }) => (
+  <div className="relative group flex items-center">
     <input
       {...props}
       disabled={disabled}
@@ -204,7 +238,7 @@ const InputGroup = ({ label, disabled, ...props }) => (
         ${disabled 
           ? 'bg-gray-100 dark:bg-slate-800/30 border-gray-200 dark:border-slate-700/30 text-gray-500 dark:text-slate-500 cursor-not-allowed' 
           : 'bg-white/60 dark:bg-slate-900/50 border border-gray-300 dark:border-slate-700/50 text-gray-900 dark:text-white focus:border-purple-500 dark:focus:border-purple-500 focus:bg-white dark:focus:bg-slate-800/80 hover:border-gray-400 dark:hover:border-slate-600/80'
-        }`}
+        } ${rightElement ? 'pr-12' : ''}`}
     />
     <label className={`absolute z-20 left-4 transition-all duration-300 pointer-events-none origin-[0]
       top-1/2 -translate-y-1/2 text-sm font-medium
@@ -213,6 +247,11 @@ const InputGroup = ({ label, disabled, ...props }) => (
       ${disabled ? 'text-gray-400 dark:text-slate-600' : 'text-gray-500 dark:text-slate-400 peer-focus:text-purple-600 dark:peer-focus:text-purple-400'}`}>
       {label}
     </label>
+    {rightElement && (
+      <div className="absolute right-4 z-20 flex items-center cursor-pointer select-none">
+        {rightElement}
+      </div>
+    )}
   </div>
 );
 
