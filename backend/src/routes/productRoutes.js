@@ -16,7 +16,8 @@ import {
   deleteImportHistory,
   importProductsCsv,
   exportProductsCsv,
-  toggleVisibility
+  toggleVisibility,
+  clearCatalog
 } from "../controllers/productController.js";
 
 import { protect, authorize } from "../middleware/auth.Middleware.js";
@@ -30,7 +31,7 @@ const router = express.Router();
 router.use(trafficLogger);
 
 // ===============================
-// 🔥 MULTER (CSV)
+// 📋 PRODUCT/CSV ROUTES
 // ===============================
 const csvUpload = multer({
   storage: multer.memoryStorage(),
@@ -53,6 +54,7 @@ router.get("/import/csv/history", protect, authorize("admin"), getImportHistory)
 
 router.delete("/import/csv/history/:id", protect, authorize("admin"), rollbackImport);
 router.delete("/import/csv/history/:id/record", protect, authorize("admin"), deleteImportHistory);
+router.delete("/admin-clear-all", protect, authorize("admin"), clearCatalog);
 
 // ===============================
 // 📦 PRODUCT CRUD

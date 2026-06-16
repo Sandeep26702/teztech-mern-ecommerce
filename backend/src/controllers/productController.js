@@ -1061,3 +1061,16 @@ export const deleteImportHistory = async (req, res) => {
     res.status(500).json({ success: false, message: "History deletion failed." });
   }
 };
+
+export const clearCatalog = async (req, res) => {
+  try {
+    await Product.deleteMany({});
+    await Category.deleteMany({});
+    await ProductImportJob.deleteMany({});
+    clearProductsCache();
+    res.json({ success: true, message: "Catalog cleared successfully! All products, categories, and import jobs have been deleted." });
+  } catch (err) {
+    console.error("Clear Catalog Error:", err);
+    res.status(500).json({ success: false, message: "Failed to clear catalog: " + err.message });
+  }
+};
