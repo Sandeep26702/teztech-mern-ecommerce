@@ -32,6 +32,8 @@ const WaterDroplet = ({ x, y, tx, ty, colorClass }) => {
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { isAuthenticated, logout, user } = useAuth();
+  
+  const isStaff = ["admin", "subadmin", "sales team", "designer", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"].includes(user?.role?.toLowerCase());
   const { clearQuote } = useQuote(); 
   
   const { cartItems } = useCart();
@@ -247,7 +249,7 @@ const Header = () => {
               })}
             </div>
 
-            {(user?.role === "admin" || user?.role === "subadmin") && (
+            {isStaff && (
               <Link to="/admin/dashboard" className="px-3 py-1.5 text-xs font-bold text-cyan-800 bg-cyan-100 rounded-full hover:bg-cyan-200 transition-colors ml-4 uppercase tracking-wide">
                 Admin Panel
               </Link>
@@ -283,6 +285,9 @@ const Header = () => {
 
                     <div className="absolute right-0 z-50 invisible w-56 pt-3 transition-all duration-300 opacity-0 group-hover:visible group-hover:opacity-100">
                       <div className="py-2 overflow-hidden bg-white border border-gray-100 shadow-xl rounded-xl">
+                        {isStaff && (
+                          <Link to="/admin/dashboard" className="flex items-center gap-3 px-5 py-3 text-sm font-bold text-cyan-700 bg-cyan-50/50 hover:bg-cyan-50">Admin Panel</Link>
+                        )}
                         <Link to="/profile" className="flex items-center gap-3 px-5 py-3 text-sm font-medium text-gray-700 hover:bg-cyan-50 hover:text-cyan-600">My Profile</Link>
                         <Link to="/orders" className="flex items-center gap-3 px-5 py-3 text-sm font-medium text-gray-700 hover:bg-cyan-50 hover:text-cyan-600">My Orders</Link>
                         <hr className="my-1 border-gray-100" />
@@ -390,7 +395,7 @@ const Header = () => {
             );
           })}
 
-          {(user?.role === "admin" || user?.role === "subadmin") && (
+          {isStaff && (
             <Link to="/admin/dashboard" onClick={toggleMenu} className="block px-5 py-4 mt-4 font-bold text-center text-white uppercase bg-gradient-to-r from-cyan-600 to-blue-600 rounded-2xl">
               Admin Panel ✨
             </Link>

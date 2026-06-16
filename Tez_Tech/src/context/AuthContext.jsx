@@ -159,7 +159,8 @@ export const AuthProvider = ({ children }) => {
         
         // Delay to allow localStorage to save properly
         setTimeout(() => {
-          window.location.href = "/"; 
+          const isStaff = ["admin", "subadmin", "sales team", "designer", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"].includes(res.data.user.role?.toLowerCase());
+          window.location.href = isStaff ? "/admin/dashboard" : "/"; 
         }, 400);
 
         return { success: true };
@@ -198,7 +199,8 @@ export const AuthProvider = ({ children }) => {
         
         // Delay to allow localStorage to save properly
         setTimeout(() => {
-            window.location.href = "/"; 
+            const isStaff = ["admin", "subadmin", "sales team", "designer", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"].includes(res.data.user.role?.toLowerCase());
+            window.location.href = isStaff ? "/admin/dashboard" : "/"; 
         }, 400);
 
         return { success: true };

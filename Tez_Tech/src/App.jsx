@@ -213,7 +213,7 @@ function App() {
             {/* =====================================================================
                 👤 LOGGED-IN USER ROUTES (Protected but with Header/Footer)
             ====================================================================== */}
-            <Route element={<PrivateRoute allowedRoles={['user', 'admin', 'subadmin']} />}>
+            <Route element={<PrivateRoute allowedRoles={['user', 'admin', 'subadmin', 'sales team', 'designer', 'manufacturing', 'purchase', 'packing', 'dispatch', 'feedback tracking', 'accounting', 'marketing']} />}>
               <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/order-success" element={<OrderSuccess />} />
               <Route path="/dashboard" element={<Dashboard />} />

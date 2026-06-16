@@ -26,7 +26,8 @@ const Login = () => {
       if (from) {
         navigate(from, { replace: true });
       } else {
-        if (user.role === "admin" || user.role === "subadmin") {
+        const isStaff = ["admin", "subadmin", "sales team", "designer", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"].includes(user.role?.toLowerCase());
+        if (isStaff) {
           navigate("/admin/dashboard", { replace: true });
         } else {
           navigate("/", { replace: true });
