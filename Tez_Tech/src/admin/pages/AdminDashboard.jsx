@@ -6,6 +6,8 @@ import {
   FaTruck, FaCheckDouble, FaExclamationCircle,
   FaUserAlt, FaClipboardList, FaEye
 } from "react-icons/fa";
+import { useAuth } from "../../context/AuthContext";
+import api from "../../utils/api";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -15,6 +17,9 @@ const formatCurrency = (amount) =>
   }).format(Number(amount || 0));
 
 const AdminDashboard = () => {
+  const { user } = useAuth();
+  const userRole = user?.role?.toLowerCase() || "";
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [revenueTab, setRevenueTab] = useState("today");
@@ -30,29 +35,60 @@ const AdminDashboard = () => {
     recentOrders: [], // 👈 Recent orders state
   });
 
+  const [designerStats, setDesignerStats] = useState({
+    pendingQuotes: 0,
+    respondedQuotes: 0,
+    acceptedQuotes: 0,
+    assignedToMe: 0,
+    recentDesigns: [],
+  });
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem("token");
-        const config = { headers: { Authorization: `Bearer ${token}` } };
+        if (userRole === "designer") {
+          // Designer fetches all custom quotes
+          const res = await api.get("/custom-quote/all");
+          if (res.data.success) {
+            const quotes = res.data.quotes || [];
+            const pending = quotes.filter(q => q.status === "Pending").length;
+            const responded = quotes.filter(q => q.status === "Responded" || q.status === "Offered" || q.status === "Updated").length;
+            const accepted = quotes.filter(q => q.status === "Accepted").length;
+            const assigned = quotes.filter(q => {
+              const assigneeId = q.assignedTo?._id || q.assignedTo || "";
+              return String(assigneeId) === String(user?._id || "");
+            }).length;
 
-        const res = await axios.get("https://sonani-backend.onrender.com/api/admin/dashboard-stats", config);
-        
-        if (res.data.success) {
-          setStats(res.data.stats);
-          setError("");
+            setDesignerStats({
+              pendingQuotes: pending,
+              respondedQuotes: responded,
+              acceptedQuotes: accepted,
+              assignedToMe: assigned,
+              recentDesigns: quotes.slice(0, 5),
+            });
+            setError("");
+          }
+        } else {
+          // Admins, subadmins, and sales team fetch general store stats
+          const res = await api.get("/admin/dashboard-stats");
+          if (res.data.success) {
+            setStats(res.data.stats);
+            setError("");
+          }
         }
       } catch (err) {
         console.error("Dashboard Stats Error:", err);
-        setError("Unable to fetch real data from backend. Please check your API.");
+        setError("Unable to fetch dashboard data. Please try again later.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDashboardData();
-  }, []);
+    if (userRole) {
+      fetchDashboardData();
+    }
+  }, [userRole, user?._id]);
 
   if (loading) {
     return (
@@ -62,6 +98,134 @@ const AdminDashboard = () => {
     );
   }
 
+  // ==========================================
+  // 🎨 DESIGNER WORKSPACE DASHBOARD RENDER
+  // ==========================================
+  if (userRole === "designer") {
+    return (
+      <div className="min-h-screen px-4 py-8 font-sans sm:px-8 lg:px-12 w-full sm:py-10 bg-slate-50">
+        <div className="mb-8">
+          <h2 className="text-2xl font-black tracking-tight sm:text-3xl text-slate-900">Designer Workspace</h2>
+          <p className="mt-1 text-sm text-slate-500">Manage custom design quotations and respond with offers.</p>
+        </div>
+
+        {error && (
+          <div className="p-4 mb-6 border-l-4 border-red-500 rounded-lg bg-red-50">
+            <p className="text-sm font-bold text-red-700">{error}</p>
+          </div>
+        )}
+
+        {/* STATS CARDS */}
+        <div className="grid grid-cols-1 gap-4 mb-8 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="flex items-center gap-4 p-5 bg-white border border-slate-200 shadow-sm rounded-2xl">
+            <div className="flex items-center justify-center w-12 h-12 text-yellow-600 bg-yellow-50 rounded-xl">
+              <FaClipboardList className="text-xl" />
+            </div>
+            <div>
+              <p className="text-xs font-bold tracking-wider uppercase text-slate-500">Pending Designs</p>
+              <h4 className="text-2xl font-black text-slate-900">{designerStats.pendingQuotes}</h4>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 p-5 bg-white border border-slate-200 shadow-sm rounded-2xl">
+            <div className="flex items-center justify-center w-12 h-12 text-blue-600 bg-blue-50 rounded-xl">
+              <FaEye className="text-xl" />
+            </div>
+            <div>
+              <p className="text-xs font-bold tracking-wider uppercase text-slate-500">Responded</p>
+              <h4 className="text-2xl font-black text-slate-900">{designerStats.respondedQuotes}</h4>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 p-5 bg-white border border-slate-200 shadow-sm rounded-2xl">
+            <div className="flex items-center justify-center w-12 h-12 text-emerald-600 bg-emerald-50 rounded-xl">
+              <FaCheckDouble className="text-xl" />
+            </div>
+            <div>
+              <p className="text-xs font-bold tracking-wider uppercase text-slate-500">Accepted</p>
+              <h4 className="text-2xl font-black text-slate-900">{designerStats.acceptedQuotes}</h4>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 p-5 bg-white border border-slate-200 shadow-sm rounded-2xl">
+            <div className="flex items-center justify-center w-12 h-12 text-indigo-600 bg-indigo-50 rounded-xl">
+              <FaUserAlt className="text-xl" />
+            </div>
+            <div>
+              <p className="text-xs font-bold tracking-wider uppercase text-slate-500">Assigned To Me</p>
+              <h4 className="text-2xl font-black text-slate-900">{designerStats.assignedToMe}</h4>
+            </div>
+          </div>
+        </div>
+
+        {/* RECENT CUSTOM DESIGN REQUESTS */}
+        <div className="flex flex-col overflow-hidden bg-white border border-slate-200 shadow-sm rounded-2xl">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-slate-100 bg-slate-50/50">
+            <div>
+              <h3 className="text-lg font-bold text-slate-900">Recent Custom Design Requests</h3>
+              <p className="mt-1 text-xs text-slate-500">Latest custom drawings and specifications.</p>
+            </div>
+            <button 
+              onClick={() => navigate('/admin/quotes')} 
+              className="px-4 py-2 text-xs font-bold text-blue-600 transition-colors rounded-lg bg-blue-50 hover:bg-blue-100"
+            >
+              Manage All
+            </button>
+          </div>
+          
+          <div className="divide-y divide-slate-100">
+            {designerStats.recentDesigns.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-12 text-center">
+                <FaClipboardList className="mb-3 text-4xl text-slate-300" />
+                <p className="font-medium text-slate-500">No custom design requests found.</p>
+              </div>
+            ) : (
+              designerStats.recentDesigns.map((quote) => (
+                <div key={quote._id} className="flex flex-col justify-between gap-4 p-4 transition-colors sm:flex-row sm:items-center sm:px-6 hover:bg-slate-50/50 group animate-fadeIn">
+                  <div className="flex-1">
+                    <p className="text-sm font-black text-slate-900">
+                      {quote.quoteNumber || `#${quote._id.slice(-6)}`}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500 font-semibold">
+                      Created {new Date(quote.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center flex-1 gap-2 text-sm font-bold text-slate-700">
+                    <span className="truncate">{quote.userDetails?.name || "Client"}</span>
+                  </div>
+
+                  <div className="flex items-center flex-1 gap-2 text-xs text-slate-505 font-semibold">
+                    <span>{quote.designs?.length || 0} Design(s)</span>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-4 sm:justify-end">
+                    <span className={`px-2.5 py-1 text-[10px] font-extrabold rounded-full uppercase ${
+                      quote.status === "Pending" ? "bg-yellow-100 text-yellow-800" :
+                      quote.status === "Accepted" ? "bg-green-100 text-green-800" :
+                      "bg-blue-100 text-blue-800"
+                    }`}>
+                      {quote.status}
+                    </span>
+                    <button 
+                      onClick={() => navigate('/admin/quotes')} 
+                      className="flex items-center gap-2 text-xs font-bold text-blue-600 bg-white border border-blue-200 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+                    >
+                      View & Offer
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // 👑 GENERAL STORE OVERVIEW DASHBOARD RENDER
+  // ==========================================
   return (
     <div className="min-h-screen px-4 py-8 font-sans sm:px-8 lg:px-12 w-full sm:py-10 bg-slate-50">
       
@@ -192,7 +356,7 @@ const AdminDashboard = () => {
           <div className="flex-1 divide-y divide-slate-100">
             {(!stats.recentOrders || stats.recentOrders.length === 0) ? (
               <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-                <FaClipboardList className="mb-3 text-4xl text-slate-300" />
+                <FaClipboardList className="mb-3 text-4xl text-slate-350" />
                 <p className="font-medium text-slate-500">No recent orders found.</p>
               </div>
             ) : (

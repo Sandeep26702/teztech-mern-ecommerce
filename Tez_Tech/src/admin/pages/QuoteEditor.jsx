@@ -77,7 +77,9 @@ const QuoteEditor = () => {
       try {
         const res = await api.get("/admin/users");
         if (res.data.success) {
-          const team = (res.data.users || []).filter(u => u.role === "admin" || u.role === "subadmin");
+          const team = (res.data.users || []).filter(
+            u => u.role === "admin" || u.role === "subadmin" || u.role === "sales team"
+          );
           setSalesTeam(team);
         }
       } catch (error) {

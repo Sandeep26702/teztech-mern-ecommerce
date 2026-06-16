@@ -9,7 +9,7 @@ import {
   addCustomDesignQuoteCrmNote,
   addClientCustomQuoteComment,
 } from "../controllers/customDesignQuoteController.js";
-import { protect, admin } from "../middleware/auth.Middleware.js";
+import { protect, admin, authorize } from "../middleware/auth.Middleware.js";
 import upload from "../utils/upload.js";
 
 const router = express.Router();
@@ -24,14 +24,14 @@ router.get("/my-quotes", protect, getMyCustomDesignQuotes);
 router.post("/comment/client/:id", protect, addClientCustomQuoteComment);
 
 // Admin fetches all custom quotes
-router.get("/all", protect, admin, getAllCustomDesignQuotes);
+router.get("/all", protect, authorize("admin", "subadmin", "sales team", "designer"), getAllCustomDesignQuotes);
 
 // Admin responds to custom quote
-router.put("/respond/:id", protect, admin, respondToCustomDesignQuote);
+router.put("/respond/:id", protect, authorize("admin", "subadmin", "sales team", "designer"), respondToCustomDesignQuote);
 
 // CRM routes
-router.put("/assign/:id", protect, admin, assignCustomDesignQuote);
-router.post("/comment/:id", protect, admin, addCustomDesignQuoteCrmNote);
+router.put("/assign/:id", protect, authorize("admin", "subadmin", "sales team", "designer"), assignCustomDesignQuote);
+router.post("/comment/:id", protect, authorize("admin", "subadmin", "sales team", "designer"), addCustomDesignQuoteCrmNote);
 
 // User accepts or rejects the quote
 router.patch("/status/:id", protect, updateCustomDesignQuoteStatus);

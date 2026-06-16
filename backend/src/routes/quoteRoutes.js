@@ -57,20 +57,20 @@ router.post('/comment/client/:id', protect, addClientQuoteComment);
 ============================================================ */
 
 // Fetch all quotations for the Admin Dashboard table
-router.get('/all', protect, authorize("admin", "subadmin", "sales team", "designer"), getAllQuotes);
+router.get('/all', protect, authorize("admin", "subadmin", "sales team"), getAllQuotes);
 
 // Fetch a specific quotation's full details for the Admin Editor
-router.get('/admin/:id', protect, authorize("admin", "subadmin", "sales team", "designer"), getQuoteById);
+router.get('/admin/:id', protect, authorize("admin", "subadmin", "sales team"), getQuoteById);
 
 // Admin updates the quote (sets offered prices, discounts, validity)
-router.put('/respond/:id', protect, authorize("admin", "subadmin", "sales team", "designer"), respondToQuote);
+router.put('/respond/:id', protect, authorize("admin", "subadmin", "sales team"), respondToQuote);
 
 // Admin creates manual quotation for WhatsApp clients
-router.post('/manual', protect, authorize("admin", "subadmin", "sales team", "designer"), createManualQuote);
+router.post('/manual', protect, authorize("admin", "subadmin", "sales team"), createManualQuote);
 
 // CRM routes
-router.put('/assign/:id', protect, authorize("admin", "subadmin", "sales team", "designer"), assignQuote);
-router.post('/comment/:id', protect, authorize("admin", "subadmin", "sales team", "designer"), addQuoteCrmNote);
+router.put('/assign/:id', protect, authorize("admin", "subadmin", "sales team"), assignQuote);
+router.post('/comment/:id', protect, authorize("admin", "subadmin", "sales team"), addQuoteCrmNote);
 
 /* ============================================================
    4. PUBLIC ROUTES (Accessible via Shareable Links)

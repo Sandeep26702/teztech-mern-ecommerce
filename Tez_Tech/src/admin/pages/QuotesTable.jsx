@@ -15,6 +15,7 @@ import { toast } from "react-hot-toast";
 import api from "../../utils/api";
 import CreateManualQuotationModal from "../components/CreateManualQuotationModal.jsx";
 import ClientNotesModal from "../components/ClientNotesModal.jsx";
+import { useAuth } from "../../context/AuthContext";
 
 const STATUS_TABS = [
   { key: "action", label: "Action Needed", statuses: ["Pending"] },
@@ -71,9 +72,13 @@ const getQuoteTotal = (quote) => {
 };
 
 const QuotesTable = () => {
+  const { user } = useAuth();
+  const userRole = user?.role?.toLowerCase() || "";
+
   const [quotes, setQuotes] = useState([]);
   const [customQuotes, setCustomQuotes] = useState([]);
-  const [quoteType, setQuoteType] = useState("product"); // "product" or "custom"
+  // Default to custom for designer role, otherwise product
+  const [quoteType, setQuoteType] = useState(userRole === "designer" ? "custom" : "product");
   const [loading, setLoading] = useState(true);
   const [showManualModal, setShowManualModal] = useState(false);
   const [activeTab, setActiveTab] = useState("action");
@@ -88,19 +93,30 @@ const QuotesTable = () => {
   const [submittingResponse, setSubmittingResponse] = useState(false);
   const [showClientNotes, setShowClientNotes] = useState(false);
 
-  // CRM & Sales team states
+  // CRM & Sales team states (For custom quote assignment, this stores admin, subadmin, designer)
   const [salesTeam, setSalesTeam] = useState([]);
   const [newCustomComment, setNewCustomComment] = useState("");
   const [isCustomCommentPublic, setIsCustomCommentPublic] = useState(false);
   const [addingComment, setAddingComment] = useState(false);
 
-  // Fetch sales team users on mount
+  // Sync quote type if userRole changes
+  useEffect(() => {
+    if (userRole === "designer") {
+      setQuoteType("custom");
+    } else if (userRole === "sales team") {
+      setQuoteType("product");
+    }
+  }, [userRole]);
+
+  // Fetch staff users for Custom Quotes assignment on mount (admin, subadmin, sales team, designer)
   useEffect(() => {
     const fetchSalesTeam = async () => {
       try {
         const res = await api.get("/admin/users");
         if (res.data.success) {
-          const team = (res.data.users || []).filter(u => u.role === "admin" || u.role === "subadmin");
+          const team = (res.data.users || []).filter(
+            u => u.role === "admin" || u.role === "subadmin" || u.role === "sales team" || u.role === "designer"
+          );
           setSalesTeam(team);
         }
       } catch (error) {
@@ -289,34 +305,42 @@ const QuotesTable = () => {
       </div>
 
       {/* Quote Type Switcher Tabs */}
-      <div className="flex gap-6 mb-6 border-b border-gray-150 pb-2">
-        <button
-          onClick={() => {
-            setQuoteType("product");
-            setActiveTab("action");
-          }}
-          className={`pb-2 text-base font-bold transition-all border-b-2 cursor-pointer ${
-            quoteType === "product"
-              ? "text-blue-600 border-blue-600"
-              : "text-gray-400 border-transparent hover:text-gray-600"
-          }`}
-        >
-          📦 Standard Product Quotations
-        </button>
-        <button
-          onClick={() => {
-            setQuoteType("custom");
-            setActiveTab("action");
-          }}
-          className={`pb-2 text-base font-bold transition-all border-b-2 cursor-pointer ${
-            quoteType === "custom"
-              ? "text-blue-600 border-blue-600"
-              : "text-gray-400 border-transparent hover:text-gray-600"
-          }`}
-        >
-          🎨 Custom Design Quotations
-        </button>
-      </div>
+      {userRole !== "designer" ? (
+        <div className="flex gap-6 mb-6 border-b border-gray-150 pb-2">
+          <button
+            onClick={() => {
+              setQuoteType("product");
+              setActiveTab("action");
+            }}
+            className={`pb-2 text-base font-bold transition-all border-b-2 cursor-pointer ${
+              quoteType === "product"
+                ? "text-blue-600 border-blue-600"
+                : "text-gray-400 border-transparent hover:text-gray-600"
+            }`}
+          >
+            📦 Standard Product Quotations
+          </button>
+          <button
+            onClick={() => {
+              setQuoteType("custom");
+              setActiveTab("action");
+            }}
+            className={`pb-2 text-base font-bold transition-all border-b-2 cursor-pointer ${
+              quoteType === "custom"
+                ? "text-blue-600 border-blue-600"
+                : "text-gray-400 border-transparent hover:text-gray-600"
+            }`}
+          >
+            🎨 Custom Design Quotations
+          </button>
+        </div>
+      ) : (
+        <div className="mb-6 border-b border-gray-150 pb-2">
+          <span className="pb-2 text-base font-bold text-blue-600 border-b-2 border-blue-600 inline-block">
+            {quoteType === "product" ? "📦 Standard Product Quotations" : "🎨 Custom Design Quotations"}
+          </span>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 mb-6 md:grid-cols-3">
         <div className="p-4 border border-amber-100 bg-amber-50 rounded-2xl">
