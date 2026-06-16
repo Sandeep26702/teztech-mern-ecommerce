@@ -544,7 +544,7 @@ export const getQuoteById = async (req, res) => {
     const quote = await Quote.findById(req.params.id)
       .populate('user', 'name email')
       .populate('assignedTo', 'name email role')
-      .populate('requestedItems.productId', 'name price sellingPrice customFields image images sku details description category categoryPath variants attributes');
+      .populate('requestedItems.productId', 'name price sellingPrice customFields image images sku details description category categoryPath variants attributes weightKg');
     if (!quote) return res.status(404).json({ success: false, message: "Quote not found" });
     const parentId = getParentQuoteId(quote);
     const groupQuotes = await fetchQuoteGroup(parentId);
@@ -679,7 +679,6 @@ export const respondToQuote = async (req, res) => {
       (sum, item) => sum + toSafeNumber(item.offeredPrice, 0) * toSafeNumber(item.quantity, 0),
       0
     );
-    // Simple rounding function for internal logic if needed
     const round2 = (num) => Math.round(num * 100) / 100;
     
     const discountAmount =
@@ -687,7 +686,7 @@ export const respondToQuote = async (req, res) => {
         ? round2(computedSubTotal * (safeDiscountValue / 100))
         : safeDiscountValue;
     const safeGst = Math.min(100, Math.max(0, toSafeNumber(gstPercentage, existingQuote.gstPercentage || 0)));
-    const gstAmount = round2(computedSubTotal * (safeGst / 100));
+    const gstAmount = round2((computedSubTotal - discountAmount + safeShipping) * (safeGst / 100));
     const safeAdditional = Math.max(0, toSafeNumber(additionalChargeAmount, existingQuote.additionalChargeAmount || 0));
     const computedFinal = Math.max(
       0,
@@ -724,6 +723,10 @@ export const respondToQuote = async (req, res) => {
       extraDiscountType: safeDiscountType,
       extraDiscountValue: safeDiscountValue,
       shippingCharge: safeShipping,
+      selectedShippingProvider: req.body.selectedShippingProvider !== undefined ? req.body.selectedShippingProvider : (existingQuote.selectedShippingProvider || ""),
+      courierPartner: req.body.selectedShippingProvider !== undefined ? req.body.selectedShippingProvider : (existingQuote.courierPartner || ""),
+      ratePerKg: Number(req.body.ratePerKg !== undefined ? req.body.ratePerKg : (existingQuote.ratePerKg || 0)),
+      shippingWeightKg: Number(req.body.shippingWeightKg !== undefined ? req.body.shippingWeightKg : (existingQuote.shippingWeightKg || 0)),
       gstPercentage: safeGst,
       additionalChargeName: String(additionalChargeName || existingQuote.additionalChargeName || "").trim(),
       additionalChargeAmount: safeAdditional,
@@ -760,7 +763,7 @@ export const getQuoteByToken = async (req, res) => {
   try {
     const quote = await Quote.findOne({ quoteToken: req.params.token })
       .populate('user', 'name email')
-    .populate('requestedItems.productId', 'name price sellingPrice customFields image images sku details description category categoryPath variants attributes');
+      .populate('requestedItems.productId', 'name price sellingPrice customFields image images sku details description category categoryPath variants attributes weightKg');
     if (!quote) return res.status(404).json({ success: false, message: "Invalid or expired link" });
     const parentId = getParentQuoteId(quote);
     const groupQuotes = await fetchQuoteGroup(parentId);
@@ -922,7 +925,7 @@ export const createManualQuote = async (req, res) => {
     const discountAmount = safeDiscountType === "percent" ? Math.round(computedSubTotal * (safeDiscountValue / 100) * 100) / 100 : safeDiscountValue;
     const safeShipping = Math.max(0, toSafeNumber(shippingCharge, 0));
     const safeGst = Math.min(100, Math.max(0, toSafeNumber(gstPercentage, 0)));
-    const gstAmount = Math.round((computedSubTotal - discountAmount) * (safeGst / 100) * 100) / 100;
+    const gstAmount = Math.round((computedSubTotal - discountAmount + safeShipping) * (safeGst / 100) * 100) / 100;
     const safeAdditional = Math.max(0, toSafeNumber(additionalChargeAmount, 0));
     const computedFinal = Math.max(0, computedSubTotal - discountAmount + safeShipping + gstAmount + safeAdditional);
 
@@ -935,6 +938,10 @@ export const createManualQuote = async (req, res) => {
       version: 1,
       isManual: true,
       shippingCharge: safeShipping,
+      selectedShippingProvider: req.body.selectedShippingProvider || "",
+      courierPartner: req.body.selectedShippingProvider || "",
+      ratePerKg: Number(req.body.ratePerKg) || 0,
+      shippingWeightKg: Number(req.body.shippingWeightKg) || 0,
       additionalChargeName,
       additionalChargeAmount: safeAdditional,
       gstPercentage: safeGst,
@@ -969,7 +976,7 @@ export const assignQuote = async (req, res) => {
     const updatedQuote = await Quote.findById(id)
       .populate('user', 'name email')
       .populate('assignedTo', 'name email role')
-      .populate('requestedItems.productId', 'name price customFields image images sku details description category categoryPath variants attributes');
+      .populate('requestedItems.productId', 'name price customFields image images sku details description category categoryPath variants attributes weightKg');
 
     res.status(200).json({ success: true, message: "Quote assigned successfully!", quote: updatedQuote });
   } catch (error) {
@@ -1005,7 +1012,7 @@ export const addQuoteCrmNote = async (req, res) => {
     const updatedQuote = await Quote.findById(id)
       .populate('user', 'name email')
       .populate('assignedTo', 'name email role')
-      .populate('requestedItems.productId', 'name price customFields image images sku details description category categoryPath variants attributes');
+      .populate('requestedItems.productId', 'name price customFields image images sku details description category categoryPath variants attributes weightKg');
 
     res.status(200).json({ success: true, message: "CRM comment added successfully!", quote: updatedQuote });
   } catch (error) {
@@ -1046,7 +1053,7 @@ export const addClientQuoteComment = async (req, res) => {
     const updatedQuote = await Quote.findById(id)
       .populate('user', 'name email')
       .populate('assignedTo', 'name email role')
-      .populate('requestedItems.productId', 'name price customFields image images sku details description category categoryPath variants attributes');
+      .populate('requestedItems.productId', 'name price customFields image images sku details description category categoryPath variants attributes weightKg');
 
     const quoteObj = updatedQuote.toObject ? updatedQuote.toObject() : updatedQuote;
     if (quoteObj.crmNotes) {

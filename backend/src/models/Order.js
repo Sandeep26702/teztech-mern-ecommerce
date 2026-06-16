@@ -157,6 +157,7 @@ const orderSchema = new mongoose.Schema(
     discountType: { type: String, enum: ['FLAT', 'PERCENTAGE'], default: 'FLAT' }, 
     isTaxExempt: { type: Boolean, default: false }, 
     generateTaxInvoice: { type: Boolean, default: true }, 
+    gstPercentage: { type: Number, default: 18, min: 0, max: 100 }, 
 
     taxType: { type: String, enum: ["IGST", "CGST_SGST"], default: "CGST_SGST" }, // tax mode
     shippingWeightKg: { type: Number, default: 0, min: 0 },

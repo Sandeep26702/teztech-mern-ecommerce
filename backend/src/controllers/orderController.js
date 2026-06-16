@@ -343,16 +343,18 @@ export const createAdminOrder = async (req, res) => {
       discountType,
       isTaxExempt,
       generateTaxInvoice,
+      gstPercentage,
       orderNotes
     } = req.body;
 
     let subtotalAmount = 0;
+    const orderGstPercentage = isTaxExempt ? 0 : Number(gstPercentage !== undefined ? gstPercentage : 18);
     
     const processedItems = items.map(item => {
       const safePrice = Number(item.unitPrice) || 0;
       const safeQty = Number(item.quantity) || 1;
       
-      const itemGstRate = isTaxExempt ? 0 : 18;
+      const itemGstRate = orderGstPercentage;
       const basePrice = Number((safePrice / (1 + (itemGstRate / 100))).toFixed(2));
       const gstAmount = Number((safePrice - basePrice).toFixed(2));
       
@@ -380,27 +382,28 @@ export const createAdminOrder = async (req, res) => {
     }
     let discountedSubtotal = Math.max(0, subtotalAmount - discountAmount);
 
-    let gstAmount = 0;
-    let taxType = "IGST";
-    
-    if (!isTaxExempt) {
-      const stateStr = shippingInfo?.state ? shippingInfo.state.toLowerCase().trim() : "";
-      if (stateStr === 'gujarat' || stateStr === 'gj') {
-        gstAmount = discountedSubtotal * 0.18; 
-        taxType = "CGST_SGST";
-      } else {
-        gstAmount = discountedSubtotal * 0.18; 
-        taxType = "IGST";
-      }
-    }
-
     let shippingAmount = 0;
     if (paymentMethod === 'STORE_PICKUP' || deliveryType === 'pickup') {
       shippingAmount = 0; 
     } else if (ratePerKg && shippingWeightKg) {
-      shippingAmount = shippingWeightKg * ratePerKg; 
+      const effectiveWeight = Math.max(0.5, Number(shippingWeightKg) || 0);
+      shippingAmount = effectiveWeight * ratePerKg; 
     } else {
       shippingAmount = req.body.shippingAmount || 0; 
+    }
+
+    let gstAmount = 0;
+    let taxType = "IGST";
+    
+    if (!isTaxExempt) {
+      const taxableBase = discountedSubtotal + shippingAmount;
+      gstAmount = taxableBase * (orderGstPercentage / 100);
+      const stateStr = shippingInfo?.state ? shippingInfo.state.toLowerCase().trim() : "";
+      if (stateStr === 'gujarat' || stateStr === 'gj') {
+        taxType = "CGST_SGST";
+      } else {
+        taxType = "IGST";
+      }
     }
 
     const totalAmount = discountedSubtotal + gstAmount + shippingAmount;
@@ -428,12 +431,13 @@ export const createAdminOrder = async (req, res) => {
       deliveryType: deliveryType || 'ship',
       selectedShippingProvider: selectedShippingProvider || "Manual",
       courierPartner: selectedShippingProvider || "Manual",
-      shippingWeightKg: shippingWeightKg || 1,
+      shippingWeightKg: Number(shippingWeightKg) || 0,
       subtotalAmount: round2(subtotalAmount),
       discount: discount || 0,
       discountType: discountType || "FLAT",
       isTaxExempt: isTaxExempt || false,
       generateTaxInvoice: generateTaxInvoice || false,
+      gstPercentage: orderGstPercentage,
       gstAmount: round2(gstAmount),
       taxType,
       shippingAmount: round2(shippingAmount),
@@ -471,6 +475,7 @@ export const editAdminOrder = async (req, res) => {
       discountType,
       isTaxExempt,
       generateTaxInvoice,
+      gstPercentage,
       orderNotes,
       updateStock
     } = req.body;
@@ -526,12 +531,13 @@ export const editAdminOrder = async (req, res) => {
     }
 
     let subtotalAmount = 0;
+    const orderGstPercentage = isTaxExempt ? 0 : Number(gstPercentage !== undefined ? gstPercentage : 18);
     
     const processedItems = (items || []).map(item => {
       const safePrice = Number(item.unitPrice) || 0;
       const safeQty = Number(item.quantity) || 1;
       
-      const itemGstRate = isTaxExempt ? 0 : 18;
+      const itemGstRate = orderGstPercentage;
       const basePrice = Number((safePrice / (1 + (itemGstRate / 100))).toFixed(2));
       const gstAmount = Number((safePrice - basePrice).toFixed(2));
       
@@ -564,27 +570,28 @@ export const editAdminOrder = async (req, res) => {
     }
     let discountedSubtotal = Math.max(0, subtotalAmount - discountAmount);
 
-    let gstAmount = 0;
-    let taxType = "IGST";
-    
-    if (!isTaxExempt) {
-      const stateStr = shippingInfo?.state ? shippingInfo.state.toLowerCase().trim() : "";
-      if (stateStr === 'gujarat' || stateStr === 'gj') {
-        gstAmount = discountedSubtotal * 0.18; 
-        taxType = "CGST_SGST";
-      } else {
-        gstAmount = discountedSubtotal * 0.18; 
-        taxType = "IGST";
-      }
-    }
-
     let shippingAmount = 0;
     if (paymentMethod === 'STORE_PICKUP' || deliveryType === 'pickup') {
       shippingAmount = 0; 
     } else if (ratePerKg && shippingWeightKg) {
-      shippingAmount = shippingWeightKg * ratePerKg; 
+      const effectiveWeight = Math.max(0.5, Number(shippingWeightKg) || 0);
+      shippingAmount = effectiveWeight * ratePerKg; 
     } else {
       shippingAmount = req.body.shippingAmount || 0; 
+    }
+
+    let gstAmount = 0;
+    let taxType = "IGST";
+    
+    if (!isTaxExempt) {
+      const taxableBase = discountedSubtotal + shippingAmount;
+      gstAmount = taxableBase * (orderGstPercentage / 100);
+      const stateStr = shippingInfo?.state ? shippingInfo.state.toLowerCase().trim() : "";
+      if (stateStr === 'gujarat' || stateStr === 'gj') {
+        taxType = "CGST_SGST";
+      } else {
+        taxType = "IGST";
+      }
     }
 
     const totalAmount = discountedSubtotal + gstAmount + shippingAmount;
@@ -603,12 +610,13 @@ export const editAdminOrder = async (req, res) => {
       deliveryType: deliveryType || 'ship',
       selectedShippingProvider: selectedShippingProvider || "Manual",
       courierPartner: selectedShippingProvider || "Manual",
-      shippingWeightKg: shippingWeightKg || 1,
+      shippingWeightKg: Number(shippingWeightKg) || 0,
       subtotalAmount: round2(subtotalAmount),
       discount: discount || 0,
       discountType: discountType || "FLAT",
       isTaxExempt: isTaxExempt || false,
       generateTaxInvoice: generateTaxInvoice || false,
+      gstPercentage: orderGstPercentage,
       gstAmount: round2(gstAmount),
       taxType,
       shippingAmount: round2(shippingAmount),

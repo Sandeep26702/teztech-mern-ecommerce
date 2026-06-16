@@ -279,7 +279,8 @@ export const getProducts = async (req, res) => {
             variants: 1,
             hasVariants: 1,
             customFields: 1,
-            details: 1
+            details: 1,
+            weightKg: 1
           }
         }
       );
@@ -295,7 +296,7 @@ export const getProducts = async (req, res) => {
     } else {
       // Normal find path (extremely fast for standard browsing)
       products = await Product.find(matchStage)
-        .select("name price mrp image images baseSku status category categories gstRate shippingCharge attributes variants hasVariants customFields details")
+        .select("name price mrp image images baseSku status category categories gstRate shippingCharge attributes variants hasVariants customFields details weightKg")
         .sort(sortObj)
         .skip(skip)
         .limit(Number(limit))
@@ -392,7 +393,7 @@ export const createProduct = async (req, res) => {
       sku, name, status, searchTags, description, 
       mrp, sellingPrice, gst, shippingCharge, stock, 
       category1, category2, category3,
-      specifications, variations 
+      specifications, variations, weightKg 
     } = req.body;
 
     const baseSku = sku || `SKU-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -442,6 +443,7 @@ export const createProduct = async (req, res) => {
       categories,
       gstRate: Number(gst) || 0,
       shippingCharge: Number(shippingCharge) || 0,
+      weightKg: Number(weightKg) || 0,
       searchTags: searchTags ? searchTags.split(',').map(t => t.trim()) : [],
       details: parsedSpecs,
       attributes: attributesArray,
@@ -470,7 +472,7 @@ export const updateProduct = async (req, res) => {
       sku, name, status, searchTags, description, 
       mrp, sellingPrice, gst, shippingCharge, stock, 
       category1, category2, category3,
-      specifications, variations, deletedImages 
+      specifications, variations, deletedImages, weightKg 
     } = req.body;
 
     const updateData = {};
@@ -484,6 +486,7 @@ export const updateProduct = async (req, res) => {
     if (sku) updateData.baseSku = sku;
     if (gst) updateData.gstRate = Number(gst);
     if (shippingCharge) updateData.shippingCharge = Number(shippingCharge);
+    if (weightKg !== undefined) updateData.weightKg = Number(weightKg);
     if (searchTags) updateData.searchTags = searchTags.split(',').map(t => t.trim());
     
     if (category1 || category2 || category3) {
@@ -971,12 +974,13 @@ export const exportProductsCsv = async (req, res) => {
         p.mrp || 0,
         p.gstRate || 0,            
         p.shippingCharge || 0,     
+        p.weightKg || 0,
         p.stock || 0,
         p.hasVariants ? "Yes" : "No"
       ]);
     });
 
-    const headers = ["SKU", "Name", "Category", "Base Price", "MRP", "GST (%)", "Shipping Charge", "Stock", "Has Variations"];
+    const headers = ["SKU", "Name", "Category", "Base Price", "MRP", "GST (%)", "Shipping Charge", "Weight (kg)", "Stock", "Has Variations"];
     const csv = [
       headers.join(","),
       ...rows.map(r => r.join(",")),

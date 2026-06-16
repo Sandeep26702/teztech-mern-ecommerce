@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect } from "react";
 import { FaPlus, FaTrash, FaTimes, FaSearch } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
@@ -134,6 +135,7 @@ const AdminCreateOrder = () => {
     const [paymentMethod, setPaymentMethod] = useState("MANUAL TRANSFER");
     const [discountValue, setDiscountValue] = useState("");
     const [discountType, setDiscountType] = useState("FLAT");
+    const [gstPercentage, setGstPercentage] = useState(18);
 
     // 🔥 Shipping States
     const [shippingProviders, setShippingProviders] = useState([]); 
@@ -174,15 +176,23 @@ const AdminCreateOrder = () => {
     }, []);
 
     useEffect(() => {
-        if (showProductModal && dbProducts.length === 0) {
-            api.get('/products?limit=500') 
-                .then(({ data }) => setDbProducts(data.products || data.data))
-                .catch(err => {
-                    console.error("Fetch Products Error:", err);
-                    toast.error("Failed to load products");
-                });
+        if (showProductModal) {
+            const delayDebounce = setTimeout(() => {
+                console.log("Fetching products from local backend API with query:", searchQuery);
+                api.get(`/products?limit=100&keyword=${encodeURIComponent(searchQuery)}`) 
+                    .then(({ data }) => {
+                        const list = data.products || data.data || [];
+                        console.log("Successfully loaded products count:", list.length);
+                        setDbProducts(list);
+                    })
+                    .catch(err => {
+                        console.error("Fetch Products Error:", err);
+                        toast.error("Failed to load products");
+                    });
+            }, 300);
+            return () => clearTimeout(delayDebounce);
         }
-    }, [showProductModal, dbProducts.length]);
+    }, [showProductModal, searchQuery]);
 
 
     // ==========================================
@@ -194,7 +204,7 @@ const AdminCreateOrder = () => {
 
         items.forEach(item => {
             calcSubtotal += item.unitPrice * item.quantity;
-            totalWeight += (item.weightKg || 1) * item.quantity; 
+            totalWeight += (Number(item.weightKg) || 0) * item.quantity; 
         });
 
         let calcDiscount = 0;
@@ -204,18 +214,19 @@ const AdminCreateOrder = () => {
         }
         let discountedSubtotal = Math.max(0, calcSubtotal - calcDiscount);
 
-        let calcTax = 0;
-        if (!isTaxExempt) {
-            calcTax = discountedSubtotal * 0.18; 
-        }
-
         let calcShipping = 0;
         if (paymentMethod.includes('STORE PICK-UP')) {
             calcShipping = 0; 
         } else if (shippingCostOverride !== "") {
             calcShipping = Number(shippingCostOverride); 
         } else {
-            calcShipping = totalWeight * ratePerKg; 
+            const effectiveWeight = Math.max(0.5, totalWeight);
+            calcShipping = effectiveWeight * ratePerKg; 
+        }
+
+        let calcTax = 0;
+        if (!isTaxExempt) {
+            calcTax = (discountedSubtotal + calcShipping) * (Number(gstPercentage || 18) / 100); 
         }
 
         setSummary({
@@ -225,7 +236,7 @@ const AdminCreateOrder = () => {
             shipping: calcShipping,
             total: discountedSubtotal + calcTax + calcShipping
         });
-    }, [items, discountValue, discountType, isTaxExempt, paymentMethod, shippingCostOverride, ratePerKg]);
+    }, [items, discountValue, discountType, isTaxExempt, gstPercentage, paymentMethod, shippingCostOverride, ratePerKg]);
 
 
     // ==========================================
@@ -236,7 +247,7 @@ const AdminCreateOrder = () => {
         if (!customer.name || !customer.phone) return toast.error("Customer Name and Phone are required.");
 
         let totalWeight = 0;
-        items.forEach(itm => totalWeight += (itm.weightKg || 1) * itm.quantity);
+        items.forEach(itm => totalWeight += (Number(itm.weightKg) || 0) * itm.quantity);
 
         const payload = {
             items,
@@ -256,6 +267,7 @@ const AdminCreateOrder = () => {
             discountType: discountType === "%" ? "PERCENTAGE" : "FLAT",
             isTaxExempt,
             generateTaxInvoice: createTaxInvoice,
+            gstPercentage: isTaxExempt ? 0 : Number(gstPercentage) || 18,
         };
 
         try {
@@ -290,11 +302,11 @@ const AdminCreateOrder = () => {
         const newItem = {
             productId: product._id,
             name: itemName, // E.g., "T-Shirt (Size: L, Color: Red)"
-            sku: product.sku || "N/A",
+            sku: product.baseSku || product.sku || "N/A",
             image: product.image || product.images?.[0]?.url || "https://placehold.co/100",
             unitPrice: finalPrice, 
             quantity: 1,
-            weightKg: product.weightKg || 1,
+            weightKg: product.weightKg || 0,
             selectedVariantInfo: variantString // Backend save ke liye
         };
         setItems([...items, newItem]);
@@ -304,12 +316,18 @@ const AdminCreateOrder = () => {
 
     const updateItem = (index, field, value) => {
         const newItems = [...items];
-        newItems[index][field] = Number(value) > 0 ? Number(value) : 1;
+        if (field === 'weightKg') {
+            newItems[index][field] = Number(value) >= 0 ? Number(value) : 0;
+        } else if (field === 'unitPrice') {
+            newItems[index][field] = Number(value) >= 0 ? Number(value) : 0;
+        } else {
+            newItems[index][field] = Number(value) > 0 ? Number(value) : 1;
+        }
         setItems(newItems);
     };
 
-    const currentWeight = items.reduce((acc, itm) => acc + ((itm.weightKg || 1) * itm.quantity), 0);
-    const autoCalcShippingCost = currentWeight * ratePerKg;
+    const currentWeight = items.reduce((acc, itm) => acc + ((itm.weightKg || 0) * itm.quantity), 0);
+    const autoCalcShippingCost = Math.max(0.5, currentWeight) * ratePerKg;
 
     return (
         <div className="min-h-screen bg-[#f4f6f8] p-4 sm:p-6 lg:p-8 font-sans text-[#202223] relative">
@@ -351,13 +369,17 @@ const AdminCreateOrder = () => {
                                             <img src={itm.image} alt={itm.name} className="object-cover w-12 h-12 border rounded" />
                                             <div>
                                                 <p className="text-sm font-semibold text-gray-800">{itm.name}</p>
-                                                <p className="text-xs text-gray-500">Weight: {itm.weightKg || 1}kg | SKU: {itm.sku}</p>
+                                                <p className="text-xs text-gray-500">{Number(itm.weightKg) > 0 ? `Weight: ${itm.weightKg}kg | ` : ""}SKU: {itm.sku}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <div className="flex flex-col items-center">
                                                 <span className="mb-1 text-xs text-gray-500">Unit Price (₹)</span>
                                                 <input type="number" className="w-20 px-2 py-1 text-sm text-center border rounded" value={itm.unitPrice} onChange={(e) => updateItem(idx, 'unitPrice', e.target.value)} />
+                                            </div>
+                                            <div className="flex flex-col items-center">
+                                                <span className="mb-1 text-xs text-gray-500">Weight (kg)</span>
+                                                <input type="number" step="any" className="w-16 px-2 py-1 text-sm text-center border rounded" value={itm.weightKg} onChange={(e) => updateItem(idx, 'weightKg', e.target.value)} />
                                             </div>
                                             <div className="flex flex-col items-center">
                                                 <span className="mb-1 text-xs text-gray-500">Qty</span>
@@ -400,7 +422,7 @@ const AdminCreateOrder = () => {
                             />
                         </div>
                         {shippingCostOverride === "" && shippingMethod !== "" && (
-                            <p className="mt-1 text-xs text-green-600">Auto calculated: {currentWeight}kg × ₹{ratePerKg} = ₹{autoCalcShippingCost}</p>
+                            <p className="mt-1 text-xs text-green-600">Auto calculated: {currentWeight <= 0.5 ? '0.5kg (Minimum)' : `${currentWeight}kg`} × ₹{ratePerKg} = ₹{autoCalcShippingCost}</p>
                         )}
                     </div>
 
@@ -421,6 +443,19 @@ const AdminCreateOrder = () => {
                                 <FaTrash className="text-[14px]" />
                             </button>
                         </div>
+                    </div>
+
+                    {/* GST Rate Section */}
+                    <div className="bg-white border border-[#d5dce4] rounded shadow-sm p-5">
+                        <h3 className="text-[16px] font-semibold mb-4">GST Rate (%)</h3>
+                        <input 
+                            type="number" 
+                            placeholder="GST Rate (%)" 
+                            value={gstPercentage} 
+                            disabled={isTaxExempt}
+                            onChange={(e) => setGstPercentage(e.target.value)} 
+                            className="w-full h-10 px-3 py-2 border border-[#c4cdd5] rounded text-[14px] disabled:bg-gray-100 disabled:text-gray-400" 
+                        />
                     </div>
 
                     {/* Payment & Billing Section */}

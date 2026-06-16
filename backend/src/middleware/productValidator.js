@@ -24,6 +24,11 @@ export const validateProduct = [
     .notEmpty().withMessage("Stock is required")
     .isInt({ min: 0 }).withMessage("Stock must be a non-negative integer"),
 
+  body("weightKg")
+    .notEmpty().withMessage("Weight is required")
+    .isNumeric().withMessage("Weight must be a valid number")
+    .custom((value) => Number(value) > 0).withMessage("Weight must be greater than 0"),
+
   body("status")
     .optional()
     .isIn(["Active", "Inactive"]).withMessage("Status must be Active or Inactive"),

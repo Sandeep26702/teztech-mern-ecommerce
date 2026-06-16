@@ -174,9 +174,10 @@ export const CartProvider = ({ children }) => {
           price: finalItemPrice, 
           gstRate: product.gstRate || 0,
           shippingCharge: product.shippingCharge || 0,
+          weightKg: product.weightKg || 0,
           customFields: product.customFields || product.attributes || [] 
         },
-        sku: variantToAdd?.sku || product.sku, 
+        sku: variantToAdd?.sku || product.baseSku || product.sku || "N/A", 
         price: finalItemPrice,   
         quantity: 1,
         variant: variantToAdd,

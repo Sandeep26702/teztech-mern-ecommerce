@@ -65,9 +65,12 @@ const QuoteEditor = () => {
   const [crmNotes, setCrmNotes] = useState([]);
   const [salesTeam, setSalesTeam] = useState([]);
   const [newComment, setNewComment] = useState("");
-  const [isCommentPublic, setIsCommentPublic] = useState(false);
   const [addingComment, setAddingComment] = useState(false);
   const [showClientNotes, setShowClientNotes] = useState(false);
+
+  const [shippingProviders, setShippingProviders] = useState([]);
+  const [shippingMethod, setShippingMethod] = useState("");
+  const [ratePerKg, setRatePerKg] = useState(0);
 
   useEffect(() => {
     const fetchSalesTeam = async () => {
@@ -82,6 +85,20 @@ const QuoteEditor = () => {
       }
     };
     fetchSalesTeam();
+  }, []);
+
+  useEffect(() => {
+    const fetchShipping = async () => {
+      try {
+        const { data } = await api.get('/shipping');
+        if (data.success && data.providers) {
+          setShippingProviders(data.providers.filter(p => p.isActive));
+        }
+      } catch (error) {
+        console.error("Error fetching shipping providers", error);
+      }
+    };
+    fetchShipping();
   }, []);
 
   // ---------------------------------------------------------
@@ -110,6 +127,18 @@ const QuoteEditor = () => {
       
       totalGstAmount += itemTaxableAmount * (itemGstPercent / 100);
   });
+
+  // Calculate total weight of the quotation items
+  const totalWeight = items.reduce((sum, item) => {
+      const pWeight = item.productId?.weightKg || item.product?.weightKg || item.weightKg || 0;
+      return sum + (Number(pWeight) * Number(item.quantity));
+  }, 0);
+
+  const autoCalcShippingCost = Math.max(0.5, totalWeight) * ratePerKg;
+
+  // Add GST on shipping charge to totalGstAmount
+  const shippingGst = Number(quoteData.shippingCharge) * (Number(quoteData.gstPercentage || 18) / 100);
+  totalGstAmount += shippingGst;
 
   // 4. Final Total Bill
   const finalTotal = subTotal 
@@ -165,6 +194,8 @@ const QuoteEditor = () => {
           adminNotes: realQuote.adminNotes || "",
         });
 
+        setShippingMethod(realQuote.selectedShippingProvider || realQuote.courierPartner || "");
+        setRatePerKg(realQuote.ratePerKg || 0);
         setAssignedTo(realQuote.assignedTo?._id || realQuote.assignedTo || "");
         setCrmNotes(realQuote.crmNotes || []);
 
@@ -237,7 +268,11 @@ const QuoteEditor = () => {
       totalDiscount: discountAmount, 
       extraDiscountType: quoteData.extraDiscountType,
       extraDiscountValue: quoteData.extraDiscountValue,
-      shippingCharge: quoteData.shippingCharge,
+      shippingCharge: Number(quoteData.shippingCharge) || 0,
+      selectedShippingProvider: shippingMethod,
+      courierPartner: shippingMethod,
+      ratePerKg: Number(ratePerKg) || 0,
+      shippingWeightKg: totalWeight,
       gstPercentage: Number(quoteData.gstPercentage) || 0,
       additionalChargeName: quoteData.additionalChargeName,
       additionalChargeAmount: quoteData.additionalChargeAmount,
@@ -601,6 +636,13 @@ const QuoteEditor = () => {
             calculatedDiscount={discountAmount}
             calculatedGst={totalGstAmount}
             calculatedFinalTotal={finalTotal}
+            shippingProviders={shippingProviders}
+            shippingMethod={shippingMethod}
+            ratePerKg={ratePerKg}
+            totalWeight={totalWeight}
+            autoCalcShippingCost={autoCalcShippingCost}
+            setShippingMethod={setShippingMethod}
+            setRatePerKg={setRatePerKg}
           />
         </div>
       </div>

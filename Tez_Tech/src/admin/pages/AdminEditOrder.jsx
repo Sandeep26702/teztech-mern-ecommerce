@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { 
@@ -174,6 +175,7 @@ const AdminEditOrder = () => {
   // Discount / Surcharge States
   const [discountValue, setDiscountValue] = useState("");
   const [discountType, setDiscountType] = useState("FLAT"); // FLAT (₹) or PERCENTAGE (%)
+  const [gstPercentage, setGstPercentage] = useState(18);
   const [showDiscountRow, setShowDiscountRow] = useState(false);
 
   // Payment states
@@ -234,6 +236,7 @@ const AdminEditOrder = () => {
         setGenerateTaxInvoice(orderData.generateTaxInvoice !== false);
         setOrderStatus(orderData.orderStatus || "Awaiting Processing");
         setPaymentStatus(orderData.paymentStatus || "Awaiting Payment");
+        setGstPercentage(orderData.gstPercentage !== undefined ? orderData.gstPercentage : 18);
 
         // Format items
         const formattedItems = (orderData.items || []).map(itm => ({
@@ -243,7 +246,7 @@ const AdminEditOrder = () => {
           image: itm.image || "",
           unitPrice: itm.unitPrice || itm.price || 0,
           quantity: itm.quantity || 1,
-          weightKg: itm.weightKg || 1,
+          weightKg: Number(itm.weightKg) || 0,
           variant: itm.variant || ""
         }));
         setItems(formattedItems);
@@ -327,8 +330,14 @@ const AdminEditOrder = () => {
   // Fetch dbProducts when catalog modal opens
   useEffect(() => {
     if (showProductModal && dbProducts.length === 0) {
+      console.log("Fetching products for Edit Order from local backend API...");
       api.get('/products?limit=500') 
-          .then(({ data }) => setDbProducts(data.products || data.data || []))
+          .then(({ data }) => {
+              const list = data.products || data.data || [];
+              console.log("Edit Order Products API Response data:", data);
+              console.log("Successfully loaded products count:", list.length);
+              setDbProducts(list);
+          })
           .catch(err => {
               console.error("Fetch Products Error:", err);
               toast.error("Failed to load products from catalog.");
@@ -364,7 +373,7 @@ const AdminEditOrder = () => {
 
     items.forEach(item => {
       calcSubtotal += Number(item.unitPrice || 0) * Number(item.quantity || 1);
-      totalWeight += Number(item.weightKg || 1) * Number(item.quantity || 1);
+      totalWeight += Number(item.weightKg || 0) * Number(item.quantity || 1);
     });
 
     let calcDiscount = 0;
@@ -374,18 +383,19 @@ const AdminEditOrder = () => {
     }
     let discountedSubtotal = Math.max(0, calcSubtotal - calcDiscount);
 
-    let calcTax = 0;
-    if (!isTaxExempt) {
-      calcTax = discountedSubtotal * 0.18; // 18% standard GST
-    }
-
     let calcShipping = 0;
     if (paymentMethod.includes('STORE_PICKUP') || paymentMethod.includes('STORE PICK-UP')) {
       calcShipping = 0;
     } else if (shippingCostOverride !== "") {
       calcShipping = Number(shippingCostOverride) || 0;
     } else {
-      calcShipping = totalWeight * (Number(ratePerKg) || 0);
+      const effectiveWeight = Math.max(0.5, totalWeight);
+      calcShipping = effectiveWeight * (Number(ratePerKg) || 0);
+    }
+
+    let calcTax = 0;
+    if (!isTaxExempt) {
+      calcTax = (discountedSubtotal + calcShipping) * (Number(gstPercentage || 18) / 100); 
     }
 
     setSummary({
@@ -395,7 +405,7 @@ const AdminEditOrder = () => {
       shipping: calcShipping,
       total: discountedSubtotal + calcTax + calcShipping
     });
-  }, [items, discountValue, discountType, isTaxExempt, paymentMethod, shippingCostOverride, ratePerKg]);
+  }, [items, discountValue, discountType, isTaxExempt, gstPercentage, paymentMethod, shippingCostOverride, ratePerKg]);
 
 
   // ==========================================
@@ -425,11 +435,11 @@ const AdminEditOrder = () => {
     const newItem = {
       productId: product._id,
       name: itemName,
-      sku: product.sku || "N/A",
+      sku: product.baseSku || product.sku || "N/A",
       image: product.image || product.images?.[0]?.url || "",
       unitPrice: finalPrice,
       quantity: 1,
-      weightKg: product.weightKg || 1,
+      weightKg: product.weightKg || 0,
       variant: variantString
     };
     setItems([...items, newItem]);
@@ -484,7 +494,7 @@ const AdminEditOrder = () => {
       return;
     }
 
-    const totalWeight = items.reduce((acc, itm) => acc + (Number(itm.weightKg || 1) * Number(itm.quantity || 1)), 0);
+    const totalWeight = items.reduce((acc, itm) => acc + (Number(itm.weightKg || 0) * Number(itm.quantity || 1)), 0);
 
     const payload = {
       items: items.map(itm => ({
@@ -494,7 +504,7 @@ const AdminEditOrder = () => {
         image: itm.image,
         unitPrice: Number(itm.unitPrice) || 0,
         quantity: Number(itm.quantity) || 1,
-        weightKg: Number(itm.weightKg) || 1,
+        weightKg: Number(itm.weightKg) || 0,
         variant: itm.variant || ""
       })),
       shippingInfo: {
@@ -529,6 +539,7 @@ const AdminEditOrder = () => {
       discountType: discountType,
       isTaxExempt,
       generateTaxInvoice,
+      gstPercentage: isTaxExempt ? 0 : Number(gstPercentage) || 18,
       orderNotes,
       utrNumber,
       updateStock
@@ -571,8 +582,8 @@ const AdminEditOrder = () => {
   }
 
   const displayId = originalOrder.orderCode || (originalOrder.orderNumber ? `#${originalOrder.orderNumber}` : `#${id.slice(-6)}`);
-  const currentWeight = items.reduce((acc, itm) => acc + (Number(itm.weightKg || 1) * Number(itm.quantity || 1)), 0);
-  const autoCalcShippingCost = currentWeight * ratePerKg;
+  const currentWeight = items.reduce((acc, itm) => acc + (Number(itm.weightKg || 0) * Number(itm.quantity || 1)), 0);
+  const autoCalcShippingCost = Math.max(0.5, currentWeight) * ratePerKg;
 
   // Split taxes for Gujarat supply state
   const taxState = (billingSameAsShipping ? shippingAddress.state : billingAddress.state) || "";
@@ -724,7 +735,7 @@ const AdminEditOrder = () => {
                           ) : (
                             <>
                               <h4 className="text-sm font-bold leading-tight text-slate-900">{item.name}</h4>
-                              <p className="text-xs text-slate-500">SKU: <span className="font-semibold">{item.sku}</span> | Weight: {item.weightKg || 1}kg</p>
+                              <p className="text-xs text-slate-500">SKU: <span className="font-semibold">{item.sku}</span>{Number(item.weightKg) > 0 ? ` | Weight: ${item.weightKg}kg` : ""}</p>
                               
                               {variations.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 mt-2">
@@ -850,7 +861,7 @@ const AdminEditOrder = () => {
                     className="w-full h-10 px-3 py-2 border border-[#c4cdd5] rounded text-[14px] focus:outline-none focus:border-[#2463d1] bg-white text-gray-800"
                   />
                   {shippingCostOverride === "" && shippingMethod && (
-                    <p className="mt-1 text-xs text-green-600">Auto calculated: {currentWeight}kg × ₹{ratePerKg} = ₹{autoCalcShippingCost}</p>
+                    <p className="mt-1 text-xs text-green-600">Auto calculated: {currentWeight <= 0.5 ? '0.5kg (Minimum)' : `${currentWeight}kg`} × ₹{ratePerKg} = ₹{autoCalcShippingCost}</p>
                   )}
                 </div>
               </div>
@@ -1016,11 +1027,24 @@ const AdminEditOrder = () => {
               <button 
                 type="button"
                 onClick={() => setShowDiscountRow(true)} 
-                className="flex items-center gap-1.5 px-4 py-2 border border-[#2463d1] hover:bg-blue-50 text-[#2463d1] text-xs font-semibold rounded-lg transition-colors"
+                 className="flex items-center gap-1.5 px-4 py-2 border border-[#2463d1] hover:bg-blue-50 text-[#2463d1] text-xs font-semibold rounded-lg transition-colors"
               >
                 <FaPlus size={10} /> Add discount or surcharge
               </button>
             )}
+          </div>
+
+          {/* CARD: GST RATE */}
+          <div className="bg-white border border-[#d5dce4] rounded shadow-sm p-6">
+            <h3 className="text-[16px] font-semibold text-[#1a1a1a] mb-4">GST Rate (%)</h3>
+            <input 
+              type="number" 
+              value={gstPercentage} 
+              disabled={isTaxExempt}
+              onChange={(e) => setGstPercentage(e.target.value)} 
+              placeholder="GST Rate (%)" 
+              className="w-full h-10 px-3 py-2 border border-[#c4cdd5] rounded text-[14px] focus:outline-none focus:border-[#2463d1] bg-white text-gray-800 disabled:bg-gray-100 disabled:text-gray-400"
+            />
           </div>
 
           {/* CARD E: PAYMENT & BILLING DETAILS */}

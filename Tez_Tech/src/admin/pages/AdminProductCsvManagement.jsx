@@ -61,8 +61,8 @@ const AdminProductCsvManagement = () => {
   // 🔥 NAYA: Download Demo CSV Logic
   const handleDownloadDemo = () => {
     // Apne backend schema ke hisaab se headers update kar lena agar zaroorat ho
-    const csvHeaders = "name,description,price,mrp,gst_percent,category,stock,images,variations\n";
-    const sampleData = "Sample Product,This is a test description,999,1499,18,Electronics,50,http://image1.jpg|http://image2.jpg,Size:M:Red|Size:L:Blue\n";
+    const csvHeaders = "sku,name,description,price,mrp,gst_percent,shipping_charge,weight_kg,category,stock,images,variations\n";
+    const sampleData = "VNK20,Sample Product,This is a test description,999,1499,18,1350,1.5,Electronics,50,http://image1.jpg|http://image2.jpg,Size:M:Red|Size:L:Blue\n";
     
     const csvContent = csvHeaders + sampleData;
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });

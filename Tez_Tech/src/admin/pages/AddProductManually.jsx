@@ -27,6 +27,7 @@ const AddProductManually = () => {
     gst: "",
     shippingCharge: "",
     stock: "",
+    weightKg: "",
     category1: "",
     category2: "",
     category3: "",
@@ -84,6 +85,7 @@ const AddProductManually = () => {
               gst: p.gstRate || "",
               shippingCharge: p.shippingCharge || "",
               stock: p.stock || "",
+              weightKg: p.weightKg || "",
               category1: p.category || p.categories?.[0] || "",
               category2: p.categories?.[1] || "",
               category3: p.categories?.[2] || "",
@@ -305,6 +307,10 @@ const AddProductManually = () => {
                 <div>
                   <label className="block mb-2 text-sm font-semibold text-gray-700">Shipping Charge (₹)</label>
                   <input type="number" name="shippingCharge" value={formData.shippingCharge} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-200 outline-none bg-gray-50 rounded-xl" placeholder="1350" />
+                </div>
+                <div>
+                  <label className="block mb-2 text-sm font-semibold text-gray-700">Weight (KG) *</label>
+                  <input type="number" step="any" name="weightKg" required value={formData.weightKg} onChange={handleInputChange} className="w-full px-4 py-3 border border-gray-200 outline-none bg-gray-50 rounded-xl" placeholder="e.g. 1.5" />
                 </div>
                 <div>
                   <label className="block mb-2 text-sm font-semibold text-gray-700">Base Stock *</label>

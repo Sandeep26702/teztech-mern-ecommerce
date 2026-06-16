@@ -9,7 +9,14 @@ const OrderSummary = ({
   calculatedSubTotal,
   calculatedDiscount,
   calculatedGst,
-  calculatedFinalTotal
+  calculatedFinalTotal,
+  shippingProviders = [],
+  shippingMethod = "",
+  ratePerKg = 0,
+  totalWeight = 0,
+  autoCalcShippingCost = 0,
+  setShippingMethod,
+  setRatePerKg
 }) => {
   const {
     extraDiscountType = "flat",
@@ -46,7 +53,7 @@ const OrderSummary = ({
 
   const taxAmount = calculatedGst !== undefined 
     ? calculatedGst 
-    : ((gstBaseAmount * Number(gstPercentage)) / 100 || 0);
+    : (((gstBaseAmount + shipping) * Number(gstPercentage)) / 100 || 0);
 
   const grandTotal = calculatedFinalTotal !== undefined 
     ? calculatedFinalTotal 
@@ -117,21 +124,61 @@ const OrderSummary = ({
           </div>
         </div>
 
-        {/* Shipping */}
-        <div className="flex items-center justify-between">
-          <span className="font-medium text-gray-700">Shipping</span>
-          <div className="relative flex items-center">
-            <span className="absolute text-gray-400 text-[11px] left-2">₹</span>
-            <input
-              type="number"
-              min="0"
+        {/* Shipping Section */}
+        <div className="pt-2 border-t border-gray-100 space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="font-medium text-gray-700 flex flex-col">
+              Shipping
+              {totalWeight > 0 && <span className="text-[10px] text-gray-400 font-semibold">Total Weight: {totalWeight.toFixed(2)} kg</span>}
+            </span>
+            <select
+              value={shippingMethod}
               disabled={isViewOnly}
-              value={shippingCharge === 0 ? "" : shippingCharge}
-              onChange={(e) => onUpdateQuoteField("shippingCharge", e.target.value)}
-              className="w-24 py-1.5 pl-6 pr-2 font-semibold text-right transition-all border border-gray-300 outline-none rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:bg-gray-50 disabled:text-gray-500 disabled:border-transparent"
-              placeholder="0"
-            />
+              onChange={(e) => {
+                const val = e.target.value;
+                setShippingMethod(val);
+                const provider = shippingProviders.find(p => p.name === val);
+                if (provider) {
+                  setRatePerKg(provider.ratePerKg || 0);
+                  const effectiveWeight = Math.max(0.5, totalWeight);
+                  onUpdateQuoteField("shippingCharge", String((effectiveWeight * provider.ratePerKg).toFixed(2)));
+                } else {
+                  setRatePerKg(0);
+                  onUpdateQuoteField("shippingCharge", "0");
+                }
+              }}
+              className="px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:border-blue-500 bg-white"
+            >
+              <option value="">Select Carrier</option>
+              {shippingProviders.map(p => (
+                <option key={p._id} value={p.name}>
+                  {p.name} (₹{p.ratePerKg}/kg)
+                </option>
+              ))}
+            </select>
           </div>
+
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-gray-500 font-medium">Shipping Cost Override</span>
+            <div className="relative flex items-center">
+              <span className="absolute text-gray-400 text-[11px] left-2">₹</span>
+              <input
+                type="number"
+                min="0"
+                disabled={isViewOnly}
+                value={shippingCharge === 0 ? "" : shippingCharge}
+                onChange={(e) => onUpdateQuoteField("shippingCharge", e.target.value)}
+                className="w-24 py-1.5 pl-6 pr-2 font-semibold text-right transition-all border border-gray-300 outline-none rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 disabled:bg-gray-50 disabled:text-gray-500 disabled:border-transparent text-sm"
+                placeholder={shippingMethod ? `Auto: ${autoCalcShippingCost}` : "0"}
+              />
+            </div>
+          </div>
+
+          {shippingMethod && (
+            <p className="text-[10px] text-green-600 font-semibold text-right">
+              Auto calculated: {totalWeight <= 0.5 ? '0.5kg (Minimum)' : `${totalWeight.toFixed(2)}kg`} × ₹{ratePerKg} = ₹{autoCalcShippingCost.toFixed(2)}
+            </p>
+          )}
         </div>
 
         {/* Additional Charges */}
@@ -166,7 +213,7 @@ const OrderSummary = ({
             <span className="font-medium text-gray-700">GST / Tax</span>
             {taxAmount > 0 && (
               <span className="text-[10px] font-semibold text-gray-500 mt-0.5">
-                On ₹{gstBaseAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                On ₹{(gstBaseAmount + shipping).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             )}
           </div>
