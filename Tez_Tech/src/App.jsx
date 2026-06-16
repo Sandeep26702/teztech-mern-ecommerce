@@ -123,37 +123,52 @@ function App() {
           {/* =====================================================================
               👑 ADMIN ROUTES (Protected)
           ====================================================================== */}
-          <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin']} />}>
+          <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'sales team', 'designer', 'manufacturing', 'purchase']} />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="dashboard" element={<AdminDashboard />} />
 
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="products/csv-management" element={<AdminProductCsvManagement />} />
-              {/* 🔥 NEW ROUTE ADDED 👇 */}
-              <Route path="products/add" element={<AddProductManually />} />
-              <Route path="products/edit/:id" element={<AddProductManually />} />
-              <Route path="categories" element={<AdminCategoryManagement />} />
+              {/* Products & Categories (admin, subadmin, purchase) */}
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'purchase']} />}>
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="products/csv-management" element={<AdminProductCsvManagement />} />
+                <Route path="products/add" element={<AddProductManually />} />
+                <Route path="products/edit/:id" element={<AddProductManually />} />
+                <Route path="categories" element={<AdminCategoryManagement />} />
+              </Route>
 
-              {/* ✅ ORDER ROUTES: 'create' must always be above ':id' */}
-              <Route path="orders" element={<AdminOrders />} />
-              <Route path="orders/create" element={<AdminCreateOrder />} />
-              <Route path="orders/edit/:id" element={<AdminEditOrder />} />
-              <Route path="orders/print-label/:id" element={<PrintableLabel />} />
-              <Route path="orders/tax-invoice/:id" element={<PrintableTaxInvoice />} />
-              <Route path="orders/:id" element={<AdminOrderDetail />} />
+              {/* Orders (admin, subadmin, sales team, manufacturing, purchase) */}
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'sales team', 'manufacturing', 'purchase']} />}>
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="orders/create" element={<AdminCreateOrder />} />
+                <Route path="orders/edit/:id" element={<AdminEditOrder />} />
+                <Route path="orders/print-label/:id" element={<PrintableLabel />} />
+                <Route path="orders/tax-invoice/:id" element={<PrintableTaxInvoice />} />
+                <Route path="orders/:id" element={<AdminOrderDetail />} />
+              </Route>
 
-              <Route path="quotes" element={<QuotesTable />} />
-              <Route path="quotes/:id" element={<QuoteEditor />} />
-              <Route path="quotes/notes" element={<ClientNotes />} />
+              {/* Quotes & Notes (admin, subadmin, sales team, designer) */}
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'sales team', 'designer']} />}>
+                <Route path="quotes" element={<QuotesTable />} />
+                <Route path="quotes/:id" element={<QuoteEditor />} />
+                <Route path="quotes/notes" element={<ClientNotes />} />
+              </Route>
 
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="subadmins" element={<AdminUsers />} />
-              <Route path="logs" element={<AdminLogs />} /> {/* 🔥 Traffic Logs */}
+              {/* Users & Configuration (admin, subadmin) */}
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin']} />}>
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="subadmins" element={<AdminUsers />} />
+                <Route path="shipping" element={<ShippingManagement />} />
+                <Route path="layout" element={<UserView />} />
+              </Route>
+
+              {/* Root Admin Only (admin) */}
+              <Route element={<PrivateRoute allowedRoles={['admin']} />}>
+                <Route path="logs" element={<AdminLogs />} /> 
+                <Route path="settings" element={<AdminSettings />} />
+              </Route>
+
               <Route path="analytics" element={<AdminAnalytics />} />
-              <Route path="settings" element={<AdminSettings />} />
-              <Route path="shipping" element={<ShippingManagement />} />
-              <Route path="layout" element={<UserView />} />
             </Route>
           </Route>
 

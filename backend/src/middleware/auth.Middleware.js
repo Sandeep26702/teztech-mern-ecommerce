@@ -71,12 +71,13 @@ export const authorize = (...roles) => {
     3. ADMIN (Admin & Subadmin Helper)
 ============================================================ */
 export const admin = (req, res, next) => {
-  if (req.user && (req.user.role === "admin" || req.user.role === "subadmin")) {
+  const staffRoles = ["admin", "subadmin", "sales team", "designer", "manufacturing", "purchase"];
+  if (req.user && staffRoles.includes(req.user.role)) {
     next();
   } else {
     res.status(403).json({ 
       success: false, 
-      message: "Access denied: Requires Admin or Subadmin privileges" 
+      message: "Access denied: Requires staff privileges" 
     });
   }
 };

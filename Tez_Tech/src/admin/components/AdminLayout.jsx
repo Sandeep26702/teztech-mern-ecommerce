@@ -18,20 +18,22 @@ const AdminLayout = () => {
     navigate("/login");
   };
 
-  // 👈 2. Yahan 'Shipping' ko list mein add kar diya
   const menuItems = [
-    { name: "Dashboard", path: "/admin/dashboard", icon: <FaChartLine size={20} /> },
-    { name: "Products", path: "/admin/products", icon: <FaBox size={20} /> },
-    { name: "Categories", path: "/admin/categories", icon: <FaLayerGroup size={20} /> },
-    { name: "Quotations", path: "/admin/quotes", icon: <FaFileInvoiceDollar size={20} /> },
-    { name: "Client Notes", path: "/admin/quotes/notes", icon: <FaRegStickyNote size={20} /> },
-    { name: "Orders", path: "/admin/orders", icon: <FaClipboardList size={20} /> },
-    { name: "Users", path: "/admin/users", icon: <FaUsers size={20} /> },
-    { name: "Sub Admins", path: "/admin/subadmins", icon: <FaUserShield size={20} /> },
-    { name: "Shipping", path: "/admin/shipping", icon: <FaTruck size={20} /> },
-    { name: "Layout", path: "/admin/layout", icon: <FaDesktop size={20} /> },
-    { name: "Security Logs", path: "/admin/logs", icon: <FaShieldAlt size={20} /> },
+    { name: "Dashboard", path: "/admin/dashboard", icon: <FaChartLine size={20} />, roles: ["admin", "subadmin", "sales team", "designer", "manufacturing", "purchase"] },
+    { name: "Products", path: "/admin/products", icon: <FaBox size={20} />, roles: ["admin", "subadmin", "purchase"] },
+    { name: "Categories", path: "/admin/categories", icon: <FaLayerGroup size={20} />, roles: ["admin", "subadmin", "purchase"] },
+    { name: "Quotations", path: "/admin/quotes", icon: <FaFileInvoiceDollar size={20} />, roles: ["admin", "subadmin", "sales team", "designer"] },
+    { name: "Client Notes", path: "/admin/quotes/notes", icon: <FaRegStickyNote size={20} />, roles: ["admin", "subadmin", "sales team", "designer"] },
+    { name: "Orders", path: "/admin/orders", icon: <FaClipboardList size={20} />, roles: ["admin", "subadmin", "sales team", "manufacturing", "purchase"] },
+    { name: "Users", path: "/admin/users", icon: <FaUsers size={20} />, roles: ["admin", "subadmin"] },
+    { name: "Sub Admins", path: "/admin/subadmins", icon: <FaUserShield size={20} />, roles: ["admin"] },
+    { name: "Shipping", path: "/admin/shipping", icon: <FaTruck size={20} />, roles: ["admin", "subadmin"] },
+    { name: "Layout", path: "/admin/layout", icon: <FaDesktop size={20} />, roles: ["admin", "subadmin"] },
+    { name: "Security Logs", path: "/admin/logs", icon: <FaShieldAlt size={20} />, roles: ["admin"] },
   ];
+
+  const userRole = user?.role?.toLowerCase() || "";
+  const filteredMenuItems = menuItems.filter(item => item.roles.includes(userRole));
 
   return (
     <div className="flex h-screen overflow-hidden font-sans bg-gray-50 print:h-auto print:overflow-visible print:bg-white">
@@ -58,7 +60,7 @@ const AdminLayout = () => {
         
         {/* Sidebar Nav */}
         <nav className="flex-1 px-3 py-6 space-y-2 overflow-y-auto custom-scrollbar">
-          {menuItems.map((item) => {
+          {filteredMenuItems.map((item) => {
             const isActive = location.pathname.includes(item.path);
             return (
               <Link 
@@ -110,7 +112,7 @@ const AdminLayout = () => {
               {isSidebarOpen ? <FaTimes size={20} /> : <FaBars size={20} />}
             </button>
             <h1 className="hidden text-xl font-bold text-gray-800 sm:block">
-              {menuItems.find(item => location.pathname.includes(item.path))?.name || "Dashboard"}
+              {filteredMenuItems.find(item => location.pathname.includes(item.path))?.name || "Dashboard"}
             </h1>
           </div>
           

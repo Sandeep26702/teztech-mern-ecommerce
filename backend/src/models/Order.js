@@ -161,6 +161,7 @@ const orderSchema = new mongoose.Schema(
 
     taxType: { type: String, enum: ["IGST", "CGST_SGST"], default: "CGST_SGST" }, // tax mode
     shippingWeightKg: { type: Number, default: 0, min: 0 },
+    stockDeducted: { type: Boolean, default: false },
     totalAmount: {
       type: Number,
       required: true,

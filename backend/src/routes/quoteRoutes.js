@@ -21,7 +21,7 @@ import {
 } from '../controllers/quoteController.js';
 
 // 🛡️ Importing Auth Middlewares (Ensure the path is correct relative to this folder)
-import { protect, admin } from '../middleware/auth.Middleware.js'; 
+import { protect, admin, authorize } from '../middleware/auth.Middleware.js'; 
 
 const router = express.Router();
 
@@ -57,20 +57,20 @@ router.post('/comment/client/:id', protect, addClientQuoteComment);
 ============================================================ */
 
 // Fetch all quotations for the Admin Dashboard table
-router.get('/all', protect, admin, getAllQuotes);
+router.get('/all', protect, authorize("admin", "subadmin", "sales team", "designer"), getAllQuotes);
 
 // Fetch a specific quotation's full details for the Admin Editor
-router.get('/admin/:id', protect, admin, getQuoteById);
+router.get('/admin/:id', protect, authorize("admin", "subadmin", "sales team", "designer"), getQuoteById);
 
 // Admin updates the quote (sets offered prices, discounts, validity)
-router.put('/respond/:id', protect, admin, respondToQuote);
+router.put('/respond/:id', protect, authorize("admin", "subadmin", "sales team", "designer"), respondToQuote);
 
 // Admin creates manual quotation for WhatsApp clients
-router.post('/manual', protect, admin, createManualQuote);
+router.post('/manual', protect, authorize("admin", "subadmin", "sales team", "designer"), createManualQuote);
 
 // CRM routes
-router.put('/assign/:id', protect, admin, assignQuote);
-router.post('/comment/:id', protect, admin, addQuoteCrmNote);
+router.put('/assign/:id', protect, authorize("admin", "subadmin", "sales team", "designer"), assignQuote);
+router.post('/comment/:id', protect, authorize("admin", "subadmin", "sales team", "designer"), addQuoteCrmNote);
 
 /* ============================================================
    4. PUBLIC ROUTES (Accessible via Shareable Links)

@@ -140,7 +140,7 @@ export const updateUserRole = async (req, res) => {
       return res.status(403).json({ success: false, message: "Only admin can change user roles" });
     }
 
-    const allowedRoles = ["user", "subadmin", "admin"];
+    const allowedRoles = ["user", "subadmin", "admin", "sales team", "designer", "manufacturing", "purchase"];
     const newRole = req.body?.role;
     if (!newRole || !allowedRoles.includes(newRole)) {
       return res.status(400).json({ success: false, message: "Invalid role provided" });

@@ -200,7 +200,8 @@ export const createOrder = async (req, res) => {
       discount: 0,
       discountType: "FLAT",
       isTaxExempt: false,
-      generateTaxInvoice: false
+      generateTaxInvoice: false,
+      stockDeducted: true
     });
 
     const savedOrder = await order.save();
@@ -317,9 +318,42 @@ export const updateOrderStatus = async (req, res) => {
     if (orderStatus) updatePayload.orderStatus = orderStatus;
     if (paymentStatus) updatePayload.paymentStatus = paymentStatus;
 
-    const order = await Order.findByIdAndUpdate(req.params.orderId, updatePayload, { new: true });
-    res.status(200).json({ success: true, order });
-  } catch (error) { res.status(500).json({ success: false }); }
+    // Load the order first to perform logic checks
+    const order = await Order.findById(req.params.orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    // A. Dynamic Stock subtraction when moving to "Processing" (Order Start)
+    if (orderStatus === "Processing" && !order.stockDeducted) {
+      for (const item of order.items) {
+        const product = await Product.findById(item.productId);
+        if (product) {
+          product.stock = Math.max(0, product.stock - item.quantity);
+          await product.save();
+        }
+      }
+      updatePayload.stockDeducted = true;
+    }
+
+    // B. Revert Stock addition if the order is "Cancelled"
+    if (orderStatus === "Cancelled" && order.stockDeducted) {
+      for (const item of order.items) {
+        const product = await Product.findById(item.productId);
+        if (product) {
+          product.stock += item.quantity;
+          await product.save();
+        }
+      }
+      updatePayload.stockDeducted = false;
+    }
+
+    const updatedOrder = await Order.findByIdAndUpdate(req.params.orderId, updatePayload, { new: true });
+    res.status(200).json({ success: true, order: updatedOrder });
+  } catch (error) { 
+    console.error("Update Order Status Error:", error);
+    res.status(500).json({ success: false, message: "Failed to update order status" }); 
+  }
 };
 
 
