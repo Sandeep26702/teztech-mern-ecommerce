@@ -31,7 +31,7 @@ const userSchema = new mongoose.Schema(
       match: [/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/, "Please fill a valid email address"]
     },
     password: { type: String, required: [true, "Please enter your password"], minlength: 6, select: false },
-    role: { type: String, enum: ["user", "admin", "subadmin", "sales team", "designer", "manufacturing", "purchase"], default: "user" },
+    role: { type: String, enum: ["user", "admin", "subadmin", "sales team", "designer", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"], default: "user" },
     userId: { type: String, unique: true, sparse: true, index: true, trim: true },
     phone: { type: String, unique: true, sparse: true, trim: true },
     address: {

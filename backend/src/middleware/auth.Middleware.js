@@ -71,7 +71,7 @@ export const authorize = (...roles) => {
     3. ADMIN (Admin & Subadmin Helper)
 ============================================================ */
 export const admin = (req, res, next) => {
-  const staffRoles = ["admin", "subadmin", "sales team", "designer", "manufacturing", "purchase"];
+  const staffRoles = ["admin", "subadmin", "sales team", "designer", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"];
   if (req.user && staffRoles.includes(req.user.role)) {
     next();
   } else {

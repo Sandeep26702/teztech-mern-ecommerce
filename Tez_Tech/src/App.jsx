@@ -123,7 +123,7 @@ function App() {
           {/* =====================================================================
               👑 ADMIN ROUTES (Protected)
           ====================================================================== */}
-          <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'sales team', 'designer', 'manufacturing', 'purchase']} />}>
+          <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'sales team', 'designer', 'manufacturing', 'purchase', 'packing', 'dispatch', 'feedback tracking', 'accounting', 'marketing']} />}>
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="dashboard" element={<AdminDashboard />} />
@@ -137,8 +137,8 @@ function App() {
                 <Route path="categories" element={<AdminCategoryManagement />} />
               </Route>
 
-              {/* Orders (admin, subadmin, sales team, manufacturing, purchase) */}
-              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'sales team', 'manufacturing', 'purchase']} />}>
+              {/* Orders (admin, subadmin, sales team, manufacturing, purchase, packing, dispatch, feedback tracking, accounting, marketing) */}
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'sales team', 'manufacturing', 'purchase', 'packing', 'dispatch', 'feedback tracking', 'accounting', 'marketing']} />}>
                 <Route path="orders" element={<AdminOrders />} />
                 <Route path="orders/create" element={<AdminCreateOrder />} />
                 <Route path="orders/edit/:id" element={<AdminEditOrder />} />
@@ -147,8 +147,8 @@ function App() {
                 <Route path="orders/:id" element={<AdminOrderDetail />} />
               </Route>
 
-              {/* Quotes & Notes (admin, subadmin, sales team, designer) */}
-              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'sales team', 'designer']} />}>
+              {/* Quotes & Notes (admin, subadmin, sales team, designer, feedback tracking) */}
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'sales team', 'designer', 'feedback tracking']} />}>
                 <Route path="quotes" element={<QuotesTable />} />
                 <Route path="quotes/:id" element={<QuoteEditor />} />
                 <Route path="quotes/notes" element={<ClientNotes />} />
@@ -158,8 +158,12 @@ function App() {
               <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin']} />}>
                 <Route path="users" element={<AdminUsers />} />
                 <Route path="subadmins" element={<AdminUsers />} />
-                <Route path="shipping" element={<ShippingManagement />} />
                 <Route path="layout" element={<UserView />} />
+              </Route>
+
+              {/* Shipping Setup (admin, subadmin, dispatch) */}
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'dispatch']} />}>
+                <Route path="shipping" element={<ShippingManagement />} />
               </Route>
 
               {/* Root Admin Only (admin) */}

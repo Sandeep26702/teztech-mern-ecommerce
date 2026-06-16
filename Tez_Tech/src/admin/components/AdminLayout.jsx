@@ -19,15 +19,15 @@ const AdminLayout = () => {
   };
 
   const menuItems = [
-    { name: "Dashboard", path: "/admin/dashboard", icon: <FaChartLine size={20} />, roles: ["admin", "subadmin", "sales team", "designer", "manufacturing", "purchase"] },
+    { name: "Dashboard", path: "/admin/dashboard", icon: <FaChartLine size={20} />, roles: ["admin", "subadmin", "sales team", "designer", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"] },
     { name: "Products", path: "/admin/products", icon: <FaBox size={20} />, roles: ["admin", "subadmin", "purchase"] },
     { name: "Categories", path: "/admin/categories", icon: <FaLayerGroup size={20} />, roles: ["admin", "subadmin", "purchase"] },
     { name: "Quotations", path: "/admin/quotes", icon: <FaFileInvoiceDollar size={20} />, roles: ["admin", "subadmin", "sales team", "designer"] },
-    { name: "Client Notes", path: "/admin/quotes/notes", icon: <FaRegStickyNote size={20} />, roles: ["admin", "subadmin", "sales team", "designer"] },
-    { name: "Orders", path: "/admin/orders", icon: <FaClipboardList size={20} />, roles: ["admin", "subadmin", "sales team", "manufacturing", "purchase"] },
+    { name: "Client Notes", path: "/admin/quotes/notes", icon: <FaRegStickyNote size={20} />, roles: ["admin", "subadmin", "sales team", "designer", "feedback tracking"] },
+    { name: "Orders", path: "/admin/orders", icon: <FaClipboardList size={20} />, roles: ["admin", "subadmin", "sales team", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"] },
     { name: "Users", path: "/admin/users", icon: <FaUsers size={20} />, roles: ["admin", "subadmin"] },
     { name: "Sub Admins", path: "/admin/subadmins", icon: <FaUserShield size={20} />, roles: ["admin"] },
-    { name: "Shipping", path: "/admin/shipping", icon: <FaTruck size={20} />, roles: ["admin", "subadmin"] },
+    { name: "Shipping", path: "/admin/shipping", icon: <FaTruck size={20} />, roles: ["admin", "subadmin", "dispatch"] },
     { name: "Layout", path: "/admin/layout", icon: <FaDesktop size={20} />, roles: ["admin", "subadmin"] },
     { name: "Security Logs", path: "/admin/logs", icon: <FaShieldAlt size={20} />, roles: ["admin"] },
   ];

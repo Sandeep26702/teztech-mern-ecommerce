@@ -45,8 +45,8 @@ router.get('/my-orders', protect, getMyOrders);
 router.get('/detail/:id', protect, getOrderDetail);
 
 // --- ADMIN ROUTES ---
-router.get('/admin/all', protect, authorize("admin", "subadmin", "sales team", "manufacturing", "purchase"), getAllOrdersForAdmin);
-router.put('/admin/update/:orderId', protect, authorize("admin", "subadmin", "sales team", "manufacturing"), updateOrderStatus);
+router.get('/admin/all', protect, authorize("admin", "subadmin", "sales team", "designer", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"), getAllOrdersForAdmin);
+router.put('/admin/update/:orderId', protect, authorize("admin", "subadmin", "sales team", "manufacturing", "packing", "dispatch", "feedback tracking"), updateOrderStatus);
 
 // 🟢 NEW ROUTE: For Admin Order Creation (Secured with authorization)
 router.post('/admin/create', protect, authorize("admin", "subadmin", "sales team", "purchase"), createAdminOrder);

@@ -3,9 +3,9 @@ import { useNavigate, Link, useParams } from "react-router-dom";
 import axios from "axios";
 // 🔥 FIXED: Added FaTimes here
 import { FaArrowLeft, FaPlus, FaTrash, FaCloudUploadAlt, FaSave, FaTags, FaRulerCombined, FaTimes } from "react-icons/fa";
+import { getApiUrl } from "../../utils/api";
 
-// Pointing to live Render URL so it works on all devices
-const API = "https://sonani-backend.onrender.com/api";
+const API = getApiUrl();
 
 const AddProductManually = () => {
   const { id } = useParams();

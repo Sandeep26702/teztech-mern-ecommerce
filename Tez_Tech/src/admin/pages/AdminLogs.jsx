@@ -11,6 +11,7 @@ import {
   FiChevronRight
 } from 'react-icons/fi';
 import toast from 'react-hot-toast';
+import { getApiUrl } from '../../utils/api';
 
 const AdminLogs = () => {
   const [logs, setLogs] = useState([]);
@@ -42,7 +43,7 @@ const AdminLogs = () => {
         dateRange
       });
 
-      const { data } = await axios.get(`https://sonani-backend.onrender.com/api/admin/logs?${queryParams.toString()}`, {
+      const { data } = await axios.get(`${getApiUrl()}/admin/logs?${queryParams.toString()}`, {
         withCredentials: true
       });
 
@@ -96,7 +97,7 @@ const AdminLogs = () => {
         dateRange
       });
       
-      const response = await axios.get(`https://sonani-backend.onrender.com/api/admin/logs/export?${queryParams.toString()}`, {
+      const response = await axios.get(`${getApiUrl()}/admin/logs/export?${queryParams.toString()}`, {
         withCredentials: true,
         responseType: 'blob' // Important for file download
       });

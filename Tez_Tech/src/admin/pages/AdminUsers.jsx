@@ -3,8 +3,9 @@ import { useLocation } from "react-router-dom";
 import axios from "axios";
 import { FaTrash, FaSearch, FaUserShield, FaUserFriends } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
+import { getApiUrl } from "../../utils/api";
 
-const API_BASE = "https://sonani-backend.onrender.com/api/admin";
+const API_BASE = `${getApiUrl()}/admin`;
 
 const AdminUsers = () => {
   const [users, setUsers] = useState([]);
@@ -137,8 +138,28 @@ const AdminUsers = () => {
         return "bg-purple-50 text-purple-700 border-purple-200";
       case "subadmin":
         return "bg-blue-50 text-blue-700 border-blue-200";
-      default:
+      case "sales team":
+        return "bg-orange-50 text-orange-700 border-orange-200";
+      case "designer":
+        return "bg-pink-50 text-pink-700 border-pink-200";
+      case "purchase":
+        return "bg-cyan-50 text-cyan-700 border-cyan-200";
+      case "manufacturing":
+        return "bg-amber-50 text-amber-700 border-amber-200";
+      case "packing":
+        return "bg-lime-50 text-lime-700 border-lime-200";
+      case "dispatch":
+        return "bg-rose-50 text-rose-700 border-rose-200";
+      case "feedback tracking":
+        return "bg-indigo-50 text-indigo-700 border-indigo-200";
+      case "accounting":
+        return "bg-teal-50 text-teal-700 border-teal-200";
+      case "marketing":
+        return "bg-violet-50 text-violet-700 border-violet-200";
+      case "user":
         return "bg-emerald-50 text-emerald-700 border-emerald-200";
+      default:
+        return "bg-slate-50 text-slate-700 border-slate-200";
     }
   };
 
@@ -184,8 +205,17 @@ const AdminUsers = () => {
                       className={`text-sm font-semibold rounded-lg border px-3 py-1.5 ${getRoleStyle(u.role)}`}
                     >
                       <option value="user">User</option>
-                      <option value="subadmin">Sub-Admin</option>
                       <option value="admin">Admin</option>
+                      <option value="subadmin">Sub-Admin</option>
+                      <option value="sales team">Sales Team</option>
+                      <option value="designer">Designer</option>
+                      <option value="purchase">Purchase</option>
+                      <option value="manufacturing">Manufacturing</option>
+                      <option value="packing">Packing</option>
+                      <option value="dispatch">Dispatch</option>
+                      <option value="feedback tracking">Feedback Tracking</option>
+                      <option value="accounting">Accounting</option>
+                      <option value="marketing">Marketing</option>
                     </select>
                   </td>
                   <td className="px-6 py-4">

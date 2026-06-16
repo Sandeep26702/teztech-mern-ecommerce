@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { toast } from "react-hot-toast";
+import { getApiUrl } from "../../utils/api";
 
 // 🌐 SMART API URL LOGIC
-const API_URL = import.meta.env.VITE_BACKEND_URL || "https://sonani-backend.onrender.com";
+const API_URL = getApiUrl().replace("/api", "");
 
 const UserView = () => {
   const [loading, setLoading] = useState(false);

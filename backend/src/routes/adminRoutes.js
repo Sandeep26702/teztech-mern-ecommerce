@@ -38,13 +38,13 @@ const router = express.Router();
 // Login is required for all routes
 router.use(protect); 
 
+// 📊 Dashboard Stats (accessible by all staff roles)
+router.get("/dashboard-stats", authorize("admin", "subadmin", "sales team", "designer", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"), getDashboardStats);
+
 // Must be an Admin or Sub-admin to access these routes
 router.use(authorize("admin", "subadmin")); 
 
 /* ================= ROUTES ================= */
-
-// 📊 Dashboard Stats 
-router.get("/dashboard-stats", getDashboardStats);
 
 // 📦 Order Management Routes 
 router.get("/orders", getAllOrdersForAdmin); 

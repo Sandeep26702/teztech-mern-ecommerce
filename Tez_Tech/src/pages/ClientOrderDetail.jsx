@@ -4,6 +4,7 @@ import { FaArrowLeft, FaDownload, FaCheckCircle } from "react-icons/fa";
 import { getOrderById } from "../services/orderService"; 
 import TaxInvoice from "../admin/components/TaxInvoice";
 import Skeleton from "../components/skeletons/Skeleton";
+import { getApiUrl } from "../utils/api";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -16,7 +17,8 @@ const getImageUrl = (path) => {
   if (!path) return "https://placehold.co/100x100?text=No+Image";
   if (path.startsWith("http")) return path;
   const cleanPath = path.replace(/\\/g, "/");
-  return `https://sonani-backend.onrender.com${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
+  const baseDomain = getApiUrl().replace("/api", "");
+  return `${baseDomain}${cleanPath.startsWith("/") ? "" : "/"}${cleanPath}`;
 };
 
 const getVariations = (item) => {
