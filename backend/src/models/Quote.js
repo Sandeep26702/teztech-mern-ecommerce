@@ -153,7 +153,7 @@ const quoteSchema = new mongoose.Schema(
 );
 
 // ⚙️ Pre-validate Hook: Auto-generate 'quoteNumber' before saving to Database
-quoteSchema.pre("validate", async function (next) {
+quoteSchema.pre("validate", async function () {
   if (!this.quoteNumber) {
     let isUnique = false;
     while (!isUnique) {
@@ -166,7 +166,6 @@ quoteSchema.pre("validate", async function (next) {
       }
     }
   }
-  next();
 });
 
 // ==========================================

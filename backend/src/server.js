@@ -20,6 +20,11 @@ import quoteRoutes from "./routes/quoteRoutes.js";
 import customDesignQuoteRoutes from "./routes/customDesignQuoteRoutes.js";
 import shippingRoutes from "./routes/shippingRoutes.js";
 import layoutRoutes from "./routes/layoutRoutes.js";
+import leadRoutes from "./routes/leadRoutes.js";
+import designRequestRoutes from "./routes/designRequestRoutes.js";
+import materialRoutes from "./routes/materialRoutes.js";
+import jobCardRoutes from "./routes/jobCardRoutes.js";
+import feedbackRoutes from "./routes/feedbackRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -105,6 +110,11 @@ app.use("/api/custom-quote", customDesignQuoteRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/shipping", shippingRoutes);
 app.use("/api/layout", layoutRoutes);
+app.use("/api/leads", leadRoutes);
+app.use("/api/design-requests", designRequestRoutes);
+app.use("/api/materials", materialRoutes);
+app.use("/api/job-cards", jobCardRoutes);
+app.use("/api/feedbacks", feedbackRoutes);
 
 /* ================= START SERVER ================= */
 

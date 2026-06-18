@@ -71,6 +71,16 @@ const UserView = lazy(() => import('./admin/pages/UserView'));
 const PrintableLabel = lazy(() => import('./admin/pages/PrintableLabel'));
 const PrintableTaxInvoice = lazy(() => import('./admin/pages/PrintableTaxInvoice'));
 
+// CRM/ERP new workflow pages
+const AdminLeads = lazy(() => import("./admin/pages/AdminLeads"));
+const AdminDesignRequests = lazy(() => import("./admin/pages/AdminDesignRequests"));
+const AdminMaterials = lazy(() => import("./admin/pages/AdminMaterials"));
+const AdminJobCards = lazy(() => import("./admin/pages/AdminJobCards"));
+const AdminPacking = lazy(() => import("./admin/pages/AdminPacking"));
+const AdminDispatch = lazy(() => import("./admin/pages/AdminDispatch"));
+const AdminFeedback = lazy(() => import("./admin/pages/AdminFeedback"));
+const AdminAccounting = lazy(() => import("./admin/pages/AdminAccounting"));
+
 /**
  * 🌟 PUBLIC LAYOUT WRAPPER
  */
@@ -127,6 +137,32 @@ function App() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="dashboard" element={<AdminDashboard />} />
+
+              {/* CRM/ERP Pipeline Routes */}
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'sales team', 'marketing']} />}>
+                <Route path="leads" element={<AdminLeads />} />
+              </Route>
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'sales team', 'designer']} />}>
+                <Route path="designs" element={<AdminDesignRequests />} />
+              </Route>
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'purchase', 'sales team']} />}>
+                <Route path="materials" element={<AdminMaterials />} />
+              </Route>
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'manufacturing']} />}>
+                <Route path="job-cards" element={<AdminJobCards />} />
+              </Route>
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'packing']} />}>
+                <Route path="packing" element={<AdminPacking />} />
+              </Route>
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'dispatch']} />}>
+                <Route path="dispatch" element={<AdminDispatch />} />
+              </Route>
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'feedback tracking', 'sales team']} />}>
+                <Route path="feedback" element={<AdminFeedback />} />
+              </Route>
+              <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'accounting']} />}>
+                <Route path="accounting" element={<AdminAccounting />} />
+              </Route>
 
               {/* Products & Categories (admin, subadmin, purchase) */}
               <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'purchase']} />}>

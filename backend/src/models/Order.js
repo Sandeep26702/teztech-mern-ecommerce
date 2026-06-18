@@ -173,6 +173,35 @@ const orderSchema = new mongoose.Schema(
       enum: ["Ready For Pickup", "Processing", "Awaiting Processing", "Out for Delivery", "Delivered", "Cancelled", "Returned", "Shipped"],
       default: "Awaiting Processing",
     },
+    productionStatus: {
+      type: String,
+      enum: ["Not Sent", "Awaiting Production", "In Production", "Completed"],
+      default: "Not Sent",
+    },
+    packingStatus: {
+      type: String,
+      enum: ["Awaiting Packing", "Packed"],
+      default: "Awaiting Packing",
+    },
+    dispatchStatus: {
+      type: String,
+      enum: ["Awaiting Dispatch", "Shipped"],
+      default: "Awaiting Dispatch",
+    },
+    trackingId: {
+      type: String,
+      default: "",
+    },
+    trackingUrl: {
+      type: String,
+      default: "",
+    },
+    syncStatus: {
+      zoho: { type: String, default: "Not Synced" },
+      googleSheets: { type: String, default: "Not Synced" },
+      syncedAt: { type: Date },
+      error: { type: String, default: "" },
+    },
     deliveredAt: { type: Date },
     shippedAt: { type: Date },
   },

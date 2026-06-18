@@ -6,6 +6,7 @@ import {
 } from "react-icons/fa";
 import api, { getApiUrl } from "../../utils/api";
 import { toast } from "react-hot-toast";
+import { useAuth } from "../../context/AuthContext";
 
 // 💰 Currency Formatter Helper
 const formatCurrency = (amount) =>
@@ -44,11 +45,33 @@ const getVariations = (item) => {
 const OrderDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const userRole = user?.role?.toLowerCase() || "";
 
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [zoomScreenshot, setZoomScreenshot] = useState(false);
+
+  const handleSendToProduction = async () => {
+    const thickness = prompt("Enter material thickness (mm) for Job Card:", "1");
+    if (thickness === null) return;
+    const materialType = prompt("Enter material type (e.g. HDPE, PP):", "HDPE");
+    if (materialType === null) return;
+
+    try {
+      const res = await api.put(`/orders/admin/production/${id}`, {
+        thickness: Number(thickness) || 1,
+        materialType: materialType || "HDPE"
+      });
+      if (res.data.success) {
+        toast.success("Order successfully sent to Laser Production!");
+        fetchOrderDetails();
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to send to production");
+    }
+  };
 
   const fetchOrderDetails = async () => {
     try {
@@ -149,12 +172,22 @@ const OrderDetail = () => {
         </div>
 
         {/* Premium Redirection to Edit Page */}
-        <button 
-          onClick={() => navigate(`/admin/orders/edit/${id}`)}
-          className="flex items-center gap-2 px-6 py-2.5 bg-[#2463d1] hover:bg-[#1c51b0] text-white text-sm font-bold rounded-lg transition-colors shadow-md active:scale-95 shrink-0 self-start sm:self-center"
-        >
-          <FaEdit size={14} /> Edit Order
-        </button>
+        <div className="flex gap-2 self-start sm:self-center shrink-0">
+          {["admin", "subadmin", "sales team"].includes(userRole) && order.productionStatus === "Not Sent" && (
+            <button 
+              onClick={handleSendToProduction}
+              className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold rounded-lg transition-colors shadow-md active:scale-95 cursor-pointer"
+            >
+              <FaBoxOpen size={14} /> Send to Production
+            </button>
+          )}
+          <button 
+            onClick={() => navigate(`/admin/orders/edit/${id}`)}
+            className="flex items-center gap-2 px-6 py-2.5 bg-[#2463d1] hover:bg-[#1c51b0] text-white text-sm font-bold rounded-lg transition-colors shadow-md active:scale-95 cursor-pointer"
+          >
+            <FaEdit size={14} /> Edit Order
+          </button>
+        </div>
       </div>
 
       {/* 2. ORDER PROGRESS TIMELINE BAR */}
@@ -326,6 +359,24 @@ const OrderDetail = () => {
                   </div>
                 </div>
               </div>
+
+              {order.trackingId && (
+                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-blue-900 font-extrabold">AWB Tracking ID: <span className="font-mono text-sm">{order.trackingId}</span></p>
+                    <p className="text-[10px] text-blue-700 mt-0.5">Status: {order.dispatchStatus} ({order.courierPartner})</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(order.trackingUrl || `https://track.courier.com/?awb=${order.trackingId}`);
+                      toast.success("Tracking link copied to clipboard!");
+                    }}
+                    className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-all active:scale-95 shadow-sm cursor-pointer"
+                  >
+                    Copy Link
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

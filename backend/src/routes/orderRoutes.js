@@ -9,7 +9,10 @@ import {
     getOrderDetail,
     getMyOrders,
     createAdminOrder, // 🟢 NEW ADDED: Admin Order Controller
-    editAdminOrder
+    editAdminOrder,
+    sendToProduction,
+    markPacked,
+    shipOrder
 } from '../controllers/orderController.js';
 import { protect, authorize } from '../middleware/auth.Middleware.js'; 
 import { trafficLogger } from "../middleware/trafficLogger.js";
@@ -53,5 +56,10 @@ router.post('/admin/create', protect, authorize("admin", "subadmin", "sales team
 
 // 🟢 NEW ROUTE: For Admin Order Editing
 router.put('/admin/edit/:orderId', protect, authorize("admin", "subadmin", "sales team", "purchase"), editAdminOrder);
+
+// 🛠️ CRM/ERP Phase-wise pipeline endpoints
+router.put('/admin/production/:orderId', protect, authorize("admin", "subadmin", "sales team"), sendToProduction);
+router.put('/admin/pack/:orderId', protect, authorize("admin", "subadmin", "packing"), markPacked);
+router.put('/admin/ship/:orderId', protect, authorize("admin", "subadmin", "dispatch"), shipOrder);
 
 export default router;

@@ -19,7 +19,7 @@ const storage = new CloudinaryStorage({
   params: {
     folder: 'teztech_uploads', // This folder will be created in Cloudinary
     resource_type: 'auto', // 🔥 IMPORTANT: 'auto' so that both Images and Videos can be uploaded
-    allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'mp4', 'webm'], // Supported image and video formats
+    allowed_formats: ['jpg', 'png', 'jpeg', 'gif', 'mp4', 'webm', 'svg'], // Supported formats including SVG
   },
 });
 

@@ -4,6 +4,10 @@ import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import User from "../models/User.js";
 import ShippingProvider from "../models/ShippingProvider.js";
+import JobCard from "../models/JobCard.js";
+import Material from "../models/Material.js";
+import DesignRequest from "../models/DesignRequest.js";
+import { syncOrderToZohoAndSheets } from "../utils/syncAutomation.js";
 
 const ORDER_COUNTER_KEY = "order_number_seq";
 const ORDER_NUMBER_START = 100000;
@@ -349,6 +353,13 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     const updatedOrder = await Order.findByIdAndUpdate(req.params.orderId, updatePayload, { new: true });
+
+    // C. Trigger Zoho & Google Sheets Mock Sync on Payment Status -> Paid approval
+    if (paymentStatus === "Paid" && order.paymentStatus !== "Paid" && updatedOrder) {
+      // Run async sync automation
+      syncOrderToZohoAndSheets(updatedOrder);
+    }
+
     res.status(200).json({ success: true, order: updatedOrder });
   } catch (error) { 
     console.error("Update Order Status Error:", error);
@@ -668,5 +679,122 @@ export const editAdminOrder = async (req, res) => {
   } catch (error) {
     console.error("❌ ADMIN Order Update Error:", error);
     res.status(500).json({ success: false, message: "Database Update Failed", error: error.message });
+  }
+};
+
+// Send Order to Laser Production (spawns Job Card & deducts material inventory)
+export const sendToProduction = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { thickness, materialType, optimizedSvgUrl } = req.body;
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (order.productionStatus !== "Not Sent") {
+      return res.status(400).json({ success: false, message: "Order already in production pipeline" });
+    }
+
+    // 1. Spawns JobCard
+    const newJobCard = new JobCard({
+      order: orderId,
+      optimizedSvgUrl: optimizedSvgUrl || "",
+      thickness: Number(thickness) || 1,
+      materialType: materialType || "HDPE",
+      status: "Awaiting Production",
+    });
+    await newJobCard.save();
+
+    // 2. Deduct material stock
+    const skuSearch = `${thickness}mm ${materialType}`.toLowerCase(); // e.g. "1mm hdpe"
+    const materials = await Material.find();
+    const matchingMaterial = materials.find((m) =>
+      m.name.toLowerCase().includes(skuSearch) || m.sku.toLowerCase().includes(skuSearch)
+    );
+
+    if (matchingMaterial) {
+      matchingMaterial.stock = Math.max(0, matchingMaterial.stock - 1); // Deduct 1 roll/sheet unit
+      await matchingMaterial.save();
+      console.log(`[MATERIAL CHECK] Deducted stock for ${matchingMaterial.name}. New stock: ${matchingMaterial.stock}`);
+    } else {
+      console.log(`[MATERIAL CHECK] No matching material found for: ${skuSearch}. Stock deduction skipped.`);
+    }
+
+    // 3. Update order productionStatus and orderStatus
+    order.productionStatus = "Awaiting Production";
+    order.orderStatus = "Processing";
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Order successfully sent to production! Job Card created and stock checked.",
+      order,
+      jobCard: newJobCard,
+    });
+  } catch (error) {
+    console.error("Send to Production Error:", error);
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};
+
+// Mark Order as Packed
+export const markPacked = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    order.packingStatus = "Packed";
+    order.dispatchStatus = "Awaiting Dispatch";
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Order marked as packed! Sent to Dispatch queue.",
+      order,
+    });
+  } catch (error) {
+    console.error("Mark Packed Error:", error);
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};
+
+// Mark Order as Shipped (Assigns courier, AWB, and updates statuses)
+export const shipOrder = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { courierPartner, trackingId } = req.body;
+
+    if (!courierPartner || !trackingId) {
+      return res.status(400).json({ success: false, message: "Courier partner and Tracking ID (AWB) are required" });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    order.courierPartner = courierPartner;
+    order.selectedShippingProvider = courierPartner;
+    order.trackingId = trackingId;
+    order.trackingUrl = `https://track.courier.com/?awb=${trackingId}`; // Generic/Mock tracking URL
+    order.dispatchStatus = "Shipped";
+    order.orderStatus = "Shipped";
+    order.shippedAt = new Date();
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Order successfully shipped!",
+      order,
+    });
+  } catch (error) {
+    console.error("Ship Order Error:", error);
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
   }
 };

@@ -3,7 +3,8 @@ import { Link, useNavigate, Outlet, useLocation } from "react-router-dom";
 import { 
   FaBox, FaUsers, FaClipboardList, FaChartLine, 
   FaSignOutAlt, FaBars, FaTimes, FaUserShield, FaFileInvoiceDollar, FaLayerGroup,
-  FaCog, FaTruck, FaDesktop, FaShieldAlt, FaRegStickyNote
+  FaCog, FaTruck, FaDesktop, FaShieldAlt, FaRegStickyNote,
+  FaBullhorn, FaPalette, FaCubes, FaIndustry, FaGift, FaCommentAlt, FaCalculator
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 
@@ -20,6 +21,14 @@ const AdminLayout = () => {
 
   const menuItems = [
     { name: "Dashboard", path: "/admin/dashboard", icon: <FaChartLine size={20} />, roles: ["admin", "subadmin", "sales team", "designer", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"] },
+    { name: "Leads", path: "/admin/leads", icon: <FaBullhorn size={20} />, roles: ["admin", "subadmin", "sales team", "marketing"] },
+    { name: "Design Requests", path: "/admin/designs", icon: <FaPalette size={20} />, roles: ["admin", "subadmin", "sales team", "designer"] },
+    { name: "Materials", path: "/admin/materials", icon: <FaCubes size={20} />, roles: ["admin", "subadmin", "purchase", "sales team"] },
+    { name: "Job Cards", path: "/admin/job-cards", icon: <FaIndustry size={20} />, roles: ["admin", "subadmin", "manufacturing"] },
+    { name: "Packing", path: "/admin/packing", icon: <FaGift size={20} />, roles: ["admin", "subadmin", "packing"] },
+    { name: "Dispatch Queue", path: "/admin/dispatch", icon: <FaTruck size={20} />, roles: ["admin", "subadmin", "dispatch"] },
+    { name: "Feedback & Upsell", path: "/admin/feedback", icon: <FaCommentAlt size={20} />, roles: ["admin", "subadmin", "feedback tracking", "sales team"] },
+    { name: "Accounting Logs", path: "/admin/accounting", icon: <FaCalculator size={20} />, roles: ["admin", "subadmin", "accounting"] },
     { name: "Products", path: "/admin/products", icon: <FaBox size={20} />, roles: ["admin", "subadmin", "purchase"] },
     { name: "Categories", path: "/admin/categories", icon: <FaLayerGroup size={20} />, roles: ["admin", "subadmin", "purchase"] },
     { name: "Quotations", path: "/admin/quotes", icon: <FaFileInvoiceDollar size={20} />, roles: ["admin", "subadmin", "sales team", "designer"] },

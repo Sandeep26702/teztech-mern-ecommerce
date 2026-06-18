@@ -57,7 +57,7 @@ const customDesignQuoteSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-customDesignQuoteSchema.pre("validate", async function (next) {
+customDesignQuoteSchema.pre("validate", async function () {
   if (!this.quoteNumber) {
     let isUnique = false;
     while (!isUnique) {
@@ -70,7 +70,6 @@ customDesignQuoteSchema.pre("validate", async function (next) {
       }
     }
   }
-  next();
 });
 
 export default mongoose.model("CustomDesignQuote", customDesignQuoteSchema);
