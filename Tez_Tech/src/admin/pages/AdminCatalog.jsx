@@ -283,7 +283,9 @@ const AdminCatalog = () => {
             const displayPrice = Math.round(rawTotalSelling * (1 + (gstRate / 100)));
             const displayMrp = Math.round(rawTotalMrp * (1 + (gstRate / 100)));
             const discountPercent = displayMrp > displayPrice ? Math.round(((displayMrp - displayPrice) / displayMrp) * 100) : 0;
-            const isOutOfStock = Number(product.stock || 0) === 0;
+            const isOutOfStock = product.variants?.length > 0 
+              ? product.variants.every(v => Number(v.stock || 0) === 0) 
+              : Number(product.stock || 0) === 0;
 
             return (
               <div 

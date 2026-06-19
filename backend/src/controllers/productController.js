@@ -280,7 +280,8 @@ export const getProducts = async (req, res) => {
             hasVariants: 1,
             customFields: 1,
             details: 1,
-            weightKg: 1
+            weightKg: 1,
+            stock: 1
           }
         }
       );
@@ -296,7 +297,7 @@ export const getProducts = async (req, res) => {
     } else {
       // Normal find path (extremely fast for standard browsing)
       products = await Product.find(matchStage)
-        .select("name price mrp image images baseSku status category categories gstRate shippingCharge attributes variants hasVariants customFields details weightKg")
+        .select("name price mrp image images baseSku status category categories gstRate shippingCharge attributes variants hasVariants customFields details weightKg stock")
         .sort(sortObj)
         .skip(skip)
         .limit(Number(limit))
