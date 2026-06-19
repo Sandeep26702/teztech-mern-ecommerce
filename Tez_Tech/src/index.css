@@ -16,6 +16,125 @@
   }
 }
 
+/* Custom class-based dark variant for Tailwind CSS v4 */
+@variant dark (&:where(.dark, .dark *));
+
+/* Universal dark mode overrides to handle existing elements, classes, and backgrounds */
+.dark {
+  --bg-main: #0b0f19;
+  --bg-card: #151d30;
+  --bg-card-hover: #1e293b;
+  --border-color: #1e293b;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --bg-input: #0f172a;
+}
+
+/* Global body adjustment */
+.dark body {
+  background-color: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Override tailwind background colors */
+.dark .bg-white {
+  background-color: var(--bg-card) !important;
+}
+.dark .bg-gray-50,
+.dark .bg-slate-50,
+.dark .bg-slate-100,
+.dark .bg-gray-100 {
+  background-color: var(--bg-main) !important;
+}
+.dark .bg-slate-50\/50,
+.dark .bg-slate-50\/30,
+.dark .bg-slate-50\/80,
+.dark .bg-white\/95,
+.dark .bg-white\/80 {
+  background-color: rgba(21, 29, 48, 0.85) !important;
+}
+.dark .bg-slate-900 {
+  background-color: #080c14 !important; /* Sidebar dark bg */
+}
+
+/* Text overrides */
+.dark .text-gray-900,
+.dark .text-slate-900,
+.dark .text-slate-800,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-slate-700 {
+  color: var(--text-primary) !important;
+}
+.dark .text-gray-505,
+.dark .text-gray-500,
+.dark .text-gray-600,
+.dark .text-slate-500,
+.dark .text-slate-600,
+.dark .text-slate-655,
+.dark .text-slate-650,
+.dark .text-slate-550 {
+  color: var(--text-secondary) !important;
+}
+
+/* Borders overrides */
+.dark .border-gray-100,
+.dark .border-gray-200,
+.dark .border-slate-100,
+.dark .border-slate-150,
+.dark .border-slate-200,
+.dark .border-slate-250,
+.dark .border-slate-300 {
+  border-color: var(--border-color) !important;
+}
+
+/* Inputs, Textareas, Selects */
+.dark input:not([type="submit"]):not([type="button"]):not([type="checkbox"]):not([type="radio"]),
+.dark textarea,
+.dark select {
+  background-color: var(--bg-input) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Tables, headers, cells */
+.dark table {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+.dark th {
+  background-color: var(--bg-main) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border-color) !important;
+}
+.dark td {
+  border-color: var(--border-color) !important;
+}
+
+/* Modal and Dropdown containers */
+.dark .shadow-xl,
+.dark .shadow-2xl {
+  background-color: var(--bg-card) !important;
+  border-color: var(--border-color) !important;
+}
+
+/* Solve product images being invisible in dark mode due to mix-blend-multiply */
+.dark img.mix-blend-multiply,
+.dark .mix-blend-multiply img,
+.dark img[class*="mix-blend-multiply"] {
+  mix-blend-mode: normal !important;
+  background-color: #ffffff !important;
+  padding: 0.25rem;
+  border-radius: 0.5rem;
+}
+
+/* Smooth transition for theme shifts */
+body, div, header, footer, section, nav, aside, table, th, td, input, select, textarea, button, a, span, p, h1, h2, h3, h4, h5, h6 {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
 body {
   @apply bg-[#f8fafc] text-slate-900 font-sans;
 }

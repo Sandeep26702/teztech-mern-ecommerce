@@ -5,12 +5,21 @@ import {
   getAllLeads,
   updateLead,
   addLeadNote,
+  bulkCreateLeads,
 } from "../controllers/leadController.js";
 
 const router = express.Router();
 
 // Public/Marketing endpoint to capture leads
 router.post("/", createLead);
+
+// Bulk import endpoint
+router.post(
+  "/bulk",
+  protect,
+  authorize("admin", "subadmin", "sales team"),
+  bulkCreateLeads
+);
 
 // Staff-only endpoints
 router.get(

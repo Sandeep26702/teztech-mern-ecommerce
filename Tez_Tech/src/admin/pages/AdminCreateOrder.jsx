@@ -1,7 +1,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import React, { useState, useEffect } from "react";
 import { FaPlus, FaTrash, FaTimes, FaSearch } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import api from "../../utils/api"; 
 import { toast } from "react-hot-toast"; 
 
@@ -121,12 +121,18 @@ const ProductRow = ({ product, onAdd }) => {
 // ==========================================
 const AdminCreateOrder = () => {
     const navigate = useNavigate();
+    const location = useLocation();
 
     // 1. STATE MANAGEMENT
     const [isTaxExempt, setIsTaxExempt] = useState(false);
     const [createTaxInvoice, setCreateTaxInvoice] = useState(true);
 
-    const [customer, setCustomer] = useState({ name: "", email: "", phone: "", companyName: "" });
+    const [customer, setCustomer] = useState({ 
+        name: location.state?.lead?.name || "", 
+        email: location.state?.lead?.email || "", 
+        phone: location.state?.lead?.phone || "", 
+        companyName: "" 
+    });
     const [billingAddress, setBillingAddress] = useState({ 
         addressLine1: "", addressLine2: "", city: "", postalCode: "", state: "Gujarat", country: "India" 
     });

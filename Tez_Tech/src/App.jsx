@@ -70,6 +70,7 @@ const AdminEditOrder = lazy(() => import('./admin/pages/AdminEditOrder'));
 const UserView = lazy(() => import('./admin/pages/UserView'));
 const PrintableLabel = lazy(() => import('./admin/pages/PrintableLabel'));
 const PrintableTaxInvoice = lazy(() => import('./admin/pages/PrintableTaxInvoice'));
+const AdminCatalog = lazy(() => import("./admin/pages/AdminCatalog"));
 
 // CRM/ERP new workflow pages
 const AdminLeads = lazy(() => import("./admin/pages/AdminLeads"));
@@ -137,6 +138,7 @@ function App() {
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<AdminDashboard />} />
               <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="catalog" element={<AdminCatalog />} />
 
               {/* CRM/ERP Pipeline Routes */}
               <Route element={<PrivateRoute allowedRoles={['admin', 'subadmin', 'sales team', 'marketing']} />}>

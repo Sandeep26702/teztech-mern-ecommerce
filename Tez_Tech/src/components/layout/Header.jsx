@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext"; 
 import { useQuote } from "../../context/QuoteContext"; 
 import { useCart } from "../../context/CartContext"; 
+import { useTheme } from "../../context/ThemeContext"; 
 import myLogo from '../../assets/logo.png';
 
 // 💧 Water Droplet Component
@@ -30,6 +31,7 @@ const WaterDroplet = ({ x, y, tx, ty, colorClass }) => {
 };
 
 const Header = () => {
+  const { theme, toggleTheme } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { isAuthenticated, logout, user } = useAuth();
   
@@ -257,6 +259,22 @@ const Header = () => {
 
             {/* Auth & Cart Section (Desktop) */}
             <div className="flex items-center gap-4 pl-4 ml-4 border-l border-gray-200">
+              <button 
+                onClick={toggleTheme}
+                className="flex items-center justify-center w-10 h-10 transition-all duration-300 bg-white border border-gray-200 rounded-full hover:border-cyan-300 hover:shadow-md hover:bg-cyan-50 text-gray-600 dark:text-gray-300 cursor-pointer"
+                title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+              >
+                {theme === "light" ? (
+                  <svg className="w-5 h-5 transition-transform duration-300 hover:scale-110 hover:-rotate-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5 transition-transform duration-300 hover:scale-110 hover:rotate-45" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707.707M12 7a5 5 0 100 10 5 5 0 000-10z" />
+                  </svg>
+                )}
+              </button>
+
               {isAuthenticated ? (
                 <>
                   <Link 
@@ -309,6 +327,22 @@ const Header = () => {
 
           {/* 📱 MOBILE ACTIONS */}
           <div className="flex items-center gap-3 md:hidden">
+            <button 
+              onClick={toggleTheme}
+              className="flex items-center justify-center w-10 h-10 transition-all duration-300 border border-gray-200 rounded-full bg-gray-50 active:scale-95 text-gray-600 dark:text-gray-300 cursor-pointer"
+              title={`Switch to ${theme === 'light' ? 'dark' : 'light'} theme`}
+            >
+              {theme === "light" ? (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-12.728l.707.707m12.728 12.728l.707.707M12 7a5 5 0 100 10 5 5 0 000-10z" />
+                </svg>
+              )}
+            </button>
+
             {isAuthenticated && (
               <Link 
                 to="/cart" 
@@ -400,6 +434,21 @@ const Header = () => {
               Admin Panel ✨
             </Link>
           )}
+
+          {/* Mobile Menu Theme Toggle switch */}
+          <div className="flex items-center justify-between p-4 border border-gray-200 bg-gray-50 rounded-2xl mb-4">
+            <span className="text-sm font-bold text-gray-700">Dark Mode</span>
+            <button
+              onClick={toggleTheme}
+              className={`relative inline-flex items-center h-6 rounded-full w-11 transition-colors duration-300 focus:outline-none ${theme === 'dark' ? 'bg-cyan-600' : 'bg-gray-300'}`}
+            >
+              <span
+                className={`inline-block w-4 h-4 transform bg-white rounded-full transition-transform duration-300 ${
+                  theme === 'dark' ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
 
           <div className="pt-6 mt-6 border-t border-gray-100">
             {isAuthenticated ? (

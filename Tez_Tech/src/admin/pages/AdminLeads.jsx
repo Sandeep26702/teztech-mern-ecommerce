@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
-import { FaPlus, FaSearch, FaUserCheck, FaComments, FaCalendarAlt } from "react-icons/fa";
+import { FaPlus, FaSearch, FaUserCheck, FaComments, FaCalendarAlt, FaCloudUploadAlt } from "react-icons/fa";
 import { toast } from "react-hot-toast";
+import { useNavigate } from "react-router-dom";
 import api from "../../utils/api";
 
 const AdminLeads = () => {
+  const navigate = useNavigate();
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -53,6 +55,61 @@ const AdminLeads = () => {
     } catch (err) {
       console.error("Error fetching staff:", err);
     }
+  };
+
+  const handleCsvImport = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target.result;
+      const lines = text.split("\n");
+      const headers = lines[0].split(",").map(h => h.trim().toLowerCase());
+
+      const leadsArray = [];
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const columns = lines[i].split(",").map(c => c.trim());
+        
+        const leadObj = {};
+        headers.forEach((header, index) => {
+          let field = header;
+          if (header.includes("name")) field = "name";
+          if (header.includes("phone") || header.includes("mobile")) field = "phone";
+          if (header.includes("email")) field = "email";
+          if (header.includes("requirement") || header.includes("specs")) field = "requirement";
+          if (header.includes("source")) field = "source";
+          leadObj[field] = columns[index];
+        });
+
+        if (leadObj.name && leadObj.phone) {
+          leadsArray.push({
+            name: leadObj.name,
+            phone: leadObj.phone,
+            email: leadObj.email || "",
+            requirement: leadObj.requirement || "Imported from CSV",
+            source: leadObj.source || "Bulk Import"
+          });
+        }
+      }
+
+      if (leadsArray.length === 0) {
+        toast.error("No valid leads found in CSV. Required headers: name, phone");
+        return;
+      }
+
+      try {
+        const res = await api.post("/leads/bulk", { leads: leadsArray });
+        if (res.data.success) {
+          toast.success(`Import success! ${res.data.leads.length} leads created.`);
+          fetchLeads();
+        }
+      } catch (err) {
+        toast.error("CSV bulk import failed. Check API connectivity.");
+      }
+    };
+    reader.readAsText(file);
   };
 
   const handleCreateLead = async (e) => {
@@ -144,12 +201,23 @@ const AdminLeads = () => {
           <h2 className="text-2xl font-bold text-slate-800">Pre-Sales Lead Inquiries</h2>
           <p className="mt-1 text-sm text-slate-500">Track and respond to inbound marketing leads and call logs.</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition cursor-pointer shadow-md"
-        >
-          <FaPlus /> Add Manual Lead
-        </button>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center justify-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition cursor-pointer shadow-sm border border-slate-200">
+            <FaCloudUploadAlt /> Import Leads CSV
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleCsvImport}
+              className="hidden"
+            />
+          </label>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition cursor-pointer shadow-md"
+          >
+            <FaPlus /> Add Manual Lead
+          </button>
+        </div>
       </div>
 
       {/* Tabs and Search Bar */}
@@ -244,6 +312,12 @@ const AdminLeads = () => {
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white rounded-lg transition-colors cursor-pointer"
                       >
                         <FaComments /> Call Log ({lead.notes?.length || 0})
+                      </button>
+                      <button
+                        onClick={() => navigate("/admin/orders/create", { state: { lead } })}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-600 hover:text-white rounded-lg transition-colors cursor-pointer"
+                      >
+                        <FaPlus /> Order
                       </button>
                       <select
                         value={lead.status}

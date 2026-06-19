@@ -114,3 +114,34 @@ export const addLeadNote = async (req, res) => {
     res.status(500).json({ success: false, message: "Server Error", error: error.message });
   }
 };
+
+// Bulk create/import leads (for CSV upload)
+export const bulkCreateLeads = async (req, res) => {
+  try {
+    const { leads } = req.body;
+    if (!Array.isArray(leads) || leads.length === 0) {
+      return res.status(400).json({ success: false, message: "Leads array is required" });
+    }
+
+    const leadsToSave = leads.map((l) => ({
+      name: l.name,
+      phone: l.phone,
+      email: l.email || "",
+      requirement: l.requirement || "",
+      source: l.source || "CSV Import",
+      status: l.status || "New",
+      assignedTo: l.assignedTo || null,
+    }));
+
+    const savedLeads = await Lead.insertMany(leadsToSave);
+
+    res.status(201).json({
+      success: true,
+      message: `Imported ${savedLeads.length} leads successfully!`,
+      leads: savedLeads,
+    });
+  } catch (error) {
+    console.error("Bulk Import Lead Error:", error);
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};

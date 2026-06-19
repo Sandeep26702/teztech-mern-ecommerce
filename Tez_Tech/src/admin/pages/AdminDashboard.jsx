@@ -9,6 +9,7 @@ import {
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../utils/api";
+import SalesDashboard from "./SalesDashboard";
 
 const formatCurrency = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -111,6 +112,13 @@ const AdminDashboard = () => {
         <div className="w-10 h-10 border-4 border-blue-600 rounded-full border-t-transparent animate-spin"></div>
       </div>
     );
+  }
+
+  // =====================================================================
+  // 🌟 SALES TEAM WORKSPACE
+  // =====================================================================
+  if (userRole === "sales team") {
+    return <SalesDashboard />;
   }
 
   // =====================================================================
