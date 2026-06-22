@@ -252,7 +252,7 @@ const AdminJobCards = () => {
         <div className="p-5 bg-white border border-slate-100 shadow-sm rounded-2xl flex items-center gap-4">
           <div className="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl flex-shrink-0"><FaClock /></div>
           <div>
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Pending Job Cards</span>
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Pending Manufacturers</span>
             <span className="text-2xl font-black text-slate-900 block mt-0.5">{metrics.pending}</span>
           </div>
         </div>
@@ -298,7 +298,7 @@ const AdminJobCards = () => {
             <div className="py-16 text-center text-slate-400 font-bold">Syncing laser queue...</div>
           ) : sortedJobs.length === 0 ? (
             <div className="py-16 text-center text-slate-400 border border-dashed rounded-2xl border-slate-200 bg-white">
-              No job cards in this stage.
+              No manufacturers in this stage.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -440,7 +440,7 @@ const AdminJobCards = () => {
               </div>
             ) : (
               <div className="py-12 border border-dashed rounded-xl border-slate-200 text-center text-slate-400 text-xs">
-                No active production job card on workbench. Start a card from the queue list.
+                No active production manufacturer on workbench. Start a manufacturer from the queue list.
               </div>
             )}
           </div>

@@ -54,7 +54,7 @@ const OrderDetail = () => {
   const [zoomScreenshot, setZoomScreenshot] = useState(false);
 
   const handleSendToProduction = async () => {
-    const thickness = prompt("Enter material thickness (mm) for Job Card:", "1");
+    const thickness = prompt("Enter material thickness (mm) for Manufacturer:", "1");
     if (thickness === null) return;
     const materialType = prompt("Enter material type (e.g. HDPE, PP):", "HDPE");
     if (materialType === null) return;

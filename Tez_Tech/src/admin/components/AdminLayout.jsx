@@ -257,7 +257,7 @@ const AdminLayout = () => {
     { name: "Leads", path: "/admin/leads", icon: <FaBullhorn size={20} />, roles: ["admin", "subadmin", "sales team", "marketing"] },
     { name: "Design Requests", path: "/admin/designs", icon: <FaPalette size={20} />, roles: ["admin", "subadmin", "sales team", "designer"] },
     { name: "Materials", path: "/admin/materials", icon: <FaCubes size={20} />, roles: ["admin", "subadmin", "purchase", "sales team"] },
-    { name: "Job Cards", path: "/admin/job-cards", icon: <FaIndustry size={20} />, roles: ["admin", "subadmin", "manufacturing"] },
+    { name: "Manufacturers", path: "/admin/job-cards", icon: <FaIndustry size={20} />, roles: ["admin", "subadmin", "manufacturing"] },
     { name: "Packing", path: "/admin/packing", icon: <FaGift size={20} />, roles: ["admin", "subadmin", "packing"] },
     { name: "Dispatch Queue", path: "/admin/dispatch", icon: <FaTruck size={20} />, roles: ["admin", "subadmin", "dispatch"] },
     { name: "Feedback & Upsell", path: "/admin/feedback", icon: <FaCommentAlt size={20} />, roles: ["admin", "subadmin", "feedback tracking", "sales team"] },
