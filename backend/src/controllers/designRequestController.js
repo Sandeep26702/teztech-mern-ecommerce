@@ -1,9 +1,10 @@
 import DesignRequest from "../models/DesignRequest.js";
+import Notification from "../models/Notification.js";
 
 // Sales agent creates a Design Request
 export const createDesignRequest = async (req, res) => {
   try {
-    const { designName, dimensions, materialSpecs, leadId, orderId } = req.body;
+    const { designName, dimensions, materialSpecs, leadId, orderId, priority, quantity } = req.body;
 
     if (!designName) {
       return res.status(400).json({ success: false, message: "Design Name is required" });
@@ -19,9 +20,19 @@ export const createDesignRequest = async (req, res) => {
       order: orderId || null,
       salesAgent: req.user._id,
       referenceFileUrl,
+      priority: priority || "Normal",
+      quantity: Number(quantity) || 1,
     });
 
     await newRequest.save();
+
+    // Create persistent notification for designer role
+    const alert = new Notification({
+      recipientRole: "designer",
+      text: `New Design Request ${newRequest.requestCode} ("${designName}") created by ${req.user.name || "Sales Team"}. Priority: ${newRequest.priority}.`,
+      ticketId: newRequest._id,
+    });
+    await alert.save();
 
     res.status(201).json({
       success: true,
@@ -75,11 +86,37 @@ export const uploadOptimizedSvg = async (req, res) => {
       return res.status(400).json({ success: false, message: "SVG file is required" });
     }
 
+    const nextVer = (designRequest.versions?.length || 0) + 1;
+    const commonLineCuttingUsed = req.body.commonLineCuttingUsed === "true" || req.body.commonLineCuttingUsed === true;
+
+    const newVersion = {
+      versionNumber: nextVer,
+      fileUrl: req.file.path,
+      commonLineCuttingUsed,
+      uploadedBy: req.user._id,
+      createdAt: new Date(),
+    };
+
+    if (!designRequest.versions) {
+      designRequest.versions = [];
+    }
+    
+    designRequest.versions.push(newVersion);
     designRequest.optimizedSvgUrl = req.file.path;
+    designRequest.commonLineCuttingUsed = commonLineCuttingUsed;
     designRequest.status = "Design Ready";
     designRequest.designer = req.user._id;
 
     await designRequest.save();
+
+    // Create notification for Sales Agent of this ticket or generic sales team role
+    const alert = new Notification({
+      recipientRole: "sales team",
+      recipientUser: designRequest.salesAgent,
+      text: `Optimized drawing proof (V${nextVer}) uploaded for ${designRequest.requestCode} by designer ${req.user.name || "Staff"}.`,
+      ticketId: designRequest._id,
+    });
+    await alert.save();
 
     res.status(200).json({
       success: true,
@@ -107,6 +144,17 @@ export const updateDesignStatus = async (req, res) => {
 
     designRequest.status = status;
     await designRequest.save();
+
+    // Create a persistent notification for the assigned designer
+    if (designRequest.designer) {
+      const alert = new Notification({
+        recipientRole: "designer",
+        recipientUser: designRequest.designer,
+        text: `Design Ticket ${designRequest.requestCode} has been marked as "${status}" by sales agent ${req.user.name || "Staff"}.`,
+        ticketId: designRequest._id,
+      });
+      await alert.save();
+    }
 
     res.status(200).json({
       success: true,
@@ -144,9 +192,30 @@ export const addComment = async (req, res) => {
 
     await designRequest.save();
 
+    // Trigger Notification for Comment
+    let recipientRole = "sales team";
+    let recipientUser = designRequest.salesAgent;
+    if (req.user.role === "sales team") {
+      recipientRole = "designer";
+      recipientUser = designRequest.designer;
+    }
+
+    const truncated = text.trim().slice(0, 45);
+    const textPreview = text.trim().length > 45 ? `${truncated}...` : truncated;
+
+    const alert = new Notification({
+      recipientRole,
+      recipientUser: recipientUser || null,
+      text: `New comment on ${designRequest.requestCode} from ${req.user.name || "Staff"}: "${textPreview}"`,
+      ticketId: designRequest._id,
+    });
+    await alert.save();
+
     const updated = await DesignRequest.findById(req.params.id)
       .populate("salesAgent", "name email")
-      .populate("designer", "name email");
+      .populate("designer", "name email")
+      .populate("lead", "name leadCode")
+      .populate("order", "orderCode");
 
     res.status(200).json({
       success: true,

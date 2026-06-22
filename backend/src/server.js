@@ -25,6 +25,11 @@ import designRequestRoutes from "./routes/designRequestRoutes.js";
 import materialRoutes from "./routes/materialRoutes.js";
 import jobCardRoutes from "./routes/jobCardRoutes.js";
 import feedbackRoutes from "./routes/feedbackRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
+import vendorRoutes from "./routes/vendorRoutes.js";
+import purchaseOrderRoutes from "./routes/purchaseOrderRoutes.js";
+import creditNoteRoutes from "./routes/creditNoteRoutes.js";
+import scrapRoutes from "./routes/scrapRoutes.js";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -66,16 +71,27 @@ app.use(
   })
 );
 
-// 4. Global Rate Limiter for public APIs (100 requests per 15 minutes)
+// 4. Global Rate Limiter for public APIs (High limit in development, skipped on localhost)
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: process.env.NODE_ENV === "production" ? 100 : 10000, // high limit in dev
   message: {
     success: false,
     message: "Too many requests from this IP, please try again after 15 minutes"
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for localhost and development environments
+    const ip = req.ip || req.connection?.remoteAddress || "";
+    return (
+      process.env.NODE_ENV !== "production" ||
+      ip === "127.0.0.1" ||
+      ip === "::1" ||
+      ip === "::ffff:127.0.0.1" ||
+      ip.includes("localhost")
+    );
+  }
 });
 app.use("/api", globalLimiter);
 
@@ -115,6 +131,11 @@ app.use("/api/design-requests", designRequestRoutes);
 app.use("/api/materials", materialRoutes);
 app.use("/api/job-cards", jobCardRoutes);
 app.use("/api/feedbacks", feedbackRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/vendors", vendorRoutes);
+app.use("/api/pos", purchaseOrderRoutes);
+app.use("/api/credit-notes", creditNoteRoutes);
+app.use("/api/scrap", scrapRoutes);
 
 /* ================= START SERVER ================= */
 

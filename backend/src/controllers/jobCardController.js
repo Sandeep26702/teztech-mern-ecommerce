@@ -1,5 +1,6 @@
 import JobCard from "../models/JobCard.js";
 import Order from "../models/Order.js";
+import Material from "../models/Material.js";
 
 // Fetch manufacturing Job Cards
 export const getJobCards = async (req, res) => {
@@ -73,9 +74,32 @@ export const completeLaserProduction = async (req, res) => {
       packingStatus: "Awaiting Packing",
     });
 
+    // Auto-Deduction Sync: find raw material matching job.materialType and job.thickness
+    try {
+      const matchQuery = {
+        name: { $regex: new RegExp(`${job.thickness}.*${job.materialType}|${job.materialType}.*${job.thickness}`, "i") }
+      };
+      
+      const material = await Material.findOne(matchQuery);
+      if (material) {
+        // Find how many products are ordered
+        const parentOrder = await Order.findById(job.order);
+        let qtyToDeduct = 1;
+        if (parentOrder && parentOrder.items && parentOrder.items.length > 0) {
+          qtyToDeduct = parentOrder.items.reduce((total, item) => total + (item.quantity || 0), 0);
+        }
+        
+        // Deduct from stock
+        material.stock = Math.max(0, material.stock - qtyToDeduct);
+        await material.save();
+      }
+    } catch (deductError) {
+      console.error("[Auto-Deduction Sync] Error during auto-deduction:", deductError);
+    }
+
     res.status(200).json({
       success: true,
-      message: "Laser production complete! Order sent to Packing queue.",
+      message: "Laser production complete! Order sent to Packing queue. Stock auto-deducted.",
       jobCard: job,
     });
   } catch (error) {

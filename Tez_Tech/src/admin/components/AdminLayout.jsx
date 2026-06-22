@@ -49,11 +49,7 @@ const AdminLayout = () => {
   const [showDesignModal, setShowDesignModal] = useState(false);
   const [designForm, setDesignForm] = useState({ designName: "", dimensions: "", materialSpecs: "", leadId: "", orderId: "" });
 
-  const [notifications, setNotifications] = useState([
-    { id: 1, text: "Designer uploaded SVG for Ticket DR-4821", time: "10 mins ago", read: false },
-    { id: 2, text: "Google Sheets Payment Sync failed for Order #1042", time: "1 hour ago", read: false },
-    { id: 3, text: "New Facebook Lead captured: Rohan Verma", time: "2 hours ago", read: false }
-  ]);
+  const [notifications, setNotifications] = useState([]);
 
   const shiftMetrics = {
     callsMade: 7,
@@ -63,21 +59,81 @@ const AdminLayout = () => {
   };
 
   useEffect(() => {
-    if (userRole === "sales team") {
+    if (userRole === "sales team" || userRole === "designer" || userRole === "admin" || userRole === "subadmin") {
       fetchGlobalSearchData();
+      fetchNotifications();
+      
+      // Auto-poll notifications every 20 seconds to keep designer/sales updated
+      const interval = setInterval(() => {
+        fetchNotifications();
+        fetchGlobalSearchData();
+      }, 20000);
+      return () => clearInterval(interval);
     }
-  }, [userRole, location.pathname]); // Reload lists occasionally to keep search fresh
+  }, [userRole, location.pathname]);
+
+  const fetchNotifications = async () => {
+    try {
+      const res = await api.get("/notifications");
+      if (res.data.success) {
+        setNotifications(res.data.notifications || []);
+      }
+    } catch (err) {
+      console.error("Error loading notifications in layout:", err);
+    }
+  };
+
+  const markAsRead = async (id) => {
+    try {
+      const res = await api.put(`/notifications/${id}/read`);
+      if (res.data.success) {
+        setNotifications(prev => prev.map(n => n._id === id ? { ...n, read: true } : n));
+      }
+    } catch (err) {
+      toast.error("Failed to mark alert as read");
+    }
+  };
+
+  const deleteNotificationItem = async (id) => {
+    try {
+      const res = await api.delete(`/notifications/${id}`);
+      if (res.data.success) {
+        setNotifications(prev => prev.filter(n => n._id !== id));
+      }
+    } catch (err) {
+      toast.error("Failed to delete alert");
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      const res = await api.put("/notifications/read-all");
+      if (res.data.success) {
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+        toast.success("All alerts marked read");
+      }
+    } catch (err) {
+      toast.error("Failed to mark alerts as read");
+    }
+  };
 
   const fetchGlobalSearchData = async () => {
     try {
-      const [leadsRes, ordersRes, designRes] = await Promise.all([
-        api.get("/leads"),
-        api.get("/order/admin/all"),
-        api.get("/design-requests")
-      ]);
-      if (leadsRes.data.success) setLeads(leadsRes.data.leads || []);
-      if (ordersRes.data.success) setOrders(ordersRes.data.orders || []);
-      if (designRes.data.success) setDesignRequests(designRes.data.designRequests || []);
+      const promises = [];
+      
+      if (["admin", "subadmin", "sales team", "marketing"].includes(userRole)) {
+        promises.push(api.get("/leads").then(res => setLeads(res.data.leads || [])).catch(() => {}));
+      }
+      
+      if (["admin", "subadmin", "sales team", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"].includes(userRole)) {
+        promises.push(api.get("/order/admin/all").then(res => setOrders(res.data.orders || [])).catch(() => {}));
+      }
+      
+      if (["admin", "subadmin", "sales team", "designer"].includes(userRole)) {
+        promises.push(api.get("/design-requests").then(res => setDesignRequests(res.data.designRequests || [])).catch(() => {}));
+      }
+
+      await Promise.all(promises);
     } catch (err) {
       console.error("Error loading search lists in layout:", err);
     }
@@ -284,10 +340,26 @@ const AdminLayout = () => {
       {/* ⚪ Main Content Area */}
       <main className="flex flex-col flex-1 min-w-0 overflow-hidden print:overflow-visible">
         
+        {/* Urgent Priority Ticker */}
+        {designRequests.filter(d => d.priority === "Urgent" && ["Pending", "In Progress", "Rejected"].includes(d.status)).length > 0 && (
+          <div className="bg-red-600 text-white py-2 px-4 flex items-center gap-2 text-xs font-bold select-none z-50 print:hidden shrink-0 animate-pulse border-b border-red-700">
+            <span className="bg-white text-red-700 px-1.5 py-0.5 rounded font-black text-[9px] uppercase tracking-wider shrink-0">🚨 URGENT REQUIREMENT</span>
+            <div className="flex-1 overflow-hidden relative h-4">
+              <div className="absolute whitespace-nowrap animate-marquee flex gap-8">
+                {designRequests.filter(d => d.priority === "Urgent" && ["Pending", "In Progress", "Rejected"].includes(d.status)).map(t => (
+                  <span key={t._id} className="hover:underline cursor-pointer" onClick={() => navigate("/admin/designs")}>
+                    Ticket {t.requestCode} : "{t.designName}" is marked URGENT by Sales! Dimensions: {t.dimensions || "N/A"}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ==========================================
-            DYNAMIC GLOBAL HEADER (FOR SALES ROLE)
+            DYNAMIC GLOBAL HEADER (FOR SALES & DESIGNER ROLES)
         ========================================== */}
-        {userRole === "sales team" ? (
+        {userRole === "sales team" || userRole === "designer" ? (
           <header className="z-30 flex flex-col md:flex-row items-center justify-between gap-4 p-4 border-b border-slate-200 bg-white shadow-sm print:hidden">
             <div className="flex items-center gap-4 w-full md:w-auto">
               <button 
@@ -304,7 +376,7 @@ const AdminLayout = () => {
                   type="text"
                   value={universalSearchQuery}
                   onChange={handleUniversalSearch}
-                  placeholder="Universal Search number, name, ID..."
+                  placeholder="Search Ticket, Lead, Customer, Design..."
                   className="w-full py-2 pl-10 pr-4 text-xs border border-slate-250 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/25 bg-slate-50 hover:bg-slate-100/50 transition-all font-medium text-slate-800"
                 />
               </div>
@@ -313,57 +385,61 @@ const AdminLayout = () => {
             {/* Right side controls */}
             <div className="flex items-center justify-end w-full md:w-auto gap-4 flex-wrap text-xs">
               
-              {/* Daily Shift Target */}
-              <div className="hidden lg:flex items-center gap-3 px-3 py-1 border border-slate-200 rounded-xl bg-slate-50/50 text-[10px] font-semibold">
-                <div>
-                  <span className="text-slate-400 uppercase font-black text-[8px] block">Call Target</span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="font-bold text-slate-800">{shiftMetrics.callsMade}/{shiftMetrics.callsTarget}</span>
-                    <div className="w-12 h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-blue-600 rounded-full" style={{ width: `${(shiftMetrics.callsMade/shiftMetrics.callsTarget)*100}%` }}></div>
+              {/* Daily Shift Target (Sales Only) */}
+              {userRole === "sales team" && (
+                <div className="hidden lg:flex items-center gap-3 px-3 py-1 border border-slate-200 rounded-xl bg-slate-50/50 text-[10px] font-semibold">
+                  <div>
+                    <span className="text-slate-400 uppercase font-black text-[8px] block">Call Target</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="font-bold text-slate-800">{shiftMetrics.callsMade}/{shiftMetrics.callsTarget}</span>
+                      <div className="w-12 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                        <div className="h-full bg-blue-600 rounded-full" style={{ width: `${(shiftMetrics.callsMade/shiftMetrics.callsTarget)*105}%` }}></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="w-px h-6 bg-slate-200"></div>
+                  <div>
+                    <span className="text-slate-400 uppercase font-black text-[8px] block">Today's Revenue</span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="font-bold text-emerald-600">{formatCurrency(shiftMetrics.salesClosed)}</span>
                     </div>
                   </div>
                 </div>
-                <div className="w-px h-6 bg-slate-200"></div>
-                <div>
-                  <span className="text-slate-400 uppercase font-black text-[8px] block">Today's Revenue</span>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="font-bold text-emerald-600">{formatCurrency(shiftMetrics.salesClosed)}</span>
-                  </div>
-                </div>
-              </div>
+              )}
 
-              {/* Global Quick Add dropdown */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowQuickAddDropdown(!showQuickAddDropdown)}
-                  className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all active:scale-95 text-xs"
-                >
-                  <FaPlus size={10} /> Quick Add
-                </button>
-                {showQuickAddDropdown && (
-                  <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 shadow-xl rounded-2xl p-1.5 z-50 animate-fade-in text-[11px]">
-                    <button
-                      onClick={() => { setShowLeadModal(true); setShowQuickAddDropdown(false); }}
-                      className="w-full text-left px-2.5 py-1.5 font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors flex items-center gap-2"
-                    >
-                      <FaUser /> Add inquiry Lead
-                    </button>
-                    <button
-                      onClick={() => { navigate("/admin/orders/create"); setShowQuickAddDropdown(false); }}
-                      className="w-full text-left px-2.5 py-1.5 font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors flex items-center gap-2"
-                    >
-                      <FaClipboardList /> Create New Order
-                    </button>
-                    <button
-                      onClick={() => { setShowDesignModal(true); setShowQuickAddDropdown(false); }}
-                      className="w-full text-left px-2.5 py-1.5 font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors flex items-center gap-2"
-                    >
-                      <FaTools /> Raise Design Ticket
-                    </button>
-                  </div>
-                )}
-              </div>
+              {/* Global Quick Add dropdown (Sales Only) */}
+              {["admin", "subadmin", "sales team"].includes(userRole) && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowQuickAddDropdown(!showQuickAddDropdown)}
+                    className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md transition-all active:scale-95 text-xs"
+                  >
+                    <FaPlus size={10} /> Quick Add
+                  </button>
+                  {showQuickAddDropdown && (
+                    <div className="absolute right-0 mt-2 w-44 bg-white border border-slate-200 shadow-xl rounded-2xl p-1.5 z-50 animate-fade-in text-[11px]">
+                      <button
+                        onClick={() => { setShowLeadModal(true); setShowQuickAddDropdown(false); }}
+                        className="w-full text-left px-2.5 py-1.5 font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        <FaUser /> Add inquiry Lead
+                      </button>
+                      <button
+                        onClick={() => { navigate("/admin/orders/create"); setShowQuickAddDropdown(false); }}
+                        className="w-full text-left px-2.5 py-1.5 font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        <FaClipboardList /> Create New Order
+                      </button>
+                      <button
+                        onClick={() => { setShowDesignModal(true); setShowQuickAddDropdown(false); }}
+                        className="w-full text-left px-2.5 py-1.5 font-bold text-slate-700 hover:bg-blue-50 hover:text-blue-600 rounded-lg transition-colors flex items-center gap-2"
+                      >
+                        <FaTools /> Raise Design Ticket
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Global Notification Bell */}
               <div className="relative">
@@ -379,22 +455,36 @@ const AdminLayout = () => {
                   )}
                 </button>
                 {showNotificationDropdown && (
-                  <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 shadow-xl rounded-2xl overflow-hidden z-50 text-[11px]">
+                  <div className="absolute right-0 mt-2 w-80 bg-white border border-slate-200 shadow-xl rounded-2xl overflow-hidden z-50 text-[11px]">
                     <div className="p-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between font-bold text-slate-850">
                       <span>Recent Alerts</span>
-                      <button onClick={() => { setNotifications(prev => prev.map(n => ({...n, read:true}))); toast.success("Marked all read"); }} className="text-[9px] text-blue-600 hover:underline">
+                      <button onClick={markAllAsRead} className="text-[9px] text-blue-600 hover:underline">
                         Mark all read
                       </button>
                     </div>
                     <div className="divide-y divide-slate-100 max-h-56 overflow-y-auto">
-                      {notifications.map(n => (
-                        <div key={n.id} className={`p-2.5 hover:bg-slate-50 flex items-start justify-between gap-3 ${!n.read ? "bg-blue-50/10" : ""}`}>
-                          <p className={`text-slate-750 flex-1 leading-tight ${!n.read ? "font-bold text-slate-900" : ""}`}>{n.text}</p>
-                          <button onClick={() => setNotifications(prev => prev.filter(item => item.id !== n.id))} className="text-slate-300 hover:text-red-500 text-[9px] font-bold">
-                            ✕
-                          </button>
-                        </div>
-                      ))}
+                      {notifications.length === 0 ? (
+                        <div className="p-4 text-center text-slate-400 italic text-[11px]">No alerts found</div>
+                      ) : (
+                        notifications.map(n => (
+                          <div key={n._id} className={`p-2.5 hover:bg-slate-50 flex items-start justify-between gap-3 ${!n.read ? "bg-blue-50/20" : ""}`}>
+                            <p className={`text-slate-750 flex-1 leading-tight ${!n.read ? "font-bold text-slate-900" : ""}`}>{n.text}</p>
+                            <div className="flex flex-col gap-1 items-end shrink-0">
+                              <span className="text-[8px] text-slate-400">{new Date(n.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                              <div className="flex gap-2">
+                                {!n.read && (
+                                  <button onClick={() => markAsRead(n._id)} className="text-blue-600 hover:text-blue-800 text-[9px] font-bold">
+                                    Read
+                                  </button>
+                                )}
+                                <button onClick={() => deleteNotificationItem(n._id)} className="text-slate-350 hover:text-red-500 text-[9px] font-bold">
+                                  ✕
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
                     </div>
                   </div>
                 )}
@@ -409,16 +499,16 @@ const AdminLayout = () => {
                 {theme === "light" ? <FaMoon size={16} /> : <FaSun size={16} />}
               </button>
 
-              {/* Profile & Shift Target badge */}
+              {/* Profile Badge */}
               <div className="flex items-center gap-2.5 pl-2 border-l border-slate-250">
                 <div className="text-right">
-                  <p className="text-[11px] font-black text-slate-900">{user?.name || "Agent"}</p>
+                  <p className="text-[11px] font-black text-slate-900">{user?.name || "User"}</p>
                   <span className="text-[9px] font-extrabold text-blue-600 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                    Sales
+                    {userRole === "sales team" ? "Sales" : "Designer"}
                   </span>
                 </div>
                 <div className="w-8 h-8 flex items-center justify-center font-bold text-blue-700 bg-blue-100 rounded-full border border-blue-200 text-xs">
-                  {user?.name?.charAt(0).toUpperCase() || "S"}
+                  {user?.name?.charAt(0).toUpperCase() || "D"}
                 </div>
               </div>
 

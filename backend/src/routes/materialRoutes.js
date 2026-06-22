@@ -12,7 +12,7 @@ const router = express.Router();
 router.get(
   "/",
   protect,
-  authorize("admin", "subadmin", "purchase", "sales team"),
+  authorize("admin", "subadmin", "purchase", "sales team", "designer"),
   getMaterials
 );
 

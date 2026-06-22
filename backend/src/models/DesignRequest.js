@@ -34,6 +34,19 @@ const designRequestSchema = new mongoose.Schema(
       enum: ["Pending", "In Progress", "Design Ready", "Approved", "Rejected"],
       default: "Pending",
     },
+    priority: {
+      type: String,
+      enum: ["Normal", "High Priority", "Urgent"],
+      default: "Normal",
+    },
+    quantity: {
+      type: Number,
+      default: 1,
+    },
+    commonLineCuttingUsed: {
+      type: Boolean,
+      default: false,
+    },
     referenceFileUrl: {
       type: String,
       default: "",
@@ -42,6 +55,18 @@ const designRequestSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    versions: [
+      {
+        versionNumber: { type: Number, required: true },
+        fileUrl: { type: String, required: true },
+        commonLineCuttingUsed: { type: Boolean, default: false },
+        uploadedBy: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+        },
+        createdAt: { type: Date, default: Date.now },
+      }
+    ],
     salesAgent: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
