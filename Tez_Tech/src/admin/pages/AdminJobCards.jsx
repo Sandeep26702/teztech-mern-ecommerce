@@ -33,17 +33,7 @@ const AdminJobCards = () => {
     svgLoaded: false
   });
 
-  // Maintenance Log State
-  const [maintenanceDone, setMaintenanceDone] = useState({
-    lensCleaned: false,
-    tubeDusted: false,
-    waterChecked: false
-  });
 
-  // Consumable Request State
-  const [partName, setPartName] = useState("");
-  const [partQty, setPartQty] = useState("1");
-  const [submittingPartRequest, setSubmittingPartRequest] = useState(false);
 
   useEffect(() => {
     fetchJobs();
@@ -141,25 +131,7 @@ const AdminJobCards = () => {
     }
   };
 
-  // Submit consumable request to Purchase Team
-  const handleConsumableRequest = async (e) => {
-    e.preventDefault();
-    if (!partName) return;
-    setSubmittingPartRequest(true);
-    try {
-      await api.post("/notifications", {
-        recipientRole: "purchase",
-        text: `🔧 PARTS REQUEST: Machine Operator requested ${partQty} x "${partName}" parts for laser machine maintenance.`
-      });
-      toast.success("Consumables parts request routed to Purchase Team!");
-      setPartName("");
-      setPartQty("1");
-    } catch (err) {
-      toast.error("Failed to dispatch parts request");
-    } finally {
-      setSubmittingPartRequest(false);
-    }
-  };
+
 
   // Search filter
   const filteredJobs = jobs.filter((job) => {
@@ -445,101 +417,7 @@ const AdminJobCards = () => {
             )}
           </div>
 
-          {/* Maintenance & Consumables Log */}
-          <div className="bg-white border border-slate-100 shadow-sm rounded-2xl p-5 space-y-6">
-            
-            {/* End of Shift Maintenance Checklist */}
-            <div>
-              <h3 className="font-extrabold text-slate-900 text-base mb-1">🔧 Maintenance Log</h3>
-              <p className="text-xs text-slate-400 mb-3.5">End-of-shift checklist for laser machine optics and health.</p>
 
-              <div className="space-y-2 text-xs">
-                <label className="flex items-center gap-2.5 p-2 border border-slate-100 rounded-xl bg-slate-50/50 hover:bg-slate-50 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={maintenanceDone.lensCleaned} 
-                    onChange={(e) => setMaintenanceDone(prev => ({ ...prev, lensCleaned: e.target.checked }))}
-                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500/20"
-                  />
-                  <span>Cleaned laser focus lens & mirror</span>
-                </label>
-                <label className="flex items-center gap-2.5 p-2 border border-slate-100 rounded-xl bg-slate-50/50 hover:bg-slate-50 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={maintenanceDone.tubeDusted} 
-                    onChange={(e) => setMaintenanceDone(prev => ({ ...prev, tubeDusted: e.target.checked }))}
-                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500/20"
-                  />
-                  <span>Cleaned laser tube dust/carbon soot</span>
-                </label>
-                <label className="flex items-center gap-2.5 p-2 border border-slate-100 rounded-xl bg-slate-50/50 hover:bg-slate-50 cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={maintenanceDone.waterChecked} 
-                    onChange={(e) => setMaintenanceDone(prev => ({ ...prev, waterChecked: e.target.checked }))}
-                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500/20"
-                  />
-                  <span>Checked chiller water levels & temp</span>
-                </label>
-              </div>
-              
-              <button 
-                onClick={() => {
-                  if (maintenanceDone.lensCleaned && maintenanceDone.tubeDusted && maintenanceDone.waterChecked) {
-                    toast.success("Maintenance log recorded in shift registry!");
-                    setMaintenanceDone({ lensCleaned: false, tubeDusted: false, waterChecked: false });
-                  } else {
-                    toast.error("Please complete all cleaning check items first!");
-                  }
-                }}
-                className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 text-xs font-bold rounded-xl transition mt-3 cursor-pointer"
-              >
-                Log Shift Maintenance Done
-              </button>
-            </div>
-
-            {/* Consumable Request Form */}
-            <div className="border-t border-slate-100 pt-5">
-              <h4 className="font-extrabold text-slate-800 text-sm mb-1">✉️ Request Consumables Parts</h4>
-              <p className="text-xs text-slate-450 mb-3.5">Request replacement mirrors, nozzles, or chiller gas directly to purchase team.</p>
-
-              <form onSubmit={handleConsumableRequest} className="space-y-3.5 text-xs">
-                <div>
-                  <select 
-                    value={partName} 
-                    onChange={(e) => setPartName(e.target.value)} 
-                    required
-                    className="w-full px-3 py-2 border border-slate-200 bg-white rounded-xl text-slate-800 text-xs"
-                  >
-                    <option value="">-- Choose Part/Material --</option>
-                    <option value="Focusing Lens 2.0 Inch">Focusing Lens 2.0 Inch</option>
-                    <option value="Copper Laser Nozzle 1.5mm">Copper Laser Nozzle 1.5mm</option>
-                    <option value="Distilled Water 20L">Distilled Water 20L</option>
-                    <option value="Co2 Gas Canister Refill">Co2 Gas Canister Refill</option>
-                  </select>
-                </div>
-                <div className="flex gap-2">
-                  <input 
-                    type="number" 
-                    min="1" 
-                    value={partQty} 
-                    onChange={(e) => setPartQty(e.target.value)} 
-                    required
-                    className="w-20 px-3 py-2 border border-slate-200 rounded-xl text-slate-800 font-bold"
-                    placeholder="Qty"
-                  />
-                  <button 
-                    type="submit" 
-                    disabled={submittingPartRequest}
-                    className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-bold transition cursor-pointer text-center"
-                  >
-                    {submittingPartRequest ? "Sending..." : "Submit request"}
-                  </button>
-                </div>
-              </form>
-            </div>
-
-          </div>
 
         </div>
 

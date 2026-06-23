@@ -12,7 +12,9 @@ import {
     editAdminOrder,
     sendToProduction,
     markPacked,
-    shipOrder
+    shipOrder,
+    sendBackToRework,
+    getPackingMetrics
 } from '../controllers/orderController.js';
 import { protect, authorize } from '../middleware/auth.Middleware.js'; 
 import { trafficLogger } from "../middleware/trafficLogger.js";
@@ -60,6 +62,8 @@ router.put('/admin/edit/:orderId', protect, authorize("admin", "subadmin", "sale
 // 🛠️ CRM/ERP Phase-wise pipeline endpoints
 router.put('/admin/production/:orderId', protect, authorize("admin", "subadmin", "sales team"), sendToProduction);
 router.put('/admin/pack/:orderId', protect, authorize("admin", "subadmin", "packing"), markPacked);
+router.put('/admin/rework/:orderId', protect, authorize("admin", "subadmin", "packing"), sendBackToRework);
+router.get('/admin/packing/metrics', protect, authorize("admin", "subadmin", "packing"), getPackingMetrics);
 router.put('/admin/ship/:orderId', protect, authorize("admin", "subadmin", "dispatch"), shipOrder);
 
 export default router;

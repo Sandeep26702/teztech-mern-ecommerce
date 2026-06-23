@@ -12,7 +12,7 @@ const router = express.Router();
 router.get(
   "/",
   protect,
-  authorize("admin", "subadmin", "purchase", "sales team", "designer"),
+  authorize("admin", "subadmin", "purchase", "sales team", "designer", "packing"),
   getMaterials
 );
 
@@ -28,7 +28,7 @@ router.post(
 router.put(
   "/:id",
   protect,
-  authorize("admin", "subadmin", "purchase", "sales team"),
+  authorize("admin", "subadmin", "purchase", "sales team", "packing"),
   updateMaterial
 );
 

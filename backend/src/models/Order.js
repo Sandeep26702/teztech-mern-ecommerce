@@ -183,6 +183,21 @@ const orderSchema = new mongoose.Schema(
       enum: ["Awaiting Packing", "Packed"],
       default: "Awaiting Packing",
     },
+    isSuperUrgent: {
+      type: Boolean,
+      default: false,
+    },
+    reworkRequested: {
+      type: Boolean,
+      default: false,
+    },
+    reworkReason: {
+      type: String,
+      default: "",
+    },
+    packedAt: {
+      type: Date,
+    },
     dispatchStatus: {
       type: String,
       enum: ["Awaiting Dispatch", "Shipped"],

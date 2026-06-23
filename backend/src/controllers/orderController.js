@@ -7,6 +7,7 @@ import ShippingProvider from "../models/ShippingProvider.js";
 import JobCard from "../models/JobCard.js";
 import Material from "../models/Material.js";
 import DesignRequest from "../models/DesignRequest.js";
+import Notification from "../models/Notification.js";
 import { syncOrderToZohoAndSheets } from "../utils/syncAutomation.js";
 
 const ORDER_COUNTER_KEY = "order_number_seq";
@@ -751,6 +752,8 @@ export const markPacked = async (req, res) => {
 
     order.packingStatus = "Packed";
     order.dispatchStatus = "Awaiting Dispatch";
+    order.packedAt = new Date();
+    order.reworkRequested = false; // Reset rework status on success
     await order.save();
 
     res.status(200).json({
@@ -760,6 +763,85 @@ export const markPacked = async (req, res) => {
     });
   } catch (error) {
     console.error("Mark Packed Error:", error);
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};
+
+// Send Order Back to Rework
+export const sendBackToRework = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { reason } = req.body;
+
+    if (!reason) {
+      return res.status(400).json({ success: false, message: "Rework reason is required" });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    order.productionStatus = "Awaiting Production";
+    order.packingStatus = "Awaiting Packing";
+    order.reworkRequested = true;
+    order.reworkReason = reason;
+
+    // Reset Job Card status if there is one linked to the order
+    await JobCard.updateMany({ order: orderId }, { $set: { status: "Awaiting Production", startedAt: null, completedAt: null } });
+
+    await order.save();
+
+    // Dispatch system notification for manufacturing
+    const notification = new Notification({
+      recipientRole: "manufacturing",
+      text: `Order ${order.orderCode || order.orderNumber} sent back to rework. Reason: ${reason}`,
+    });
+    await notification.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Order successfully sent back to rework! Notification dispatched.",
+      order,
+    });
+  } catch (error) {
+    console.error("Send Back to Rework Error:", error);
+    res.status(500).json({ success: false, message: "Server Error", error: error.message });
+  }
+};
+
+// Fetch metrics for Packing Dashboard
+export const getPackingMetrics = async (req, res) => {
+  try {
+    // 1. Awaiting Packing
+    const awaitingPacking = await Order.countDocuments({
+      productionStatus: "Completed",
+      packingStatus: "Awaiting Packing",
+    });
+
+    // 2. Packed Today
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const packedToday = await Order.countDocuments({
+      packingStatus: "Packed",
+      packedAt: { $gte: startOfToday },
+    });
+
+    // 3. Rework / Rejected
+    const reworkCount = await Order.countDocuments({
+      reworkRequested: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      metrics: {
+        awaitingPacking,
+        packedToday,
+        reworkCount,
+      },
+    });
+  } catch (error) {
+    console.error("Get Packing Metrics Error:", error);
     res.status(500).json({ success: false, message: "Server Error", error: error.message });
   }
 };

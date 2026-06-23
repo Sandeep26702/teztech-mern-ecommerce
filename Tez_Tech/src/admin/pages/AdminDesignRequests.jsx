@@ -16,7 +16,6 @@ const AdminDesignRequests = () => {
   const [requests, setRequests] = useState([]);
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("workbench"); // "workbench" or "library"
   const [filterStatus, setFilterStatus] = useState("All");
 
   // Search & Navigation
@@ -277,42 +276,22 @@ const AdminDesignRequests = () => {
     return null;
   };
 
-  // Static Library Assets
-  const standardTemplates = [
-    { id: "vent_grille", name: "HVAC Vent Grid", file: "vent_grille.svg", desc: "Symmetrical slot layout for ventilation ducts." },
-    { id: "panel_partition", name: "Floral Jali Partition", file: "floral_partition.svg", desc: "Classic pattern panel for home interior dividers." },
-    { id: "bracket_l", name: "Heavy Structural L-Bracket", file: "l_bracket.svg", desc: "Load bearing 90deg bracket drawing with bolt holes." },
-    { id: "disc_flange", name: "Standard Flange Plate", file: "flange_plate.svg", desc: "Circular connection flange with variable bolt circle diameters." }
-  ];
-
-  const upcyclingPatterns = [
-    { id: "coaster_hex", name: "Hexagonal Scrap Coasters", size: "100 x 100 mm", desc: "Maximize small leftover sheets of Acrylic / Wood." },
-    { id: "tag_hang", name: "Product Packing Hangtags", size: "60 x 35 mm", desc: "Utility tags to write orders details on leftover pieces." },
-    { id: "keychain_base", name: "Custom Brand Keychains", size: "40 x 40 mm", desc: "Engrave brand logo on tiny corner-cuts of sheets." }
-  ];
+  // Static Library Assets removed
 
   // Render list or single workbench depending on state
   return (
     <div className="space-y-6">
       
-      {/* Header Tabs */}
+      {/* Header */}
       <div className="flex justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
-        <div className="flex gap-2">
-          <button 
-            onClick={() => { setActiveTab("workbench"); setSelectedTicket(null); }}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${activeTab === "workbench" ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-          >
-            <FaPalette /> Design Workbench
-          </button>
-          <button 
-            onClick={() => setActiveTab("library")}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${activeTab === "library" ? "bg-blue-600 text-white shadow-md shadow-blue-500/20" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-          >
-            <FaBook /> Template Library
-          </button>
+        <div>
+          <h1 className="text-xl font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
+            <FaPalette className="text-blue-650" /> Design Workbench
+          </h1>
+          <p className="text-[11px] text-slate-450 mt-0.5">Manage custom AutoCAD drawings & specifications workflow</p>
         </div>
 
-        {["admin", "subadmin", "sales team"].includes(userRole) && activeTab === "workbench" && !selectedTicket && (
+        {["admin", "subadmin", "sales team"].includes(userRole) && !selectedTicket && (
           <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl transition cursor-pointer shadow-md shadow-blue-500/20"
@@ -322,8 +301,7 @@ const AdminDesignRequests = () => {
         )}
       </div>
 
-      {activeTab === "workbench" ? (
-        <>
+
           {/* Dashboard Metrics Panel (Only shown in main list) */}
           {!selectedTicket && (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -807,99 +785,10 @@ const AdminDesignRequests = () => {
                       </div>
                     )}
                   </div>
-
                 </div>
-
-                {/* 2. Embedded Shape Templates Mini Drawer */}
-                <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-3xl p-5 space-y-4">
-                  <h4 className="text-xs font-black text-slate-850 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <FaBoxes className="text-blue-600" /> Fast Shapes Library
-                  </h4>
-                  <p className="text-[10px] text-slate-400 leading-tight">Click download on standard parts to open AutoCAD drawings instantly. Prevents drawing from scratch.</p>
-
-                  <div className="space-y-2">
-                    {standardTemplates.map(t => (
-                      <div key={t.id} className="p-3 border border-slate-100 dark:border-slate-800 hover:border-blue-200 rounded-xl flex items-center justify-between text-xs transition-colors">
-                        <div>
-                          <span className="font-bold text-slate-800 dark:text-white block">{t.name}</span>
-                          <span className="text-[9px] text-slate-400 block mt-0.5">{t.desc}</span>
-                        </div>
-                        <a
-                          href={`/templates/${t.file}`}
-                          download
-                          onClick={(e) => { e.preventDefault(); toast.success(`${t.name} downloaded successfully!`); }}
-                          className="p-2 bg-slate-50 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-600 dark:text-slate-400 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <FaDownload size={10} />
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
               </div>
-
             </div>
           )}
-        </>
-      ) : (
-        
-        /* STANDALONE COMPREHENSIVE TEMPLATE LIBRARY PAGE VIEW */
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Standard Templates tab card */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-3xl p-6 space-y-4">
-            <h3 className="text-sm font-black text-slate-850 dark:text-white uppercase tracking-wider flex items-center gap-2">
-              <FaBoxes className="text-blue-600" /> Standard shape catalogs
-            </h3>
-            <p className="text-xs text-slate-400">Save drawing engineering hours by starting files from standardized outline profiles.</p>
-            
-            <div className="space-y-3">
-              {standardTemplates.map(t => (
-                <div key={t.id} className="p-4 border border-slate-100 dark:border-slate-800 bg-slate-50/30 rounded-2xl flex flex-col justify-between gap-3 md:flex-row md:items-center">
-                  <div>
-                    <span className="text-xs font-black text-slate-800 dark:text-white block">{t.name}</span>
-                    <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">{t.desc}</span>
-                  </div>
-                  <button
-                    onClick={() => toast.success(`AutoCAD blueprint file: ${t.file} compiled for download!`)}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[10px] font-black flex items-center justify-center gap-1 shrink-0 transition shadow-sm cursor-pointer"
-                  >
-                    <FaDownload /> Download drawing
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Upcycling leftover sheet templates */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 shadow-sm rounded-3xl p-6 space-y-4">
-            <h3 className="text-sm font-black text-slate-850 dark:text-white uppercase tracking-wider flex items-center gap-2">
-              <FaRuler className="text-emerald-500" /> Upcycling Leftovers / Scrap Drawings
-            </h3>
-            <p className="text-xs text-slate-400">Reduce material wastage margins by manufacturing secondary products from sheet corner drops.</p>
-
-            <div className="space-y-3">
-              {upcyclingPatterns.map(t => (
-                <div key={t.id} className="p-4 border border-slate-100 dark:border-slate-800 bg-slate-50/30 rounded-2xl flex flex-col justify-between gap-3 md:flex-row md:items-center">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black text-slate-800 dark:text-white block">{t.name}</span>
-                      <span className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-1 py-0.5 rounded text-[8px] font-bold uppercase">{t.size}</span>
-                    </div>
-                    <span className="text-[10px] text-slate-500 font-semibold block mt-0.5">{t.desc}</span>
-                  </div>
-                  <button
-                    onClick={() => toast.success(`Upcycle nesting template: ${t.id}.dxf loaded!`)}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black flex items-center justify-center gap-1 shrink-0 transition shadow-sm cursor-pointer"
-                  >
-                    <FaDownload /> Get Pattern (.dxf)
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* CREATE TICKET MODAL */}
       {showCreateModal && (

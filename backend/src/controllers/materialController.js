@@ -3,6 +3,21 @@ import Material from "../models/Material.js";
 // Get all materials & low stock alerts
 export const getMaterials = async (req, res) => {
   try {
+    // Auto-seed packaging consumables if they don't exist
+    const defaultConsumables = [
+      { name: "Packaging Box (Standard)", sku: "box-standard", stock: 150, minStockLimit: 20, unit: "pcs" },
+      { name: "Packing Tape (Heavy Duty)", sku: "tape-heavy", stock: 45, minStockLimit: 10, unit: "rolls" },
+      { name: "Bubble Wrap Roll (Double Layer)", sku: "bubble-double", stock: 8, minStockLimit: 3, unit: "rolls" }
+    ];
+
+    for (const consumable of defaultConsumables) {
+      const exists = await Material.findOne({ sku: consumable.sku });
+      if (!exists) {
+        const material = new Material(consumable);
+        await material.save();
+      }
+    }
+
     const materials = await Material.find().sort({ name: 1 });
     
     // Compute low stock items

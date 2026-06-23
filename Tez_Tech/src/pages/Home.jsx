@@ -27,8 +27,14 @@ const Home = () => {
           axios.get(`${API_URL}/categories/home-categories`)
         ]);
         setLayout(layoutRes.data);
-        if (categoriesRes.data.success) {
-          setHomeCategories(categoriesRes.data.categories || []);
+        if (categoriesRes.data.success && categoriesRes.data.categories?.length > 0) {
+          setHomeCategories(categoriesRes.data.categories);
+        } else {
+          // Fallback to general active categories if none are specifically selected for the home page
+          const fallbackRes = await axios.get(`${API_URL}/categories`);
+          if (fallbackRes.data.success) {
+            setHomeCategories(fallbackRes.data.categories || []);
+          }
         }
       } catch (error) {
         console.error("Error fetching homepage data:", error);
@@ -117,7 +123,7 @@ const Home = () => {
     <div className="flex flex-col min-h-screen font-sans bg-gray-50">
 
       {/* 🚀 HERO SLIDER SECTION */}
-      <section className="relative w-full h-[calc(100vh-64px)] overflow-hidden bg-gray-900 z-10">
+      <section className="relative w-full h-[calc(70vh-64px)] md:h-[calc(100vh-64px)] overflow-hidden bg-gray-900 z-10">
 
         {slides.length > 0 ? (
           <Swiper

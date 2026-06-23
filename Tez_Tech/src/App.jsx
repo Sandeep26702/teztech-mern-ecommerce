@@ -70,6 +70,7 @@ const AdminEditOrder = lazy(() => import('./admin/pages/AdminEditOrder'));
 const UserView = lazy(() => import('./admin/pages/UserView'));
 const PrintableLabel = lazy(() => import('./admin/pages/PrintableLabel'));
 const PrintableTaxInvoice = lazy(() => import('./admin/pages/PrintableTaxInvoice'));
+const PrintablePackDocs = lazy(() => import('./admin/pages/PrintablePackDocs'));
 const AdminCatalog = lazy(() => import("./admin/pages/AdminCatalog"));
 
 // CRM/ERP new workflow pages
@@ -182,6 +183,7 @@ function App() {
                 <Route path="orders/edit/:id" element={<AdminEditOrder />} />
                 <Route path="orders/print-label/:id" element={<PrintableLabel />} />
                 <Route path="orders/tax-invoice/:id" element={<PrintableTaxInvoice />} />
+                <Route path="orders/print-pack-docs/:id" element={<PrintablePackDocs />} />
                 <Route path="orders/:id" element={<AdminOrderDetail />} />
               </Route>
 
