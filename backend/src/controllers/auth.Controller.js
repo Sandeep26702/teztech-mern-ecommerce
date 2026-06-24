@@ -299,7 +299,7 @@ export const login = async (req, res) => {
         method: req.method,
         endpoint: req.originalUrl
       }).catch(() => {});
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      return res.status(401).json({ success: false, message: "Account does not exist" });
     }
 
     if (!user.isActive) {
@@ -321,7 +321,7 @@ export const login = async (req, res) => {
         method: req.method,
         endpoint: req.originalUrl
       }).catch(() => {});
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      return res.status(401).json({ success: false, message: "Incorrect password" });
     }
 
     // Check if user is verified (support isEmailVerified for backward compatibility)
