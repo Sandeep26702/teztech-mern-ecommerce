@@ -131,7 +131,7 @@ const Home = () => {
             slidesPerView={1}
             effect={'fade'}
             loop={true}
-            autoplay={{ delay: 5000, disableOnInteraction: false }}
+            autoplay={{ delay: 2000, disableOnInteraction: false }}
             pagination={{ clickable: true }}
             navigation={true}
             modules={[Autoplay, Pagination, Navigation, EffectFade]}

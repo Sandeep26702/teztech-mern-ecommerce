@@ -32,8 +32,20 @@ const feedbackTicketSchema = new mongoose.Schema(
     },
     upsellStatus: {
       type: String,
-      enum: ["Interested", "Not Interested", "No Offer"],
+      enum: ["Interested", "Not Interested", "Call Later", "No Offer"],
       default: "No Offer",
+    },
+    cuttingPerfect: {
+      type: Boolean,
+      default: true,
+    },
+    packingIntact: {
+      type: Boolean,
+      default: true,
+    },
+    upsellRevenue: {
+      type: Number,
+      default: 0,
     },
     assignedSalesAgent: {
       type: mongoose.Schema.Types.ObjectId,

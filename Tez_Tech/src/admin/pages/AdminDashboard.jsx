@@ -87,7 +87,7 @@ const AdminDashboard = () => {
 
         // 3. Fetch all orders for operational roles
         if (["manufacturing", "packing", "dispatch", "feedback tracking"].includes(userRole)) {
-          const ordersRes = await api.get("/order/admin/all");
+          const ordersRes = await api.get("/orders/admin/all");
           if (ordersRes.data.success) {
             setOrdersList(ordersRes.data.orders || []);
           }

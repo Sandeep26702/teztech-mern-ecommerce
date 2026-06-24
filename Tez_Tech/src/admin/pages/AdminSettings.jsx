@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { FaStore, FaRupeeSign, FaTruck, FaLock, FaSave } from "react-icons/fa";
+import { FaStore, FaRupeeSign, FaTruck, FaLock, FaSave, FaEye, FaEyeSlash } from "react-icons/fa";
 
 const AdminSettings = () => {
   // Tabs: 'general', 'payment', 'shipping', 'security'
   const [activeTab, setActiveTab] = useState("general");
   const [isSaving, setIsSaving] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   // Form States (Aap inhe backend se fetch karenge `useEffect` mein)
   const [settings, setSettings] = useState({
@@ -170,11 +172,21 @@ const AdminSettings = () => {
                 <div className="grid grid-cols-1 gap-6 max-w-md">
                   <div>
                     <label className="block text-xs font-bold tracking-widest text-slate-500 uppercase mb-2">Current Password</label>
-                    <input type="password" placeholder="••••••••" className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    <div className="relative flex items-center">
+                      <input type={showCurrentPassword ? "text" : "password"} placeholder="••••••••" className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 pr-12 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium" />
+                      <button type="button" onClick={() => setShowCurrentPassword(!showCurrentPassword)} className="absolute right-4 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer">
+                        {showCurrentPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-bold tracking-widest text-slate-500 uppercase mb-2">New Password</label>
-                    <input type="password" placeholder="••••••••" className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+                    <div className="relative flex items-center">
+                      <input type={showNewPassword ? "text" : "password"} placeholder="••••••••" className="w-full bg-slate-50 border border-slate-200 text-slate-900 text-sm rounded-xl px-4 pr-12 py-2.5 focus:ring-2 focus:ring-blue-500 focus:outline-none font-medium" />
+                      <button type="button" onClick={() => setShowNewPassword(!showNewPassword)} className="absolute right-4 text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer">
+                        {showNewPassword ? <FaEyeSlash /> : <FaEye />}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>

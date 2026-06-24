@@ -594,17 +594,17 @@ const AdminOrders = () => {
                   </div>
 
                   {/* Main Content */}
-                  <div className="flex-1 min-w-0 pr-20">
+                  <div className="flex-1 min-w-0 pr-[180px] sm:pr-56">
                     
                     {/* Header Row: ID and Date */}
-                    <div className="flex items-center gap-3 mb-1">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 mb-1">
                       <h3 
                         className="text-[18px] font-bold text-[#202223] cursor-pointer hover:underline" 
                         onClick={() => navigate(`/admin/orders/${order._id}`)}
                       >
                         {order.orderCode || `#${order.orderNumber || order._id.slice(-6)}`}
                       </h3>
-                      <span className="text-[15px] text-[#6d7175]">
+                      <span className="text-[13px] sm:text-[15px] text-[#6d7175]">
                         {new Date(order.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })}
                       </span>
                     </div>

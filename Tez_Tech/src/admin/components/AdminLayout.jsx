@@ -22,7 +22,7 @@ const formatCurrency = (amount) =>
 
 const AdminLayout = () => {
   const { theme, toggleTheme } = useTheme();
-  const [isSidebarOpen, setSidebarOpen] = useState(true);
+  const [isSidebarOpen, setSidebarOpen] = useState(window.innerWidth >= 768);
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -71,6 +71,24 @@ const AdminLayout = () => {
       return () => clearInterval(interval);
     }
   }, [userRole, location.pathname]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setSidebarOpen(false);
+      } else {
+        setSidebarOpen(true);
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname]);
 
   const fetchNotifications = async () => {
     try {
@@ -126,7 +144,7 @@ const AdminLayout = () => {
       }
       
       if (["admin", "subadmin", "sales team", "manufacturing", "purchase", "packing", "dispatch", "feedback tracking", "accounting", "marketing"].includes(userRole)) {
-        promises.push(api.get("/order/admin/all").then(res => setOrders(res.data.orders || [])).catch(() => {}));
+        promises.push(api.get("/orders/admin/all").then(res => setOrders(res.data.orders || [])).catch(() => {}));
       }
       
       if (["admin", "subadmin", "sales team", "designer"].includes(userRole)) {
@@ -281,8 +299,8 @@ const AdminLayout = () => {
       
       {/* 🌑 Premium Dark Sidebar */}
       <aside 
-        className={`print:hidden bg-slate-900 text-slate-300 flex flex-col transition-all duration-300 ease-in-out z-20 shadow-2xl ${
-          isSidebarOpen ? "w-64" : "w-20"
+        className={`print:hidden bg-slate-900 text-slate-300 flex flex-col transition-all duration-300 ease-in-out z-40 shadow-2xl fixed md:static inset-y-0 left-0 overflow-hidden ${
+          isSidebarOpen ? "w-64 translate-x-0" : "w-0 -translate-x-full md:translate-x-0 md:w-20"
         }`}
       >
         <div className="flex items-center justify-center h-16 px-4 border-b border-slate-800">
@@ -336,6 +354,14 @@ const AdminLayout = () => {
           </button>
         </div>
       </aside>
+
+      {/* Backdrop overlay for mobile when sidebar is open */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-xs md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
       {/* ⚪ Main Content Area */}
       <main className="flex flex-col flex-1 min-w-0 overflow-hidden print:overflow-visible">

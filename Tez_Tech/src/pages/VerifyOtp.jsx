@@ -2,8 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { motion } from "framer-motion";
-import { Mail, Sparkles, Zap, ShieldCheck, RefreshCw, ArrowLeft } from "lucide-react";
+import { ShieldCheck, RefreshCw, ArrowLeft, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
+import myLogo from "../assets/logo.png";
 
 const VerifyOtp = () => {
   const navigate = useNavigate();
@@ -136,153 +137,155 @@ const VerifyOtp = () => {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-950 overflow-hidden font-sans text-gray-900 dark:text-slate-200 transition-colors duration-500 p-4">
-      
-      {/* --- Premium Animated Background --- */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute top-0 -left-40 w-96 h-96 bg-emerald-400/30 dark:bg-emerald-600/20 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] animate-pulse"></div>
-        <div className="absolute bottom-0 -right-40 w-96 h-96 bg-blue-400/30 dark:bg-blue-600/20 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[100px] animate-pulse" style={{ animationDelay: '2s' }}></div>
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-indigo-300/20 dark:bg-indigo-900/10 rounded-full mix-blend-multiply dark:mix-blend-screen filter blur-[120px]"></div>
-        {/* Subtle grid pattern */}
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyMDAgMjAwIj48ZmlsdGVyIGlkPSJuIj48ZmVUdXJidWxlbmNlIHR5cGU9ImZyYWN0YWxOb2lzZSIgYmFzZUZyZXF1ZW5jeT0iMC42NSIgbnVtT2N0YXZlcz0iMyIgc3RpdGNoVGlsZXM9InN0aXRjaCIvPjwvZmlsdGVyPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbHRlcj0idXJsKCNuKSIgb3BhY2l0eT0iMC4xNSIvPjwvc3ZnPg==')] opacity-10 dark:opacity-30 mix-blend-overlay pointer-events-none"></div>
+    <div 
+      className="relative min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#090D16] bg-cover bg-center bg-no-repeat overflow-hidden font-sans text-slate-900 dark:text-slate-200 transition-colors duration-350 p-4"
+      /* 
+        LOCAL BACKGROUND IMAGE OPTION:
+        1. Copy your background image and paste it inside 'Tez_Tech/public/' folder.
+        2. Rename it to 'bg.jpg' (or bg.png).
+        3. Uncomment the style line below by deleting the '//' at the beginning.
+      */
+      // style={{ backgroundImage: "url('/bg.jpg')" }}
+    >
+      {/* Soft overlay when background image is active (No blur to keep image sharp and clear) */}
+      <div className="absolute inset-0 z-0 bg-slate-50/20 dark:bg-[#090D16]/40 pointer-events-none"></div>
+
+      {/* Branded Ambient Glows */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-blue-500/10 to-indigo-500/0 blur-[120px] dark:from-blue-600/10"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/0 blur-[120px] dark:from-indigo-600/10"></div>
       </div>
 
-      {/* 3D Rotating Light Border Container */}
-      <div className="relative z-10 p-[1px] overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] group max-w-xl w-full shadow-2xl shadow-indigo-900/5 dark:shadow-indigo-900/20">
-        
-        {/* Rotating border gradient */}
-        <div className="absolute inset-[-1000%] animate-[spin_4s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,rgba(0,0,0,0)_0%,#3b82f6_25%,rgba(0,0,0,0)_50%,#a855f7_75%,rgba(0,0,0,0)_100%)] opacity-20 dark:opacity-50 group-hover:opacity-40 dark:group-hover:opacity-100 transition-opacity duration-500"></div>
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="w-full max-w-[420px] bg-white/90 dark:bg-[#111827]/90 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-2xl shadow-slate-900/10 dark:shadow-none p-8 sm:p-10 relative z-10"
+      >
+        <div className="flex flex-col items-center mb-8">
+          <Link to="/" className="inline-block mb-5 hover:opacity-90 transition-opacity">
+            <img src={myLogo} alt="Tez Tech" className="h-16 w-auto object-contain" />
+          </Link>
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white text-center">
+            Verify your Account
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 text-center leading-relaxed">
+            Enter the 6-digit code sent to your email to activate your account
+          </p>
+        </div>
 
-        {/* Content Box (Glassmorphism) */}
-        <div className="relative bg-white/80 dark:bg-slate-900/80 backdrop-blur-2xl rounded-[1.95rem] sm:rounded-[2.45rem] p-6 sm:p-10 md:p-12 z-10 border border-white/40 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-none">
-          
-          <div className="mb-8 text-center sm:mb-10">
-            <h1 className="text-3xl font-black tracking-tight text-transparent sm:text-4xl bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-500">
-              Verify Account
-            </h1>
-            <p className="text-gray-500 dark:text-slate-400 mt-2 text-xs sm:text-sm uppercase tracking-[0.2em] font-medium">
-             Enter OTP sent to your Email
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            
-            {/* Email Field (Dynamic editable fallback) */}
-            <div className="relative group">
-              <input
-                type="email"
-                required
-                disabled={isEmailReadOnly}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder=" "
-                className={`peer w-full px-4 pr-20 pt-6 pb-2 rounded-xl outline-none transition-all duration-300 backdrop-blur-md relative z-10 text-sm sm:text-base shadow-inner font-medium tracking-wide
-                  ${isEmailReadOnly 
-                    ? "bg-gray-100 dark:bg-slate-800/30 border-gray-200 border-dashed dark:border-slate-700/30 text-gray-500 dark:text-slate-500 cursor-not-allowed" 
-                    : "bg-white/60 dark:bg-slate-900/50 border border-gray-300 dark:border-slate-700/50 text-gray-900 dark:text-white focus:border-indigo-500 dark:focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800/80 hover:border-gray-400 dark:hover:border-slate-600/80"
-                  }`}
-              />
-              <label className={`absolute z-20 left-4 transition-all duration-300 pointer-events-none origin-[0]
-                top-1/2 -translate-y-1/2 text-sm font-medium
-                peer-focus:top-3.5 peer-focus:-translate-y-0 peer-focus:scale-75 peer-focus:font-bold peer-focus:uppercase peer-focus:tracking-wider
-                peer-[&:not(:placeholder-shown)]:top-3.5 peer-[&:not(:placeholder-shown)]:-translate-y-0 peer-[&:not(:placeholder-shown)]:scale-75 peer-[&:not(:placeholder-shown)]:font-bold peer-[&:not(:placeholder-shown)]:uppercase peer-[&:not(:placeholder-shown)]:tracking-wider
-                ${isEmailReadOnly ? 'text-gray-400 dark:text-slate-600' : 'text-gray-500 dark:text-slate-400 peer-focus:text-indigo-600 dark:peer-focus:text-indigo-400'}`}>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Email Address (Editable if not read-only) */}
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center">
+              <label htmlFor="email" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                 Verify Email Address
               </label>
               {isEmailReadOnly && (
                 <button
                   type="button"
                   onClick={() => setIsEmailReadOnly(false)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-bold z-20 underline"
+                  className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer"
                 >
                   Change
                 </button>
               )}
             </div>
-
-            {/* 6-Digit OTP Inputs */}
-            <div>
-              <label className="block text-gray-600 dark:text-slate-400 text-sm font-medium mb-3 text-center">
-                Enter 6-Digit Code
-              </label>
-              <div className="flex justify-between gap-2 sm:gap-3" onPaste={handlePaste}>
-                {otp.map((digit, index) => (
-                  <input
-                    key={index}
-                    ref={(el) => (inputRefs.current[index] = el)}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => handleChange(index, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(index, e)}
-                    className="w-12 h-14 sm:w-14 sm:h-16 text-center text-2xl font-black bg-white/60 dark:bg-slate-900/50 border border-gray-300 dark:border-slate-700/50 focus:border-indigo-500 dark:focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800/80 text-gray-900 dark:text-white rounded-xl outline-none transition-all placeholder:text-gray-300 dark:placeholder:text-slate-700 shadow-inner"
-                    placeholder="-"
-                    required
-                  />
-                ))}
-              </div>
+            <div className="relative">
+              <input
+                id="email"
+                type="email"
+                required
+                disabled={isEmailReadOnly}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="name@example.com"
+                className={`w-full px-3.5 py-2.5 rounded-lg border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all placeholder:text-slate-400/50 dark:placeholder:text-slate-500/40 placeholder:font-normal
+                  ${isEmailReadOnly
+                    ? "bg-slate-50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-550 cursor-not-allowed"
+                    : "bg-white dark:bg-slate-950 border-slate-250 dark:border-slate-800 text-slate-900 dark:text-white focus:border-blue-500"
+                  }`}
+              />
             </div>
+          </div>
 
-            {/* Action buttons */}
-            <motion.button
-              whileHover={{ scale: loading ? 1 : 1.02 }}
-              whileTap={{ scale: loading ? 1 : 0.98 }}
-              disabled={loading}
-              className={`w-full mt-6 py-4 rounded-xl font-bold tracking-wide transition-all duration-300 flex items-center justify-center gap-2 uppercase text-sm sm:text-base shadow-lg
-                ${loading 
-                  ? "bg-gray-200 dark:bg-slate-800 text-gray-500 dark:text-slate-400 cursor-not-allowed border border-transparent dark:border-white/5" 
-                  : "bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-500/25 hover:shadow-blue-500/40 border border-blue-500/30 dark:border-white/10"
-                }`}
+          {/* 6-Digit OTP Inputs */}
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 text-center">
+              Enter 6-Digit Verification Code
+            </label>
+            <div className="flex justify-between gap-2 sm:gap-2.5" onPaste={handlePaste}>
+              {otp.map((digit, index) => (
+                <input
+                  key={index}
+                  ref={(el) => (inputRefs.current[index] = el)}
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={1}
+                  value={digit}
+                  onChange={(e) => handleChange(index, e.target.value)}
+                  onKeyDown={(e) => handleKeyDown(index, e)}
+                  placeholder="-"
+                  className="w-11 h-12 sm:w-12 sm:h-12 text-center text-xl font-bold bg-white dark:bg-slate-950 border border-slate-250 dark:border-slate-800 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 text-slate-900 dark:text-white rounded-lg outline-none transition-all placeholder:text-slate-300/40 dark:placeholder:text-slate-700/40 placeholder:font-normal"
+                  required
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Action Button */}
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full mt-6 py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm transition-colors duration-200 flex items-center justify-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Verifying...
+              </>
+            ) : (
+              <>
+                Verify & Activate
+                <ShieldCheck className="w-4 h-4" />
+              </>
+            )}
+          </button>
+        </form>
+
+        <div className="mt-8 text-center space-y-4">
+          <p className="text-sm text-slate-550 dark:text-slate-400">
+            Didn&apos;t receive code?{" "}
+            {canResend ? (
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendLoading}
+                className="font-semibold text-blue-600 dark:text-blue-400 hover:underline cursor-pointer"
+              >
+                {resendLoading ? "Sending..." : "Resend OTP"}
+              </button>
+            ) : (
+              <span className="font-medium text-slate-400 dark:text-slate-500">
+                Resend in {timer}s
+              </span>
+            )}
+          </p>
+
+          <div className="pt-2">
+            <Link
+              to="/login"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
             >
-              {loading ? (
-                <>
-                  <RefreshCw size={18} className="animate-spin text-blue-600 dark:text-blue-400" />
-                  Verifying...
-                </>
-              ) : (
-                <>
-                  Verify & Activate
-                  <ShieldCheck size={18} />
-                </>
-              )}
-            </motion.button>
-          </form>
-
-          {/* Resend and back navigation */}
-          <div className="mt-8 text-center space-y-4">
-            <p className="text-sm text-gray-600 dark:text-slate-400">
-              Didn&apos;t receive code?{" "}
-              {canResend ? (
-                <button
-                  type="button"
-                  onClick={handleResend}
-                  disabled={resendLoading}
-                  className="font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 underline underline-offset-4 inline-flex items-center gap-1 transition-all"
-                >
-                  {resendLoading ? "Sending..." : "Resend OTP"}
-                  {!resendLoading && <RefreshCw size={14} className="animate-spin-slow" />}
-                </button>
-              ) : (
-                <span className="font-bold text-gray-400 dark:text-slate-500">
-                  Resend in {timer}s
-                </span>
-              )}
-            </p>
-
-            <Link 
-              to="/login" 
-              className="inline-flex items-center gap-2 text-sm font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-900 dark:hover:text-white transition-all underline underline-offset-4"
-            >
-              <ArrowLeft size={16} />
+              <ArrowLeft className="w-4 h-4" />
               Back to Login
             </Link>
           </div>
-
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };
 
 export default VerifyOtp;
+

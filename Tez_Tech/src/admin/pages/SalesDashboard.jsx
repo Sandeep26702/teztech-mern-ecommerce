@@ -119,7 +119,7 @@ const SalesDashboard = () => {
       }
 
       // Fetch Orders
-      const ordersRes = await api.get("/order/admin/all");
+      const ordersRes = await api.get("/orders/admin/all");
       if (ordersRes.data.success) {
         setOrders(ordersRes.data.orders || []);
       }
@@ -582,10 +582,10 @@ const SalesDashboard = () => {
       {/* =====================================================================
           3. MAIN LAYOUT: TABS PANEL (LEFT) & STOCK/UPCYCLE SIDEBAR (RIGHT)
       ====================================================================== */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 px-4 sm:px-6 lg:px-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         
-        {/* LEFT COLUMN: OPERATIONS TABS (Span 3) */}
-        <div className="lg:col-span-3 flex flex-col gap-6">
+        {/* LEFT COLUMN: OPERATIONS TABS */}
+        <div className="w-full flex flex-col gap-6">
           
           {/* Tab Selection Header */}
           <div className="flex border-b border-slate-200 bg-white p-2 rounded-2xl shadow-sm gap-1 overflow-x-auto">
@@ -1493,84 +1493,6 @@ const SalesDashboard = () => {
             )}
 
           </div>
-        </div>
-
-        {/* RIGHT COLUMN: STOCK MONITOR & UPCYCLE MARKETPLACE (Span 1) */}
-        <div className="flex flex-col gap-6">
-          
-          {/* 1. Live Stock Monitor Card */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
-            <h4 className="font-black text-sm text-slate-900 flex items-center gap-2">
-              <FaBoxes className="text-blue-600" /> Materials Stock Viewer
-            </h4>
-            
-            <div className="flex flex-col gap-2.5">
-              {materials.length === 0 ? (
-                <p className="text-xs text-slate-400 italic">No materials in catalog.</p>
-              ) : (
-                materials.map(item => {
-                  const isLow = item.stock < item.minStockLimit;
-                  return (
-                    <div key={item._id} className={`p-3 border rounded-2xl flex flex-col gap-2 transition-all ${
-                      isLow ? "bg-red-50/50 border-red-200" : "bg-slate-50/30 border-slate-150"
-                    }`}>
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-800">
-                        <span className="truncate pr-2">{item.name}</span>
-                        <span className={`font-mono ${isLow ? "text-red-600" : "text-green-600"}`}>
-                          {item.stock} {item.unit}
-                        </span>
-                      </div>
-                      
-                      {isLow && (
-                        <div className="flex items-center justify-between gap-2 mt-0.5">
-                          <span className="text-[9px] font-black text-red-700 bg-red-100 px-1.5 py-0.5 rounded uppercase">
-                            Low Stock
-                          </span>
-                          <button
-                            onClick={() => handleNotifyPurchaseTeam(item.name)}
-                            className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg text-[9px] font-black transition-all shadow-sm"
-                          >
-                            Reorder SKU
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-            </div>
-          </div>
-
-          {/* 2. Upcycle / Scrap leftover Marketplace */}
-          <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-4">
-            <div>
-              <h4 className="font-black text-sm text-slate-900">Leftover / Scrap Market</h4>
-              <p className="text-[10px] text-slate-500 mt-0.5">Sell manufacturing scraps to clients at discount.</p>
-            </div>
-            
-            <div className="flex flex-col gap-3">
-              {scrapItems.map(scrap => (
-                <div key={scrap.id} className="p-3 border border-slate-150 hover:border-slate-350 bg-slate-50/30 rounded-2xl flex flex-col gap-1.5">
-                  <div className="flex justify-between items-start text-xs font-bold">
-                    <span className="text-slate-800">{scrap.material}</span>
-                    <span className="text-blue-600 font-mono">₹{scrap.pricePerUnit}</span>
-                  </div>
-                  <div className="text-[10px] text-slate-500 space-y-0.5 font-medium">
-                    <p>Size: {scrap.size} | Thickness: {scrap.thickness}</p>
-                    <p>Color: {scrap.color} | Qty Available: {scrap.qty}</p>
-                    <p className="text-red-500 line-through">Org Price: ₹{scrap.originalPrice}</p>
-                  </div>
-                  <button
-                    onClick={() => handleApplyScrapToCalc(scrap)}
-                    className="w-full py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-250 text-slate-700 text-[10px] font-black rounded-xl transition-all"
-                  >
-                    Load into Price Calculator
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
         </div>
 
       </div>

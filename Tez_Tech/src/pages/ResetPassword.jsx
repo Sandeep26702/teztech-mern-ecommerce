@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import api from "../utils/api"; // Axios instance with interceptors for seamless API calls and error handling
-import { FaKey } from "react-icons/fa"; // 🔑 Added a key icon
+import { useParams, useNavigate, Link } from "react-router-dom";
+import api from "../utils/api";
+import { motion } from "framer-motion";
+import { Lock, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import myLogo from "../assets/logo.png";
 
 const ResetPassword = () => {
   const { token } = useParams();
@@ -12,6 +14,8 @@ const ResetPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -58,86 +62,123 @@ const ResetPassword = () => {
   };
 
   return (
-    // 🌟 Premium Background Gradient
-    <div className="flex items-center justify-center min-h-screen px-4 py-10 font-sans bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-indigo-100 via-white to-purple-50 sm:px-6 lg:px-8">
-      
-      {/* 💳 Visual Card Container */}
-      <div className="w-full max-w-md p-8 bg-white border border-white shadow-2xl rounded-3xl sm:p-10 backdrop-blur-sm bg-opacity-90">
-        
-        {/* 🌟 Header Section */}
-        <div className="mb-8 text-center">
-          <div className="flex items-center justify-center w-16 h-16 mx-auto mb-6 shadow-inner bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-indigo-200">
-            <FaKey className="text-2xl text-white transform -rotate-45" />
-          </div>
-          <h1 className="mb-2 text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-purple-600">
+    <div 
+      className="relative min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#090D16] bg-cover bg-center bg-no-repeat overflow-hidden font-sans text-slate-900 dark:text-slate-200 transition-colors duration-350 p-4"
+      /* 
+        LOCAL BACKGROUND IMAGE OPTION:
+        1. Copy your background image and paste it inside 'Tez_Tech/public/' folder.
+        2. Rename it to 'bg.jpg' (or bg.png).
+        3. Uncomment the style line below by deleting the '//' at the beginning.
+      */
+      // style={{ backgroundImage: "url('/bg.jpg')" }}
+    >
+      {/* Soft overlay when background image is active (No blur to keep image sharp and clear) */}
+      <div className="absolute inset-0 z-0 bg-slate-50/20 dark:bg-[#090D16]/40 pointer-events-none"></div>
+
+      {/* Branded Ambient Glows */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-blue-500/10 to-indigo-500/0 blur-[120px] dark:from-blue-600/10"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/0 blur-[120px] dark:from-indigo-600/10"></div>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: "easeOut" }}
+        className="w-full max-w-[420px] bg-white/90 dark:bg-[#111827]/90 backdrop-blur-xl border border-slate-200/50 dark:border-slate-800/80 rounded-2xl shadow-2xl shadow-slate-900/10 dark:shadow-none p-8 sm:p-10 relative z-10"
+      >
+        <div className="flex flex-col items-center mb-8">
+          <Link to="/" className="inline-block mb-5 hover:opacity-90 transition-opacity">
+            <img src={myLogo} alt="Tez Tech" className="h-16 w-auto object-contain" />
+          </Link>
+          <h2 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white text-center">
             New Password
-          </h1>
-          <p className="text-sm font-medium text-gray-500">
-            Your new password must be different from previously used passwords.
+          </h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 text-center leading-relaxed">
+            Your new password must be different from previously used passwords
           </p>
         </div>
 
-        {/* 🚨 Alerts (Error / Success) */}
+        {/* Alerts */}
         {error && (
-          <div className="p-4 mb-6 text-sm font-semibold text-red-700 border bg-red-50 border-red-200/60 rounded-xl">
+          <div className="p-3 mb-5 text-xs font-semibold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/20 border border-rose-150 dark:border-rose-900/30 rounded-lg">
             {error}
           </div>
         )}
         {message && (
-          <div className="p-4 mb-6 text-sm font-semibold text-green-700 border bg-green-50 border-green-200/60 rounded-xl">
+          <div className="p-3 mb-5 text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-150 dark:border-emerald-900/30 rounded-lg">
             {message}
           </div>
         )}
 
-        {/* 📝 Form */}
         <form onSubmit={handleSubmit} noValidate className="space-y-5">
-          
           {/* New Password */}
-          <div>
-            <label htmlFor="password" className="block mb-2 text-sm font-bold text-gray-700">
-              New Password <span className="text-red-500">*</span>
+          <div className="space-y-1.5">
+            <label htmlFor="password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              New Password
             </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading}
-              placeholder="••••••••"
-              className="w-full px-4 py-3 font-medium transition-all duration-200 border border-gray-200 bg-gray-50/50 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              required
-            />
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <Lock className="h-4.5 w-4.5 text-slate-400 dark:text-slate-500" />
+              </div>
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
+                className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-250 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm font-medium"
+                required
+              />
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-350 focus:outline-none cursor-pointer"
+              >
+                {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+              </button>
+            </div>
           </div>
 
           {/* Confirm Password */}
-          <div>
-            <label htmlFor="confirmPassword" className="block mb-2 text-sm font-bold text-gray-700">
-              Confirm Password <span className="text-red-500">*</span>
+          <div className="space-y-1.5">
+            <label htmlFor="confirmPassword" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Confirm Password
             </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              disabled={loading}
-              placeholder="••••••••"
-              className="w-full px-4 py-3 font-medium transition-all duration-200 border border-gray-200 bg-gray-50/50 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              required
-            />
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                <Lock className="h-4.5 w-4.5 text-slate-400 dark:text-slate-500" />
+              </div>
+              <input
+                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={loading}
+                className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-slate-250 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm font-medium"
+                required
+              />
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-350 focus:outline-none cursor-pointer"
+              >
+                {showConfirmPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+              </button>
+            </div>
           </div>
 
-          {/* 🚀 Submit Button */}
+          {/* Submit Button */}
           <button
             type="submit"
             disabled={loading || message !== ""}
-            className="flex items-center justify-center w-full gap-2 px-8 py-4 mt-2 font-bold text-white transition-all duration-300 transform shadow-lg bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-500 rounded-xl hover:shadow-xl hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none"
+            className="w-full mt-6 py-2.5 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold text-sm transition-colors duration-200 flex items-center justify-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-100 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-500 disabled:cursor-not-allowed cursor-pointer"
           >
             {loading ? (
               <>
-                <svg className="w-5 h-5 text-white animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
+                <Loader2 className="w-4 h-4 animate-spin" />
                 Saving Changes...
               </>
             ) : message ? (
@@ -146,11 +187,20 @@ const ResetPassword = () => {
               "Reset Password"
             )}
           </button>
-
         </form>
-      </div>
+
+        <div className="mt-8 text-center">
+          <Link
+            to="/login"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Login
+          </Link>
+        </div>
+      </motion.div>
     </div>
   );
 };
 
-export default ResetPassword;
+export default ResetPassword;

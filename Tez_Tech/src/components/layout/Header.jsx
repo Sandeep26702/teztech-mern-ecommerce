@@ -149,7 +149,7 @@ const Header = () => {
               <img 
                 src={myLogo} 
                 alt="TezTech Logo" 
-                className="w-auto h-10 transition-transform duration-300 group-hover:scale-105" 
+                className="w-auto h-12 transition-transform duration-300 group-hover:scale-105" 
               />
             </Link>
           </div>
