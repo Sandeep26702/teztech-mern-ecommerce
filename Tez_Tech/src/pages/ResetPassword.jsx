@@ -64,7 +64,7 @@ const ResetPassword = () => {
   return (
     <div 
       className="relative min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#090D16] bg-cover bg-center bg-no-repeat overflow-hidden font-sans text-slate-900 dark:text-slate-200 transition-colors duration-350 p-4"
-      style={{ backgroundImage: "url('/a4.jpg')" }}
+      style={{ backgroundImage: "url('/a3.jpg')" }}
     >
       {/* Soft overlay when background image is active (No blur to keep image sharp and clear) */}
       <div className="absolute inset-0 z-0 bg-slate-50/20 dark:bg-[#090D16]/40 pointer-events-none"></div>
